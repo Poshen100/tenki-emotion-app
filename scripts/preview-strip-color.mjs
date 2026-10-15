@@ -712,7 +712,13 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
     if (localStorage.getItem('__seeded')) return;
     localStorage.setItem('__seeded', '1');
     localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(rs));
-  }, [mk(now - 7200e3, 'ES1!', 'pending'), mk(now - 10800e3, 'NQ1!', 'profit_taken')]);
+    // 🔴 **順序與結果都是刻意的**（2026-10-15 反向驗證抓到）：
+    //    原本是 `[ES1!(pending), NQ1!(profit_taken)]`，而帶子挑「最新的在等的」
+    //    ＝ ES1! ＝ **index 0** —— 於是「永遠寫 index 0」那個破壞剛好寫對同一筆，
+    //    「只動那一筆」那條斷言**從來沒有機會失敗**。
+    //    現在：不在等的那筆排在 index 0，而且給它一個**不同的**結果，
+    //    所以寫錯目標一定看得見。
+  }, [mk(now - 10800e3, 'NQ1!', 'stopped_out'), mk(now - 7200e3, 'ES1!', 'pending')]);
   await rp.goto(`${base}/apps/preview/decision-alert.html`, { waitUntil: 'domcontentloaded' });
   await rp.waitForTimeout(400);
   await rp.click('#btnSingle');
@@ -749,25 +755,39 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
   check('🔴 不得用倒數／逾期的措辭', /逾期|過期|剩餘|倒數/.test(band.text), false);
 
   // ── 點一下 → 就地收起、不跳頁、真的寫進 store ──
-  const after = await rp.evaluate(() => {
-    const url = location.href;
+  await rp.evaluate(() => {
     document.querySelector('#pendingBandChips [data-trade-result="profit_taken"]').click();
-    const all = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'));
+  });
+  // 🔴 **導頁要從 Playwright 這一側等一下再問。** 原本是在同一個
+  //    `evaluate` 裡讀 `location.href` 比對 —— 而 `location.href = …` 之後
+  //    導頁是**非同步**的，那一行讀到的還是舊值，所以「不跳頁」那條
+  //    **綠得理由不對**：它讀得太早。2026-10-15 反向驗證抓到
+  //    （破壞「填完跳頁」時它照樣綠，真正的症狀變成後面 evaluate 拋出去）。
+  await rp.waitForTimeout(700);
+  const navigated = !rp.url().includes('decision-alert');
+  check('🔴 **不跳頁**（跳頁會把人從新快訊上扯走）', navigated, false);
+
+  // ⚠️ 真的被導走的話下面讀不到那些元素 —— 容錯，讓該紅的那條去紅，
+  //    不要讓行程去死（同 PLAYBOOK：會拋的解參考會無聲拆掉它後面的守門）。
+  const after = await rp.evaluate(() => {
+    const txt = (sel) => { const n = document.querySelector(sel); return n ? n.textContent.trim() : '(頁面不在了)'; };
+    let all = [];
+    try { all = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1')) || []; } catch (e) { all = []; }
+    const find = (sym) => { const r = all.find((x) => x.symbol === sym); return r ? r.tradeResult : '(找不到)'; };
+    const band = document.getElementById('pendingBand');
+    const sheet = document.getElementById('entrySheet');
     return {
-      stored: all.find((r) => r.symbol === 'ES1!').tradeResult,
+      stored: find('ES1!'),
       // 另一筆**不准被碰到**
-      other: all.find((r) => r.symbol === 'NQ1!').tradeResult,
-      bandHidden: document.getElementById('pendingBand').hidden,
-      sameUrl: location.href === url,
-      sheetOpen: document.getElementById('entrySheet').classList.contains('show'),
-      log: document.querySelector('#logList .log-item .log-type')
-        ? document.querySelector('#logList .log-item .log-type').textContent.trim() : '(沒有)',
+      other: find('NQ1!'),
+      bandHidden: band ? band.hidden : '(頁面不在了)',
+      sheetOpen: sheet ? sheet.classList.contains('show') : '(頁面不在了)',
+      log: txt('#logList .log-item .log-type'),
     };
   });
   check('點一下就把結果寫進去了', after.stored, 'profit_taken');
-  check('🔴 只動那一筆，別人的結果不准被碰到', after.other, 'profit_taken');
+  check('🔴 只動那一筆，別人的結果不准被碰到', after.other, 'stopped_out');
   check('🔴 填完就地收起（沒有別的在等了）', after.bandHidden, true);
-  check('🔴 **不跳頁**（跳頁會把人從新快訊上扯走）', after.sameUrl, true);
   check('🔴 而且面板還開著，新快訊的流程沒有被打斷', after.sheetOpen, true);
   check('🔴 事件鏈上是中文的「結果補填」，不是 fallback 印出的英文 kind',
     after.log, '結果補填');
