@@ -6459,7 +6459,7 @@ function fmtDurCell(rec){
   //    印「—」會把我們真的知道的那件事也丟掉；印一個精確的 41:20 則是在宣稱
   //    一個我們沒量到的東西（那是「他隔多久才開 App」）。所以印不等式。
   if(window.TENKI_OUTCOME.endedByCeiling(rec)){
-    return '—';
+    return '超過 ' + fmtDur(window.TENKI_OUTCOME.WATCH_CEILING_SEC);
   }
   return typeof rec.durationSec === 'number' ? fmtDur(rec.durationSec) : '—';
 }
