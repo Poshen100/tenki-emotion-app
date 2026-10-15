@@ -703,7 +703,13 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
     durationSec: 90, marks: 0, events: [], reachedReadiness: null,
   });
   const now = Date.now();
+  // 🔴 `addInitScript` **每一次導頁／重載都會再跑一次** —— 少了這個旗標，
+  //    重載會把我剛改好的 store 又覆寫回初始值，於是「還有 N 筆」與
+  //    「整條帶不存在」兩條永遠驗不到（2026-10-15 實際踩到：兩條紅，
+  //    而產品碼是對的）。檔頭那支既有的 addInitScript 早就有這個旗標，
+  //    我抄的時候漏了它。
   await rp.addInitScript((rs) => {
+    if (localStorage.getItem('__seeded')) return;
     localStorage.setItem('__seeded', '1');
     localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(rs));
   }, [mk(now - 7200e3, 'ES1!', 'pending'), mk(now - 10800e3, 'NQ1!', 'profit_taken')]);
@@ -774,8 +780,13 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
     all.forEach((r) => { r.tradeResult = 'pending'; });
     localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(all));
   });
-  await rp.click('#btnDismiss');
-  await rp.waitForTimeout(300);
+  // 🔴 **重載，不要用「略過 → 再模擬一則」來讓帶子重畫。**
+  //    那條路會撞到同標的冷卻（面板根本沒重開），於是讀到的是上一次渲染的
+  //    殘留 —— 而且第三輪那顆 click 會因為面板蓋住而 timeout 把腳本拋掉
+  //    （2026-10-15 實際踩到）。`addInitScript` 有 `__seeded` 旗標，
+  //    重載不會覆寫我剛改好的 store。
+  await rp.reload({ waitUntil: 'domcontentloaded' });
+  await rp.waitForTimeout(400);
   await rp.click('#btnSingle');
   await rp.waitForTimeout(600);
   const two = await rp.evaluate(() => ({
@@ -797,8 +808,8 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
     all.forEach((r) => { r.tradeResult = 'profit_taken'; });
     localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(all));
   });
-  await rp.click('#btnDismiss');
-  await rp.waitForTimeout(300);
+  await rp.reload({ waitUntil: 'domcontentloaded' });
+  await rp.waitForTimeout(400);
   await rp.click('#btnSingle');
   await rp.waitForTimeout(600);
   const none = await rp.evaluate(() => ({
