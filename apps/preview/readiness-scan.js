@@ -2019,9 +2019,39 @@
     // 所以走同一個面板、同樣停著等點，不是一閃而過。
     revealTone(null, !securedEarned(null)); // 星塵同理：退彩度，不給一個看起來像結果的顏色
     showVerdict('訊號不足', {
-      spec: '這次沒有取得讀數',
+      spec: giveUpSpec(),
       quality: '光線或穩定度不足 · 再試一次',
     }, null);
+  }
+
+  /**
+   * 失敗那一頁的規格行 —— **說出它量到了什麼**。
+   *
+   * 🔴 為什麼要有這個：founder 2026-10-15 晚上實走拿到「訊號不足」，而那一頁
+   * 原本只有「這次沒有取得讀數」一句話。於是那次失敗**沒有留下任何可判讀的
+   * 證據** —— 事後連「相機有沒有看到他」「推論跑了幾幀」都答不出來，
+   * 只能在「太暗」與「推論太慢」之間猜。
+   *
+   * 成功那一頁早就在報 `N 點臉部特徵 · N 幀推論 · N 秒`（見 `verdictFact`），
+   * 失敗這一頁沒有理由更含糊 —— **失敗比成功更需要證據**。
+   *
+   * 🔴 `everSawFace` 這一句是整行的重點：它把「太暗，相機根本沒看到你」跟
+   * 「看到了，但穩不住」分成兩件事。那是兩個完全不同的下一步。
+   *
+   * ⚠️ 只陳述量到的事實，不給建議、不帶醫療／金融語彙（建議在 quality 那一行）。
+   *
+   * @returns {string} 規格行。
+   */
+  function giveUpSpec() {
+    var seconds = ((performance.now() - session.captureStartedAt) / 1000).toFixed(1);
+    var parts = [session.everSawFace ? '偵測到臉' : '整場沒有偵測到臉'];
+    if (session.landmarkCount > 0) {
+      parts.push(session.lmAcc.n + ' 幀推論');
+    } else {
+      parts.push(session.acc.n + ' 幀畫面取樣');
+    }
+    parts.push(seconds + ' 秒');
+    return parts.join(' · ');
   }
 
   /** 取樣迴圈。進度只在光線與取景過關時前進（pause-not-reset）。 */
