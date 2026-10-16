@@ -96,6 +96,16 @@
    * 對應角括號 scale(1.07)＝改動前的固定值，所以鎖定那一刻不會跳。
    */
   var ERR_RATIO_SPAN = 2;
+  /**
+   * 鎖定之後角括號還保留多少對位回饋（1 = 跟未鎖定一樣，0 = 完全凍結）。
+   *
+   * 🔴 **不得取 0。** 取 0 就是 2026-10-16 之前的行為：入框那一刻回饋整個消失，
+   * 而使用者喬正臉與眼睛**正好都發生在入框之後** —— 他最需要回饋的那一段，
+   * 畫面反而一句話都不說。
+   * 取 1/3：鎖定仍然讀得出是「突然的靜」（幅度明顯收小、走 snap 曲線），
+   * 但臉歪或眼睛飄的時候角括號還會張開。
+   */
+  var LOCKED_ERR_GAIN = 1 / 3;
   /** 眨眼遲滯門檻（EAR-normalized，與 takeover 同一組）。 */
   /**
    * Soul Lock Beat 3 的眨眼寬限期（ms）。
@@ -461,7 +471,23 @@
       'fill:rgba(255,212,110,0.18);filter:drop-shadow(0 0 8px rgba(255,212,110,0.55));}',
       '#' + OVERLAY_ID + ' .rs-frame.secured .rs-target{stroke:rgba(255,212,110,0.5);}',
       // snap：四角一起收到位並提亮 —— MOTION-DIRECTION §4「Lock 鎖定」的落點。
-      '#' + OVERLAY_ID + ' .rs-frame.locked .rs-halo-corners{transform:scale(1);opacity:1;}',
+      //
+      // 🔴 **但不得把 `--rs-err` 整個關掉。** 這裡原本寫死 `scale(1);opacity:1`，
+      // 於是入框的那一刻角括號就凍結 —— 而使用者把臉喬正、眼睛看向鏡頭，
+      // **正好都發生在入框之後**。founder 2026-10-16 實走的說法是
+      // 「對位框框沒有正確的反饋」，成因就是這一行。
+      // ⚠️ 這跟 #274 修過的「一旦入框，臉朝哪裡對儀器完全沒差」是同一個形狀 ——
+      // 當時只修了對位弧，沒把教訓推到角括號上。
+      //
+      // 修法是**收幅度、不關通道**：仍然讀 `--rs-err`，但增益降到
+      // `LOCKED_ERR_GAIN`。鎖定仍然是一個「突然的靜」（幅度小、走 snap 曲線），
+      // 而喬正臉與眼睛時框框還會回應。
+      // 兩條都是「未鎖定那組的振幅 × LOCKED_ERR_GAIN」，基準點移到對齊時的
+      // scale(1) / opacity(1) —— 所以 err=0 時與舊行為**逐像素相同**，
+      // 差別只在 err 不為 0 的時候它還說得出話。
+      '#' + OVERLAY_ID + ' .rs-frame.locked .rs-halo-corners{',
+      'opacity:calc(1 - var(--rs-err, 0) * ' + (0.35 * LOCKED_ERR_GAIN).toFixed(4) + ');',
+      'transform:scale(calc(1 + var(--rs-err, 0) * ' + (0.14 * LOCKED_ERR_GAIN).toFixed(4) + '));}',
       // 收束時角括號跟著整組轉 gold（cyan=ACTIVE / gold=SECURED）。
       '#' + OVERLAY_ID + ' .rs-frame.secured .rs-halo-corners{stroke:' + HALO_SECURED + ';}',
       // ── 鎖定那一拍：發散 → 一擊 → 靜 ──
@@ -2097,6 +2123,39 @@
    * @param {{centerX:number,centerY:number,size:number}} box - 這一幀的臉框。
    * @param {boolean} framed - 是否已落在容差內。
    */
+  /**
+   * 對位誤差 —— 角括號收攏程度（`--rs-err`）的唯一來源。
+   *
+   * 各軸都正規化成「以容差為 1.0」，取最寬鬆的那一個（哪一項最差就聽哪一項），
+   * 再除以 `ERR_RATIO_SPAN` 讓「剛好進容差」對應 err=0.5。
+   *
+   * 🔴 **第四軸是臉與眼睛的朝向**（founder 2026-10-16：「我要的是當我的臉
+   * 正對、眼睛正對，對位框框能正確的反饋」）。在這之前前三軸全是**取景**
+   * （位置與大小）—— 擺正臉、看向鏡頭，框框一點反應都沒有。
+   *
+   * 尺度天然吻合，不需要新的係數：前三軸是「以容差為 1.0」，而
+   * `facingSquareness` 已經正規化成 **0 = 剛好到「正對鏡頭」/「看向鏡頭」
+   * 提示門檻**，所以 `1 - facing` 就是同一把尺上的同一個刻度。
+   *
+   * ⚠️ **只進視覺，不進 `framed`。** `framed` 由 `evalFramed` 算，它餵
+   * `gates.centering` 進而餵 `gatesAdvance()` —— 而朝向門檻沒實機調過，
+   * 進了閘門抓錯就會**掃不完**（見 `gatesAdvance` 的註解）。
+   *
+   * @param {{centerX:number,centerY:number,size:number}} box - 這一幀的臉框。
+   * @param {?{yaw:number,pitch:number}} pose - `headPose()` 的輸出。
+   * @param {?{x:number,y:number}} gaze - `eyeGaze()` 的輸出。
+   * @returns {number} 0 = 完全對齊，1 = 差得最遠。
+   */
+  function alignError(box, pose, gaze) {
+    var ratio = Math.max(
+      Math.abs(box.centerX - 0.5) / FACE_CENTER_X_TOL,
+      Math.abs(box.centerY - 0.5) / FACE_CENTER_Y_TOL,
+      Math.abs(box.size - RETICLE_IDEAL_SIZE) / ((FACE_SIZE_MAX - FACE_SIZE_MIN) / 2),
+      1 - facingSquareness(pose, gaze)
+    );
+    return clamp01(ratio / ERR_RATIO_SPAN);
+  }
+
   function updateReticle(box, framed) {
     if (!session) return;
 
@@ -2111,18 +2170,9 @@
       };
     }
 
-    // 角括號的收斂程度 ＝ 對位誤差。這是「越來越熱」的頻道，
+    // 角括號的收斂程度 ＝ 對位誤差（見 `alignError`）。這是「越來越熱」的頻道，
     // 與標記的「你在哪裡」互補，兩個報告不同的事。
-    //
-    // ratio：以容差為 1.0 的尺度，三軸取最寬鬆的那一個（哪一項最差就聽哪一項）。
-    // ratio ≤ 1 就是 framed。除以 ERR_RATIO_SPAN 讓「剛好進容差」對應 err=0.5
-    // ＝ 舊的固定 scale(1.07)，鎖定瞬間再由 .locked 收到 scale(1) —— 連續且不跳。
-    var ratio = Math.max(
-      Math.abs(box.centerX - 0.5) / FACE_CENTER_X_TOL,
-      Math.abs(box.centerY - 0.5) / FACE_CENTER_Y_TOL,
-      Math.abs(box.size - RETICLE_IDEAL_SIZE) / ((FACE_SIZE_MAX - FACE_SIZE_MIN) / 2)
-    );
-    var err = clamp01(ratio / ERR_RATIO_SPAN);
+    var err = alignError(box, session.headPose, session.gaze);
     var frame = q('frame');
     if (frame) {
       frame.classList.add('tracking');
@@ -2544,6 +2594,32 @@
         PITCH_SQUARE_MIN: PITCH_SQUARE_MIN,
         PITCH_SQUARE_MAX: PITCH_SQUARE_MAX,
         READOUT_SQUARE_WEIGHT: READOUT_SQUARE_WEIGHT,
+      },
+    },
+    /**
+     * Harness contract（`scripts/preview-scan-squareness.mjs` 用）。**唯讀**。
+     *
+     * 跟 `__pose` 分開開出來，是因為它們錨在不同的門檻上 —— 分開才驗得到
+     * 各自的極值。`facing` 是兩者的連言（founder 2026-10-14 那句話本身），
+     * `alignError` 則是它**真的有沒有接到框框上**（founder 2026-10-16 的糾正）。
+     */
+    __gaze: {
+      measure: eyeGaze,
+      squareness: gazeSquareness,
+      facing: facingSquareness,
+      alignError: alignError,
+      constants: {
+        GAZE_X_MAX: GAZE_X_MAX,
+        GAZE_Y_MAX: GAZE_Y_MAX,
+        GAZE_SMOOTH_ALPHA: GAZE_SMOOTH_ALPHA,
+        LOCKED_ERR_GAIN: LOCKED_ERR_GAIN,
+        ERR_RATIO_SPAN: ERR_RATIO_SPAN,
+        RETICLE_IDEAL_SIZE: RETICLE_IDEAL_SIZE,
+        FACE_CENTER_X_TOL: FACE_CENTER_X_TOL,
+        FACE_CENTER_Y_TOL: FACE_CENTER_Y_TOL,
+        IRIS_L: IRIS_L, IRIS_R: IRIS_R,
+        EYE_OUTER_L: EYE_OUTER_L, EYE_OUTER_R: EYE_OUTER_R,
+        EYE_INNER_L: EYE_INNER_L, EYE_INNER_R: EYE_INNER_R,
       },
     },
     __blink: {
