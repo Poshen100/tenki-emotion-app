@@ -735,6 +735,7 @@ bash scripts/verify.sh        # lint + 4 套件 tsc + root 測試 + mobile tsc/�
 | 讀數歷史（append-only，三根支柱的燃料） | contract `domain/src/contracts/readiness-history.ts`、policy `domain/src/policies/readiness-history.ts`、preview 鏡射 `apps/preview/readiness-history.js` |
 | orb 截圖回饋迴圈 | `scripts/orb-tuner/`（`node shoot.mjs` → `out/*.png`） |
 | logo master | `docs/assets/brand/tenki-mark.svg`（衍生資產一律由此輸出） |
+| **廠商停權**（GitHub / Apple / Google）影響範圍、對策、當下 runbook | `docs/VENDOR-RISK.md`（2026-10-16 GitHub 停權事件寫成） |
 
 ## 9.5 Sub-agent（便宜模型）使用紀律
 

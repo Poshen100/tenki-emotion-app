@@ -28,6 +28,42 @@
      勿刪、勿移動、勿複製第二份：`scripts/verify.sh` 驗它恰好出現一次、
      而且排在所有條目之前。它的存在理由見協議第 1 條。 -->
 
+# 2026-10-17 Session Update（GitHub 帳號停權 —— 影響範圍實測與 docs/VENDOR-RISK.md）
+
+## What was done
+
+2026-10-16 founder 的 GitHub 帳號被以「ToS 違規」停權（Ticket 4868985）。
+推送、PR、CI、Vercel 新部署全斷。10-17 Support 回覆：abuse-detection 標記 →
+人工審查，詢問用途（已回）。
+
+本機這邊：4 個 commit 做完、`verify.sh --quick` 全綠、推不上去 →
+`git bundle` 保全並交給 founder。新增 `docs/VENDOR-RISK.md`。
+
+## 教訓 / 注意
+
+1. 🔴 **「完全不受影響」做不到，但「停權只擋開發、不擋收入」做得到。**
+   實測影響範圍：已上架 App、已部署網站、訂閱金流**都不受影響**；
+   斷掉的是 push / PR / CI / **Vercel 新部署**（它從 GitHub 拉）。
+   → 真正的商業風險不是服務中斷，是**線上有 bug 卻推不出修正版**。
+2. 🔴 **本機 commit 在臨時容器裡不算安全。** 推不上去時第一件事是
+   `git bundle` 把工作帶出容器，不是繼續等。
+3. 🔴 **觸發點很可能是 AI agent 的 API burst**（大量呼叫 + App token 開 PR +
+   密集觸發 7–10 分鐘的 Playwright job），在濫用偵測眼裡像 bot farm。
+   商業化後自動化更多 → 風險往上走。
+4. ⚠️ **風險更高的是 Apple / Google**：它們能下架 App 讓收入歸零，
+   而訂閱金流就在它們手上。GitHub 停權一毛錢都不會掉。
+5. 停權當下的紀律：不要開新帳號（視為規避）、不要開第二張票、
+   申訴要問**具體是哪一條**、不要催。
+
+## 下次接手點
+
+- GitHub 恢復後：`git fetch origin main` →
+  `git rebase --onto origin/main 7f7d8ffa` → 推 → PR → CI → 合併。
+  本機帶著 12 個**已被 squash 進 main** 的 commit，不 rebase 會重推一次。
+- founder 要做的（需要帳號權限，AI 做不了）：第二個 git remote、
+  搬 GitHub Org + 第二位 owner、升付費方案、Vercel CLI 部署備援。
+  清單在 `docs/VENDOR-RISK.md` §2。
+
 # 2026-10-16 Session Update（退掉版面上移 —— 他要的是回饋通道，我交付的是版面座標）
 
 ## What was done
