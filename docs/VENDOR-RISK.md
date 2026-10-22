@@ -39,12 +39,28 @@
 
 #### 一次性設定
 
-1. 在 **GitLab** 建一個**空的** private project（不要勾 README / .gitignore 初始化）。
+1. 註冊 GitLab：<https://gitlab.com/users/sign_up>
    - 選 GitLab 不選 Bitbucket：Bitbucket 免費版每 repo 約 1GB 軟上限，
      而本 repo 的 `.git` 已經約 300MB（歷史肥肉，見下）。
    - ⚠️ `codeberg.org` 在本專案的雲端環境**連不到**（實測），不要選它。
-2. 產一個 **Project Access Token**，scope 勾 `write_repository`。
-3. 🔴 **不要把 token 貼進對話或寫進檔案。**
+2. 建一個**空的** private project：<https://gitlab.com/projects/new#blank_project>
+   - Visibility 選 **Private**
+   - 🔴 **不要勾**「Initialize repository with a README」
+3. 產 token：<https://gitlab.com/-/user_settings/personal_access_tokens>
+   - 🔴 **要 Personal Access Token**，scope 只勾 `write_repository`。
+     2026-10 查證的三選一：
+
+     | token 種類 | GitLab.com 免費版 | 能 push 嗎 |
+     |---|---|---|
+     | Project Access Token | ❌ 限 Premium/Ultimate | — |
+     | Deploy Token | ✅ 有 | ❌ git 唯讀 |
+     | **Personal Access Token** | ✅ 有 | ✅ |
+
+     ⚠️ 方案內容會變。真的看得到 Project Access Token 就用它（範圍更小更好）。
+   - 🔴 **token 只顯示一次**，當場複製。
+   - ⚠️ PAT 涵蓋該帳號所有 repo → **設到期日**。
+     新帳號只有這一個鏡像 repo 時，實際風險很小。
+4. 🔴 **不要把 token 貼進對話或寫進檔案。**
    放進雲端環境的 Network secrets / 環境變數
    （session 標題列的環境選單 → Edit）：
 
@@ -53,7 +69,8 @@
    | `MIRROR_REMOTE` | 那個 project 的 HTTPS URL |
    | `MIRROR_TOKEN` | 剛才那個 token |
 
-4. **開一個新 session** —— 舊 session 讀不到新加的變數。
+5. **開一個新 session** —— 舊 session 讀不到新加的變數。
+   ⚠️ 前三步手機瀏覽器都做得完；第 4 步的環境設定介面**可能需要電腦**。
 
 #### 平常怎麼用
 

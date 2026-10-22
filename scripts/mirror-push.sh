@@ -10,7 +10,15 @@
 # 雲端環境的 Network secrets / 環境變數裡（session 標題列 → 環境選單 → Edit）：
 #
 #   MIRROR_REMOTE  鏡像 repo 的 HTTPS URL，例：https://gitlab.com/<user>/<repo>.git
-#   MIRROR_TOKEN   對那個 repo 有 write_repository 權限的 token
+#   MIRROR_TOKEN   有 write_repository 權限的 token
+#
+# 🔴 **GitLab 免費版要用 Personal Access Token。** 查證過的三選一：
+#      Project Access Token  → GitLab.com 上限 Premium/Ultimate，免費版沒有
+#      Deploy Token          → 免費版有，但 git 存取**唯讀**，推不上去
+#      Personal Access Token → 免費版可用，勾 `write_repository` ✅
+#    （2026-10 查的，方案內容會變；真的看得到 Project Access Token 就用它，
+#     範圍更小更好。）
+#    ⚠️ PAT 涵蓋該帳號所有 repo，所以**設一個到期日**。
 #
 # ⚠️ 這支**絕不印出 token**，也不把帶憑證的 URL 寫進 .git/config
 #    （用 `git push <url>` 的一次性形式，不 `git remote add`）。
@@ -31,7 +39,11 @@ if [ ${#missing[@]} -gt 0 ]; then
   echo
   echo "設定方式（不要把 token 貼進對話）："
   echo "  1. 在 GitLab 建一個空的 private project（不要勾 README/.gitignore）"
-  echo "  2. 產一個 Project Access Token，scope 選 write_repository"
+  echo "     https://gitlab.com/projects/new#blank_project"
+  echo "  2. 產一個 **Personal** Access Token，scope 勾 write_repository"
+  echo "     （免費版沒有 Project Access Token；Deploy Token 推不了，只能讀）"
+  echo "     https://gitlab.com/-/user_settings/personal_access_tokens"
+  echo "     🔴 token 只顯示一次，當場複製；記得設到期日"
   echo "  3. session 標題列的雲端環境選單 → Edit → 加這兩個變數："
   echo "       MIRROR_REMOTE = 那個 project 的 HTTPS URL"
   echo "       MIRROR_TOKEN  = 剛才那個 token"
