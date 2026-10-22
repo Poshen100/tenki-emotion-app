@@ -32,15 +32,53 @@
 
 ### ① 第二個 git remote（約 10 分鐘，最高 CP 值）
 
-本機 clone 本來就是完整副本。加一個獨立廠商的 remote（GitLab / Codeberg /
-自架），推的時候兩邊都推。這一條解掉「程式碼拿不回來」與「不能繼續開發」。
+本機 clone 本來就是完整副本。加一個獨立廠商的 remote，推的時候兩邊都推。
+這一條解掉「程式碼拿不回來」與「不能繼續開發」。
+
+**工具已經寫好了：`scripts/mirror-push.sh`。** 只缺兩個環境變數。
+
+#### 一次性設定
+
+1. 在 **GitLab** 建一個**空的** private project（不要勾 README / .gitignore 初始化）。
+   - 選 GitLab 不選 Bitbucket：Bitbucket 免費版每 repo 約 1GB 軟上限，
+     而本 repo 的 `.git` 已經約 300MB（歷史肥肉，見下）。
+   - ⚠️ `codeberg.org` 在本專案的雲端環境**連不到**（實測），不要選它。
+2. 產一個 **Project Access Token**，scope 勾 `write_repository`。
+3. 🔴 **不要把 token 貼進對話或寫進檔案。**
+   放進雲端環境的 Network secrets / 環境變數
+   （session 標題列的環境選單 → Edit）：
+
+   | 變數 | 值 |
+   |---|---|
+   | `MIRROR_REMOTE` | 那個 project 的 HTTPS URL |
+   | `MIRROR_TOKEN` | 剛才那個 token |
+
+4. **開一個新 session** —— 舊 session 讀不到新加的變數。
+
+#### 平常怎麼用
 
 ```sh
-git remote add mirror <另一個廠商的 repo>
-git push mirror --all && git push mirror --tags
+bash scripts/mirror-push.sh
 ```
 
-⚠️ 鏡像要**定期真的推**，不是設完就算。沒有被推過的鏡像等於不存在。
+它會推 `--all` 與 `--tags`。沒設變數時會明確說缺什麼然後退出（exit 2），
+不會半成功。
+
+🔴 **這支刻意不做 `git remote add`** —— 帶憑證的 URL 只在那一次 push 用，
+不寫進 `.git/config`。已驗證：token 不會出現在輸出、不會進 config、
+`git remote -v` 不變。
+
+⚠️ **鏡像要定期真的推，不是設完就算。沒有被推過的鏡像等於不存在。**
+
+#### 關於 300MB
+
+`.git` 約 300MB，來源是歷史裡的 `apps/mobile/node_modules/`（libskia.a 等約
+250MB）與根目錄兩個 24MB 的 3D 資產。兩者**現在都已不被追蹤**
+（`.gitignore` 兩層都擋），是純歷史肥肉、不是現行 bug。
+
+🔴 **不要為了瘦身重寫歷史。** `MEMORY.md` 與 `docs/PLAYBOOK.md` 大量引用
+commit SHA 當證據，重寫會讓每一個 SHA 失效 —— 那等於打斷整條文件鏈，
+代價遠大於 300MB。需要快就用 `git clone --depth`。
 
 ### ② 搬到 GitHub Organization，而且要有第二位 owner
 
