@@ -15,7 +15,11 @@
 # 🔴 **GitLab 免費版要用 Personal Access Token。** 查證過的三選一：
 #      Project Access Token  → GitLab.com 上限 Premium/Ultimate，免費版沒有
 #      Deploy Token          → 免費版有，但 git 存取**唯讀**，推不上去
-#      Personal Access Token → 免費版可用，勾 `write_repository` ✅
+#      Personal Access Token → 免費版可用 ✅
+#    ⚠️ 「Generate token」是個下拉，底下還分兩種，**兩種都推得動**：
+#      Fine-grained token（建議）→ 只給指定群組/專案；**Code 權限設成 Push**
+#      Legacy token             → 涵蓋該帳號所有專案；只勾 `write_repository`
+#    （GitLab 對 git over HTTPS 不驗使用者名稱，所以下面的 `oauth2:` 兩種都吃。）
 #    （2026-10 查的，方案內容會變；真的看得到 Project Access Token 就用它，
 #     範圍更小更好。）
 #    ⚠️ PAT 涵蓋該帳號所有 repo，所以**設一個到期日**。

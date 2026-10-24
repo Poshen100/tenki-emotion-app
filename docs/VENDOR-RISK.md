@@ -47,8 +47,18 @@
    - Visibility 選 **Private**
    - 🔴 **不要勾**「Initialize repository with a README」
 3. 產 token：<https://gitlab.com/-/user_settings/personal_access_tokens>
-   - 🔴 **要 Personal Access Token**，scope 只勾 `write_repository`。
-     2026-10 查證的三選一：
+   - ⚠️ **`Generate token` 是個下拉，底下還分兩種 —— 兩種都推得動：**
+
+     | 選項 | 範圍 | 怎麼設才能 push |
+     |---|---|---|
+     | **Fine-grained token**（建議）| 只給指定的群組／專案 | **Code** 權限設成 **Push** |
+     | Legacy token | 該帳號**所有**專案 | 只勾 `write_repository` |
+
+     選 Fine-grained：一樣推得動，而且把「PAT 涵蓋所有 repo」這個缺點解掉。
+     介面太難操作就退回 Legacy —— 一定能用，別卡在這裡。
+     ⚠️ GitLab 對 git over HTTPS **不驗使用者名稱**，所以腳本用的
+     `oauth2:<token>` 對兩種都有效。
+   - 🔴 **這兩個都屬於 Personal Access Token。** 另外兩種不行，2026-10 查證：
 
      | token 種類 | GitLab.com 免費版 | 能 push 嗎 |
      |---|---|---|
@@ -56,7 +66,7 @@
      | Deploy Token | ✅ 有 | ❌ git 唯讀 |
      | **Personal Access Token** | ✅ 有 | ✅ |
 
-     ⚠️ 方案內容會變。真的看得到 Project Access Token 就用它（範圍更小更好）。
+     ⚠️ 方案內容會變，眼見為憑。
    - 🔴 **token 只顯示一次**，當場複製。
    - ⚠️ PAT 涵蓋該帳號所有 repo → **設到期日**。
      新帳號只有這一個鏡像 repo 時，實際風險很小。
