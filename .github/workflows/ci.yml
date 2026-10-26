@@ -172,6 +172,12 @@ jobs:
       - name: Scan squareness harness (正對回饋)
         run: node scripts/preview-scan-squareness.mjs
 
+      # 掃描儀器離鏡頭夠近（founder 2026-10-14：「臉跟眼睛還是沒有對正螢幕」）。
+      # 量三種視窗高度 × 兩種 mission 的框心位置，並含一條反向斷言：
+      # 把版面改回置中就必須退回 0.44H —— 沒紅過的閘門不是閘門。
+      - name: Scan lens-offset harness (儀器離鏡頭多近)
+        run: node scripts/preview-scan-lens-offset.mjs
+
       - name: Token scale harness (色階系統守門)
         run: node scripts/preview-token-scale.mjs
 

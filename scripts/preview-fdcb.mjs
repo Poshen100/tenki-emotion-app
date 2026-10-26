@@ -3064,20 +3064,30 @@ for (const h of [700, 740, 844, 932]) {
   console.log('\n── 判定後來改了：改寫紀錄而不說謊 ──');
   const page = await openV3(844);
 
-  const now = Date.now();
-  // 🔴 **昨天中午**，不是「一小時前」。
-  //    對齊到整分：使用者答的進場時間只有分鐘精度（秒被歸零），判定時刻帶著秒
-  //    的話相減會差那個零頭，斷言就只能寫成範圍 —— 而範圍守不住四捨五入的方向。
-  //    🔴 而「一小時前」在 00:00–01:00 之間跑會變成**昨天** ——
-  //    於是「判定那一天的 23:59」變成過去，「不得是未來」那條當場誤判，
-  //    連帶把後面三條一起帶紅（2026-10-15 00:35 UTC 實際踩到）。
-  //    這跟 decision-chain 那次是同一個坑：**fixture 的「哪一天」吃真實時鐘**。
-  //    釘在昨天中午 → 它永遠在過去、永遠離日界很遠、+30 分不會跨日。
-  const anchor = new Date(now);
-  anchor.setDate(anchor.getDate() - 1);
-  anchor.setHours(12, 0, 0, 0);
+  // 🔴 **把這一段的時鐘釘死在當天 14:00，不要用 `Date.now()`。**
+  //
+  // 2026-10-15 00:28 UTC 的 CI 實際踩到：這裡原本是 `Date.now()`，判定取
+  // 「一小時前」—— 在午夜後的第一個小時，那會落到**前一天**。而
+  // `entryTimeFrom()` 是把 `HH:MM` 解在**判定那一天**的（它的註解寫明刻意
+  // 只認同一天），於是下面那個本來要當「未來」的 `23:59` 探針變成**前一天的
+  // 23:59**，已經過去了 → 合法 → 被寫進去，一口氣翻掉 4 條斷言。
+  // （當時實測 23:59 − 23:36 = 23 分，正好就是紅燈印的「約 23 分」。）
+  //
+  // 🔴 這一段需要同時成立三件事，而**在每天開頭的半小時內它們湊不齊**：
+  //    判定要在同一天、要已經過去 30 分鐘、而且當天的 23:59 還沒到。
+  //    所以不是挑一個更好的探針時刻就能修 —— 得把時鐘本身釘住。
+  //
+  // 只釘 `Date.now`（不動 `Date` 建構子）：`entryTimeFrom` 拿它比「是不是未來」，
+  // 而日期換算走的是 `new Date(rec.ts)`，兩邊因此仍然一致。
+  const pinned = new Date();
+  pinned.setHours(14, 0, 0, 0);
+  const now = pinned.getTime();
+  await page.evaluate((t) => { Date.now = () => t; }, now);
   const stood = {
-    ts: anchor.getTime(),
+    // 🔴 對齊到整分。使用者答的進場時間只有分鐘精度（秒被歸零），
+    //    所以判定時刻帶著秒的話，相減的結果會差那個零頭 ——
+    //    斷言就只能寫成範圍，而範圍斷言守不住四捨五入的方向。
+    ts: Math.floor((now - 3600e3) / 60000) * 60000,
     symbol: 'ES1!', templateId: 'MANCINI_FBD', source: 'alert',
     outcomeTag: 'judged_stood_down', tradeResult: 'no_entry', durationSec: 120,
     marks: 0, events: [], reachedReadiness: null,
@@ -3237,6 +3247,10 @@ for (const h of [700, 740, 844, 932]) {
     set(hh(before.getHours()) + ':' + hh(before.getMinutes()));
     click();
     out.beforeNote = note(); out.beforeWrote = stored();
+    // 23:59 —— 判定釘在當天 13:00（見上方 `pinned`），所以當天的 23:59
+    // **保證**還沒到。⚠️ 這句話以前是靠 `Date.now()` 碰運氣成立的。
+    set('23:59'); click();
+    out.futureNote = note(); out.futureWrote = stored();
     // 看不懂的
     set(''); click();
     out.badNote = note(); out.badWrote = stored();
@@ -3246,13 +3260,18 @@ for (const h of [700, 740, 844, 932]) {
   check('🔴 比判定還早的時間不收，而且說得出為什麼',
     bounds.beforeNote, '這比判定的時候還早');
   check('🔴 而且真的沒寫進去', bounds.beforeWrote, false);
+  // ⚠️ 這兩條是走 UI 的「未來」探針。它們能成立是因為上面把頁面端的
+  //    `Date.now` 釘在當天 14:00（main 的修法）—— 沒有那個釘法，
+  //    這兩條在每天開頭的半小時內會整組翻掉。
+  check('🔴 還沒到的時間不收（還沒發生的不是紀錄）',
+    bounds.futureNote, '這個時間還沒到');
+  check('🔴 而且真的沒寫進去', bounds.futureWrote, false);
   check('看不懂的時間不收', bounds.badNote, '看不懂這個時間');
   check('🔴 而且真的沒寫進去', bounds.badWrote, false);
 
-  // 🔴 「不得是未來」改問**純函式**，而且把 `now` 釘死。
-  //    走 UI 的話那條規則的答案會跟著 harness 幾點跑而變
-  //    —— 2026-10-15 00:35 UTC 實際踩到。同 decision-chain 那次的修法：
-  //    規則本身用釘死的時鐘問，UI 只留跟時鐘無關的那幾條。
+  // 🔴 同一條規則**再用純函式問一次**，把 `now` 當參數注入。
+  //    上面那兩條走 UI、靠頁面端的時鐘釘法成立；這兩條完全不碰時鐘，
+  //    所以就算哪天有人拆了那個釘法，規則本身仍然有人守。
   const futureRule = await page.evaluate(() => {
     const OUT = window.TENKI_OUTCOME;
     const base = Date.UTC(2026, 0, 15, 12, 0, 0);

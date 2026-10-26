@@ -199,6 +199,40 @@
   var FACE_CENTER_X_TOL = 0.08;
   var FACE_CENTER_Y_TOL = 0.09;
   /**
+   * 掃描框該離視窗頂端多近 —— 也就是**把儀器放到鏡頭軸線附近**。
+   *
+   * 🔴 這不是美術決定，是幾何。前鏡頭在手機最上緣，而覆蓋層原本把整個 stage
+   * 置中（`justify-content:center`），量到的框心落在 **0.43–0.47H**。使用者盯著
+   * 星塵球看 → 視線落在螢幕中段 → 相機從上方俯看 → 臉就出現在畫面**下半部**。
+   *
+   * 換算（H=852、機身顯示區約 149mm、手持約 325mm、鏡頭約在 y=55px）：
+   *   原本 frameCY=380.5 → 偏離鏡頭 325px ≈ 57mm → **約 10°**
+   * 而視訊研究裡超過約 **5°** 就讀得出「沒有看著對方」。同一個 10° 也正是
+   * `resolveHint` 一直回「向上對齊」的成因：10° 在垂直 FOV 約 65° 的前鏡頭上
+   * 換算成 `box.centerY ≈ 0.67`，遠在 `FACE_CENTER_Y_TOL = 0.09` 的容許帶外。
+   * **「眼睛沒對正」與「向上對齊一直跳」是同一條幾何**，所以一起修。
+   *
+   * 取 20：H=852 時框心落在 ~0.205H，偏離降到 **約 3.6°**；decision mission 多一行
+   * symbol（+33px）落在 ~0.244H ≈ **4.6°**，兩個都在 5° 以內。
+   * ⚠️ 這是**一個數字就能調的旋鈕** —— 實機覺得太高就把它調大，不要去動
+   * `FACE_CENTER_Y_TOL`（容許帶沒錯，錯的是版面；兩個一起改就分不出哪個有效）。
+   */
+  var LENS_TARGET_VH = 20;
+  /**
+   * stage 頂端到框心的距離，**量出來的不是算出來的**：
+   * `.rs-mission` 15px + stage gap 18px + 半個框 118px = 151px。
+   * （decision mission 會多一個 `.rs-symbol` 15 + gap 18 = +33px，所以框心再低 33px；
+   * harness 兩個 mission 各驗一條。）
+   */
+  var STAGE_TOP_TO_FRAME_PX = 151;
+  /**
+   * padding 的下限 —— **短螢幕的保命索**。
+   * `LENS_TARGET_VH` 的算式在 iPhone SE（667px）會解出 **-17.6px**，照單全收
+   * 會把 mission 標籤推到視窗外。取 24 + safe-area：SE 上框心反而落在 0.26H，
+   * 但 SE 機身更短、手也拿得更近，換算出來約 4.3°，一樣在門檻內。
+   */
+  var LENS_PAD_FLOOR_PX = 24;
+  /**
    * 鎖定遲滯（見 `evalFramed`）。
    *
    * `FRAME_LOCK_STREAK = 2`：以 `FACE_INTERVAL_MS`(180ms) 計 ≈ 360ms 才入鎖。
@@ -217,6 +251,21 @@
   var EYE_OUTER_L = 33;
   var EYE_OUTER_R = 263;
   /**
+   * 眼睛朝向要用的額外索引（見 `eyeGaze`）。
+   *
+   * 內眥（眼頭）133 / 362 配上面的外眥（眼尾）33 / 263，兩者的中點就是眼眶中心；
+   * 虹膜 468–472（左）/ 473–477（右）**只有 `refineLandmarks: true` 才有** ——
+   * 關著的時候 `lm` 只有 468 點，這些索引全部是 undefined，`eyeGaze` 會回 `null`。
+   *
+   * ⚠️ MediaPipe 的 left/right 是**模型自己那套**（與 33/263 同一套），
+   * 不是畫面上的左右。這裡只做「同一隻眼的虹膜配同一隻眼的眥」，不跨邊，
+   * 所以就算哪天命名反過來也不影響結果。
+   */
+  var EYE_INNER_L = 133;
+  var EYE_INNER_R = 362;
+  var IRIS_L = [468, 469, 470, 471, 472];
+  var IRIS_R = [473, 474, 475, 476, 477];
+  /**
    * 「沒有正對鏡頭」的門檻（以兩眼外角距離正規化的偏移）。
    *
    * ⚠️ 這兩個值是**先驗的保守估計，還沒實機調過** —— 手感調參歸桌機 lane
@@ -227,6 +276,39 @@
   var YAW_SQUARE_MAX = 0.22;
   var PITCH_SQUARE_MIN = 0.16;
   var PITCH_SQUARE_MAX = 0.62;
+  /**
+   * 「眼睛沒有看向鏡頭」的門檻（虹膜在眼眶裡的位移，以兩眥距離正規化）。
+   *
+   * 🔴 **這個數是推導的，不是挑的。** 眼球半徑約 12mm、兩眥距離約 30mm，
+   * 眼睛轉 θ 度時虹膜中心的位移約 `12·sin(θ)`，正規化後 ≈ `0.4·sin(θ)`：
+   *
+   *     θ = 10° → 0.069     θ = 15° → 0.104     θ = 20° → 0.137
+   *
+   * 取 **0.14（≈20°）**：明顯看開了才喊。要改靈敏度就改這個角度，
+   * 不要直接改數字 —— 數字是角度的函式。
+   *
+   * 🔴 **為什麼門檻必須遠大於日常值**：儀器現在在 0.20H、鏡頭約在 0.05H，
+   * 使用者盯著星塵球時視線只偏約 3.7°（見 `LENS_TARGET_VH`），
+   * 換算 `0.4·sin(3.7°) ≈ 0.026`。門檻若訂在那附近就會變成**一直亮的提示** ——
+   * 而上面 `YAW_SQUARE_MAX` 的註解已經說過，那比沒有提示更糟。
+   *
+   * ⚠️ **垂直方向另開一組，而且刻意更寬。** 虹膜正視時不保證落在兩眥連線上
+   * （上眼瞼會蓋、眥的連線本身是斜的），基線不是 0 —— 跟
+   * `PITCH_SQUARE_MIN/MAX` 是同一回事。而真人的基線**沙箱量不到**，
+   * 所以：不知道就給寬容差。`GAZE_Y_MAX` 比 `GAZE_X_MAX` 寬，
+   * 不是因為垂直比較不重要，是因為我們對它知道得比較少。
+   * 兩個都**還沒實機調過**，founder 回一句就能調。
+   */
+  var GAZE_X_MAX = 0.14;
+  var GAZE_Y_MAX = 0.22;
+  /**
+   * 虹膜位移的 EWMA 係數。
+   *
+   * 為什麼要平滑：虹膜 landmark 本來就會抖，而 `FACE_INTERVAL_MS` 是 180ms ——
+   * 每秒只有 5~6 個樣本，單一幀的雜訊會讓「看向鏡頭」這條提示閃爍。
+   * 0.35 是快到跟得上真的轉眼、慢到吃掉單幀跳動的折衷（**先驗，未實機調**）。
+   */
+  var GAZE_SMOOTH_ALPHA = 0.35;
   /**
    * 正對程度（squareness）在收散上的權重 —— 0 = 完全不影響，1 = 與 stillness 等重。
    *
@@ -290,7 +372,19 @@
     style.textContent = [
       '#' + OVERLAY_ID + '{position:fixed;inset:0;z-index:' + OVERLAY_Z + ';display:none;',
       'background:#05060A;color:#F4F6FF;font-family:inherit;',
-      'flex-direction:column;align-items:center;justify-content:center;gap:18px;}',
+      // 整個儀器往鏡頭軸線靠（見 LENS_TARGET_VH）。置中的版面把「你該看的東西」
+      // 放在螢幕中段，而鏡頭在最上緣 —— 於是「看著儀器」與「看著鏡頭」
+      // 在物理上是兩個不同的動作。
+      //
+      // ⚠️ 真正決定位置的是 `.rs-stage` 的 `flex:1` + `padding-top`，**不是這行
+      // `justify-content`** —— stage 會撐滿覆蓋層，justify-content 因此沒有作用。
+      // （反向驗證時把它改回 `center`，49 條斷言一條都沒紅，就是這個原因。）
+      // 留 `flex-start` 只當 `flex:1` 哪天被拿掉時的正確退路，不要把它讀成機制。
+      'flex-direction:column;align-items:center;justify-content:flex-start;gap:18px;',
+      // `max()` 而不是 `clamp()`：這裡只需要下限。算式在矮螢幕會解出負值，
+      // 下限同時吃 safe-area，瀏海機不會把 mission 標籤塞進瀏海裡。
+      '--rs-lens-pad:max(calc(env(safe-area-inset-top, 0px) + ' + LENS_PAD_FLOOR_PX + 'px),',
+      ' calc(' + LENS_TARGET_VH + 'vh - ' + STAGE_TOP_TO_FRAME_PX + 'px));}',
       '#' + OVERLAY_ID + '.open{display:flex;}',
       // 🔴 相機影像一幀都不顯示（North Star §4，founder 2026-08-08 拍板）。
       // 看到自己的臉會變成自拍、有容貌焦慮的人反而更緊張，而且牽涉肖像權與免責。
@@ -313,7 +407,11 @@
       '#' + OVERLAY_ID + ' .rs-stardust{position:absolute;inset:0;border-radius:64px;',
       'overflow:hidden;pointer-events:none;}',
       '#' + OVERLAY_ID + ' .rs-stage{position:relative;z-index:1;display:flex;',
-      'flex-direction:column;align-items:center;gap:18px;padding:0 24px;text-align:center;}',
+      'flex-direction:column;align-items:center;gap:18px;text-align:center;',
+      // padding-top 走覆蓋層算好的 --rs-lens-pad —— 框心的位置由它決定。
+      // `flex:1` 讓 stage 撐滿覆蓋層，隱私註腳才有「底部」可以靠（見下）。
+      'flex:1;align-self:stretch;',
+      'padding:var(--rs-lens-pad) 24px calc(env(safe-area-inset-bottom, 0px) + 20px);}',
       '#' + OVERLAY_ID + ' .rs-mission{font-size:11px;letter-spacing:0.24em;',
       'text-transform:uppercase;color:#A6ADC8;}',
       '#' + OVERLAY_ID + ' .rs-symbol{font-size:13px;color:#3DE0FF;letter-spacing:0.08em;}',
@@ -576,7 +674,12 @@
       'background:#5A6178;display:inline-block;}',
       '#' + OVERLAY_ID + ' .rs-dot.pass i{background:#46E0B0;}',
       '#' + OVERLAY_ID + ' .rs-dot.fail i{background:#FF6B6B;}',
-      '#' + OVERLAY_ID + ' .rs-privacy{font-size:11px;color:#5A6178;}',
+      // 儀器上移到鏡頭軸線之後，底下空出約半個螢幕。隱私註腳本來就是註腳，
+      // 把它吸到底緣，整個版面才讀得像「刻意的」而不是「沒做完」。
+      // ⚠️ `margin-top:auto` 吃掉的是**剩餘空間**，不是固定值 —— 矮螢幕上剩餘
+      // 空間接近 0 時它自然退回緊接在指示燈下方，不會把自己推出視窗。
+      '#' + OVERLAY_ID + ' .rs-privacy{font-size:11px;color:#5A6178;margin-top:auto;',
+      'padding-top:18px;}',
       '#' + OVERLAY_ID + ' .rs-cancel{position:absolute;top:calc(env(safe-area-inset-top,0px) + 14px);',
       'right:16px;z-index:2;background:none;border:0;color:#A6ADC8;font-size:15px;',
       'font-family:inherit;padding:10px 14px;cursor:pointer;}',
@@ -737,6 +840,64 @@
   }
 
   /**
+   * 眼睛**在眼眶裡**偏到哪 —— 也就是「眼睛有沒有看向鏡頭」。
+   *
+   * 為什麼這跟 `headPose` 是兩件事（founder 2026-10-14：「應該是臉跟眼睛都要
+   * 正對螢幕才對，使用者的感受才會合理」）：`headPose` 量的是**頭的朝向**，
+   * 頭擺得再正，眼睛也可以飄到旁邊 —— 而那時畫面上沒有任何東西說得出這件事。
+   *
+   * 🔴 **為什麼這裡不需要做頭姿補償。** 一般的視線估計很難，因為虹膜在眼眶裡的
+   * 位移（eye-in-head）跟頭的朝向混在一起：頭轉開但眼睛追著鏡頭，虹膜會偏到
+   * 眼角，看起來像「沒在看」。但這個產品要的是那個**連言** ——
+   * 頭正（`headSquareness`）**且**眼睛在眼眶中央（這裡）⇒ 視線落在鏡頭上。
+   * 混淆項被前者吃掉了，所以兩個各自量就夠，不必把難題整個解開。
+   *
+   * 量法：每隻眼取虹膜 5 點的**形心**（不賭 468/473 一定是中心點），
+   * 減掉內外眥的中點，再以**兩眥距離**正規化 —— 所以距離遠近不影響這個比值，
+   * 跟 `headPose` 用兩眼外角距離正規化是同一個理由。兩眼取平均。
+   *
+   * 🔴 **拿不到虹膜點就回 `null`，不回 0、不回「置中」。**
+   * `refineLandmarks` 關著時 `lm` 只有 468 點，這些索引全是 undefined；
+   * 填一個「看起來合理」的 0 會讓下游**分不出**「他正在看鏡頭」和
+   * 「我們根本沒量」—— 那正是 CLAUDE.md 明列的那條硬規則。
+   *
+   * @param {Array<{x:number,y:number}>} lm - FaceMesh landmarks（需 478 點）。
+   * @returns {?{x:number, y:number}} 正規化位移（0 = 虹膜在眼眶中央）；量不到為 null。
+   */
+  function eyeGaze(lm) {
+    var acc = { x: 0, y: 0, n: 0 };
+    var eyes = [
+      { iris: IRIS_L, outer: EYE_OUTER_L, inner: EYE_INNER_L },
+      { iris: IRIS_R, outer: EYE_OUTER_R, inner: EYE_INNER_R },
+    ];
+    for (var e = 0; e < eyes.length; e++) {
+      var outer = lm[eyes[e].outer];
+      var inner = lm[eyes[e].inner];
+      if (!outer || !inner) continue;
+      var span = Math.hypot(outer.x - inner.x, outer.y - inner.y);
+      if (span < 1e-4) continue; // 退化幾何：不猜，跳過這隻眼
+      var ix = 0;
+      var iy = 0;
+      var n = 0;
+      for (var i = 0; i < eyes[e].iris.length; i++) {
+        var pt = lm[eyes[e].iris[i]];
+        if (!pt) continue;
+        ix += pt.x;
+        iy += pt.y;
+        n += 1;
+      }
+      if (n === 0) continue; // 這隻眼沒有虹膜點
+      acc.x += (ix / n - (outer.x + inner.x) / 2) / span;
+      acc.y += (iy / n - (outer.y + inner.y) / 2) / span;
+      acc.n += 1;
+    }
+    // 🔴 兩隻眼都量不到才是 null；量到一隻就用那一隻（側臉時遠側眼會掉點，
+    // 那時候「只有一隻眼的資料」仍然比「沒有資料」有用）。
+    if (acc.n === 0) return null;
+    return { x: acc.x / acc.n, y: acc.y / acc.n };
+  }
+
+  /**
    * 推導**唯一**那一條主指令。
    *
    * 資料早就在了 —— `onFaceResults` 每幀都算出臉框的中心與大小，先前卻被壓成一個
@@ -765,6 +926,15 @@
       if (pose && (Math.abs(pose.yaw) > YAW_SQUARE_MAX
         || pose.pitch < PITCH_SQUARE_MIN || pose.pitch > PITCH_SQUARE_MAX)) {
         return { key: 'square', text: '正對鏡頭', icon: '⊕' };
+      }
+      // 頭已經正了，但眼睛飄在別處 —— founder 2026-10-14：「臉跟眼睛都要正對
+      // 螢幕才對」。⚠️ **跟上面那條分開講**，因為要使用者做的動作不一樣：
+      // 一個是轉頭、一個是把視線移回來。合成一句「正對鏡頭」他會一直轉頭。
+      // ⚠️ 排在姿勢**之後**：頭歪時包圍盒本身就被扭曲了，而虹膜位移在那種
+      // 時候也不可靠（遠側眼被壓縮）。先把頭喬正，眼睛這條才有意義。
+      var gaze = session.gaze;
+      if (gaze && (Math.abs(gaze.x) > GAZE_X_MAX || Math.abs(gaze.y) > GAZE_Y_MAX)) {
+        return { key: 'gaze', text: '看向鏡頭', icon: '◉' };
       }
       if (box.size < FACE_SIZE_MIN) return { key: 'closer', text: '再靠近一些', icon: '＋' };
       if (box.size > FACE_SIZE_MAX) return { key: 'farther', text: '退遠一點', icon: '－' };
@@ -1128,6 +1298,22 @@
     session.landmarkCount = lm.length;
     // 頭部朝向：只餵指令，**不進閘門**（見 gatesAdvance 的註解）。
     session.headPose = headPose(lm);
+    // 眼睛朝向：同樣只餵指令與收散，不進閘門。
+    // EWMA 平滑 —— 虹膜 landmark 會抖，而 180ms 一幀的取樣率讓單幀雜訊足以
+    // 讓提示閃爍。⚠️ **量不到時不要讓舊值繼續漂著**：回 null 就把平滑值一起
+    // 清掉，否則臉離開畫面之後畫面還在根據一個過期的視線講話。
+    var gaze = eyeGaze(lm);
+    if (gaze === null) {
+      session.gaze = null;
+    } else if (session.gaze === null) {
+      session.gaze = gaze; // 第一筆直接採用，不從 0 爬上來
+    } else {
+      var a = GAZE_SMOOTH_ALPHA;
+      session.gaze = {
+        x: session.gaze.x + a * (gaze.x - session.gaze.x),
+        y: session.gaze.y + a * (gaze.y - session.gaze.y),
+      };
+    }
     session.lastFaceCenter = { x: centerX, y: centerY };
     session.lastFaceAt = now;
     // 保留中心與大小 —— 方向指令（resolveHint）需要它們。先前這裡直接壓成
@@ -1309,10 +1495,13 @@
       // 而且 preview-scan-stardust.mjs 有斷言在看它的跨度。收散吃兩者的乘積
       // （見 stardust.js 的 convergeStill）：穩住只說「沒有晃」，一個人可以
       // 一動不動地把頭轉開，那時候畫面上得有東西說「你歪了」。
+      // 🔴 **眼睛也走這個欄位，不另開星塵通道**（`facingSquareness` = 臉與眼睛
+      // 取 min）。星塵的「預設值 = 恆等變換」是靠通道數量不長大守住的，
+      // 而 `READOUT_SQUARE_WEIGHT` 因此仍然是收散強度的單一旋鈕。
       S.setReadout({
         stillness: readoutStillness(still),
         progress: progress,
-        squareness: headSquareness(session.headPose),
+        squareness: facingSquareness(session.headPose, session.gaze),
       });
     }
     S.setTone({
@@ -1379,6 +1568,47 @@
   }
 
   /**
+   * 眼睛的正對程度 —— `headSquareness` 的同形兄弟，只是量的是眼睛。
+   *
+   * 為什麼要分成兩個函式而不是把視線塞進 `headSquareness`：
+   * 它們錨在**不同的門檻**上（頭是 yaw/pitch，眼睛是虹膜位移），
+   * 分開寫兩邊都驗得到極值；合在一起之後，harness 就只能驗合併後的結果，
+   * 分不出是哪一半壞了。合併放在呼叫端（見 `facingSquareness`）。
+   *
+   * ⚠️ 水平與垂直**各自正規化再取 max**，不取向量長度 —— 這樣每一軸的門檻
+   * 就是它自己那個常數的意思（「x 到 0.14 就是 0」），調的時候才直覺。
+   * 跟 `headSquareness` 對 yaw/pitch 的作法一致。
+   *
+   * @param {?{x:number,y:number}} gaze - `eyeGaze()` 的輸出；null = 沒量到虹膜。
+   * @returns {number} 1 = 虹膜在眼眶中央，0 = 已經飄到提示門檻以外。
+   *   沒有 gaze 時回 1（＝恆等：沒量到就不要因此懲罰收散，同 `headSquareness`）。
+   */
+  function gazeSquareness(gaze) {
+    if (!gaze) return 1;
+    var xErr = GAZE_X_MAX > 0 ? Math.abs(gaze.x) / GAZE_X_MAX : 0;
+    var yErr = GAZE_Y_MAX > 0 ? Math.abs(gaze.y) / GAZE_Y_MAX : 0;
+    return 1 - clamp01(Math.max(xErr, yErr));
+  }
+
+  /**
+   * 「臉**跟**眼睛都正對螢幕」—— founder 2026-10-14 要的那個連言，換算成一個純量。
+   *
+   * 🔴 **取 `min` 而不是加權平均。** 臉歪或眼睛飄，**任何一個**都該讓收散鬆掉；
+   * 平均會讓「頭擺得超正但眼睛完全看別處」得到一個中間分數，而那個狀態
+   * 一點都不像「正對儀器」。min 讀起來就是那句話本身：兩個都要成立。
+   *
+   * ⚠️ 兩邊都用「沒量到就回 1」，所以 `min` 在只有一半資料時會自動退化成
+   * 另一半 —— 不需要在這裡再寫一次 null 分支。
+   *
+   * @param {?{yaw:number,pitch:number}} pose
+   * @param {?{x:number,y:number}} gaze
+   * @returns {number} 1 = 臉與眼睛都正對。
+   */
+  function facingSquareness(pose, gaze) {
+    return Math.min(headSquareness(pose), gazeSquareness(gaze));
+  }
+
+  /**
    * 收束時把顏色交給結果。
    *
    * 有讀數：先閃過 gold（`--gold-secured` = SECURED，跟光弧同一拍），
@@ -1424,7 +1654,12 @@
         },
       });
       instance.setOptions({
-        maxNumFaces: 1, refineLandmarks: false,
+        // 🔴 `refineLandmarks: true` 是為了拿**虹膜**（468–477）—— 沒有它就沒有
+        // `eyeGaze`，「眼睛有沒有看向鏡頭」這件事量不到（founder 2026-10-14）。
+        // 代價：attention mesh 讓單次推論變重（約 2×）。不會爆記憶體 ——
+        // 下面的 `faceBusy` 重疊防護 + `FACE_INTERVAL_MS` 間隔還在，最差只是
+        // **推論幀數變少**；而那件事揭曉畫面自己會說（規格行印「N 幀推論」）。
+        maxNumFaces: 1, refineLandmarks: true,
         minDetectionConfidence: 0.5, minTrackingConfidence: 0.5,
       });
       instance.onResults(onFaceResults);
@@ -2284,7 +2519,7 @@
         blinkCounter: null, lastBlinkFeedAt: 0, prevEyeOpen: 1,
         // 谷底式眨眼偵測的狀態（見 BLINK_DIP_RATIO 的註解）。
         eyeBaseline: null, eyeDip: null,
-        lmAcc: { n: 0, stillness: 0 }, landmarkCount: 0,
+        lmAcc: { n: 0, stillness: 0 }, landmarkCount: 0, gaze: null,
         stardust: false,
         // 借來的星塵綁定（`{node, fitContainer}`）。非 null 就代表**欠著一次歸還**。
         borrowedFrom: null,
@@ -2355,6 +2590,40 @@
         PITCH_SQUARE_MIN: PITCH_SQUARE_MIN,
         PITCH_SQUARE_MAX: PITCH_SQUARE_MAX,
         READOUT_SQUARE_WEIGHT: READOUT_SQUARE_WEIGHT,
+      },
+    },
+    /**
+     * Harness contract（`scripts/preview-scan-lens-offset.mjs` 用）。**唯讀**。
+     *
+     * 版面常數開出來，是為了讓 harness 能問「算式用的是不是這幾個具名常數」，
+     * 而不是自己抄一份數字 —— 抄一份的 harness 在常數被改掉時不會紅。
+     */
+    /**
+     * Harness contract（`scripts/preview-scan-squareness.mjs` 用）。**唯讀**。
+     *
+     * 跟 `__pose` 分開開出來，是因為它們錨在不同的門檻上 —— 分開才驗得到
+     * 各自的極值。`facing` 是兩者的連言（founder 2026-10-14 那句話本身），
+     * 它要有自己的斷言：頭正 + 眼睛飄必須讓合併分數掉下來，否則「都要正對」
+     * 這個需求等於沒驗到。
+     */
+    __gaze: {
+      measure: eyeGaze,
+      squareness: gazeSquareness,
+      facing: facingSquareness,
+      constants: {
+        GAZE_X_MAX: GAZE_X_MAX,
+        GAZE_Y_MAX: GAZE_Y_MAX,
+        GAZE_SMOOTH_ALPHA: GAZE_SMOOTH_ALPHA,
+        IRIS_L: IRIS_L, IRIS_R: IRIS_R,
+        EYE_OUTER_L: EYE_OUTER_L, EYE_OUTER_R: EYE_OUTER_R,
+        EYE_INNER_L: EYE_INNER_L, EYE_INNER_R: EYE_INNER_R,
+      },
+    },
+    __layout: {
+      constants: {
+        LENS_TARGET_VH: LENS_TARGET_VH,
+        STAGE_TOP_TO_FRAME_PX: STAGE_TOP_TO_FRAME_PX,
+        LENS_PAD_FLOOR_PX: LENS_PAD_FLOOR_PX,
       },
     },
     __blink: {
