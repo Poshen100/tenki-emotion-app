@@ -46,6 +46,10 @@
 2. 建一個**空的** private project：<https://gitlab.com/projects/new#blank_project>
    - Visibility 選 **Private**
    - 🔴 **不要勾**「Initialize repository with a README」
+   - ⚠️ **已經勾了也不用重建。** 對面的 `main` 會有一顆我們沒有的 commit，
+     跟本機歷史沒有共同祖先，直接推會被 non-fast-forward 擋下來。
+     `mirror-push.sh` 的 preflight 會攔住並告訴你怎麼辦（見下）。
+     （2026-10-26 實際踩到。）
 3. 產 token：<https://gitlab.com/-/user_settings/personal_access_tokens>
    - ⚠️ **`Generate token` 是個下拉，底下還分兩種 —— 兩種都推得動：**
 
@@ -88,8 +92,31 @@
 bash scripts/mirror-push.sh
 ```
 
-它會推 `--all` 與 `--tags`。沒設變數時會明確說缺什麼然後退出（exit 2），
-不會半成功。
+它會推 `--all` 與 `--tags`，推之前先 `git ls-remote` 問對面有什麼。
+退出碼分得開，不會半成功：
+
+| exit | 意思 | 怎麼辦 |
+|---|---|---|
+| 2 | 兩個環境變數沒設齊 | 照上面的一次性設定做 |
+| 1 | 連不上鏡像，或憑證被拒 | token 打錯／過期／權限不足（要 `write_repository` 或 Code→Push）|
+| 3 | 對面有本機沒有的 commit | 見下面那條 |
+
+🔴 **exit 3（對面有東西）怎麼處理。** 最常見是建 project 時勾了 README。
+preflight 在**送出任何物件之前**就擋下來，兩條路：
+
+```sh
+# a) 覆寫鏡像 —— 鏡像本來就該是本機的精確副本
+MIRROR_FORCE=1 bash scripts/mirror-push.sh
+# b) 或在 GitLab 上把那些 commit 砍掉，再重跑不帶 MIRROR_FORCE 的版本
+```
+
+⚠️ **`MIRROR_FORCE` 刻意不是預設值。** 這次對面只有一顆拋棄式 README，
+覆寫無害；但「鏡像推送預設 force」會長久留在 repo 裡，而下一次對面
+可能有別人推的東西。預設安全、要覆寫就講出來。
+
+⚠️ **拿 clone URL 不要用猜的。** GitLab 的顯示名稱（例「Tenki Core-group」）
+跟 URL 裡的 slug 可以不同。到 project 頁按 **`Code`** → **Clone with HTTPS**
+複製，那個值就是 `MIRROR_REMOTE`。
 
 🔴 **這支刻意不做 `git remote add`** —— 帶憑證的 URL 只在那一次 push 用，
 不寫進 `.git/config`。已驗證：token 不會出現在輸出、不會進 config、
