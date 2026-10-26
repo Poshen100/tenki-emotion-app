@@ -28,6 +28,90 @@
      勿刪、勿移動、勿複製第二份：`scripts/verify.sh` 驗它恰好出現一次、
      而且排在所有條目之前。它的存在理由見協議第 1 條。 -->
 
+# 2026-10-17 Session Update（GitHub 帳號停權 —— 影響範圍實測與 docs/VENDOR-RISK.md）
+
+## What was done
+
+2026-10-16 founder 的 GitHub 帳號被以「ToS 違規」停權（Ticket 4868985）。
+推送、PR、CI、Vercel 新部署全斷。10-17 Support 回覆：abuse-detection 標記 →
+人工審查，詢問用途（已回）。
+
+本機這邊：4 個 commit 做完、`verify.sh --quick` 全綠、推不上去 →
+`git bundle` 保全並交給 founder。新增 `docs/VENDOR-RISK.md`。
+
+## 教訓 / 注意
+
+1. 🔴 **「完全不受影響」做不到，但「停權只擋開發、不擋收入」做得到。**
+   實測影響範圍：已上架 App、已部署網站、訂閱金流**都不受影響**；
+   斷掉的是 push / PR / CI / **Vercel 新部署**（它從 GitHub 拉）。
+   → 真正的商業風險不是服務中斷，是**線上有 bug 卻推不出修正版**。
+2. 🔴 **本機 commit 在臨時容器裡不算安全。** 推不上去時第一件事是
+   `git bundle` 把工作帶出容器，不是繼續等。
+3. 🔴 **觸發點很可能是 AI agent 的 API burst**（大量呼叫 + App token 開 PR +
+   密集觸發 7–10 分鐘的 Playwright job），在濫用偵測眼裡像 bot farm。
+   商業化後自動化更多 → 風險往上走。
+4. ⚠️ **風險更高的是 Apple / Google**：它們能下架 App 讓收入歸零，
+   而訂閱金流就在它們手上。GitHub 停權一毛錢都不會掉。
+5. 停權當下的紀律：不要開新帳號（視為規避）、不要開第二張票、
+   申訴要問**具體是哪一條**、不要催。
+
+## 下次接手點
+
+- GitHub 恢復後：`git fetch origin main` →
+  `git rebase --onto origin/main 7f7d8ffa` → 推 → PR → CI → 合併。
+  本機帶著 12 個**已被 squash 進 main** 的 commit，不 rebase 會重推一次。
+- founder 要做的（需要帳號權限，AI 做不了）：第二個 git remote、
+  搬 GitHub Org + 第二位 owner、升付費方案、Vercel CLI 部署備援。
+  清單在 `docs/VENDOR-RISK.md` §2。
+
+# 2026-10-16 Session Update（退掉版面上移 —— 他要的是回饋通道，我交付的是版面座標）
+
+## What was done
+
+founder 實走後的糾正：「我要的不是整個掃描上移。我要的是當我的臉正對、
+眼睛正對，對位框框能正確的反饋。」
+
+#281 第一段整個 revert（含那支 49 條的 `preview-scan-lens-offset.mjs` 一起刪 ——
+留著等於用斷言強制執行 founder 否決掉的版面）。真正的修法是兩刀，都在框框本身：
+
+1. `alignError()` 加第四軸 `1 - facingSquareness(pose, gaze)` ——
+   在這之前 `--rs-err` 只吃取景三軸，臉與眼睛完全不在裡面。
+2. `.locked .rs-halo-corners` 不再寫死 `scale(1);opacity:1`，改成仍讀
+   `--rs-err` 但增益 `LOCKED_ERR_GAIN = 1/3`。
+
+順手把「訊號不足」那一頁改成說出它量到什麼（`偵測到臉 · 96 幀推論 · 24.0 秒`）。
+squareness harness 32 → 42 條。
+
+## 教訓 / 注意
+
+1. 🔴 **診斷出一個真的問題，不等於修對了對方講的那個問題。** #281 量到的
+   10° 視線偏離是真的、推導也對，但 founder 要的是**回饋通道**。
+   判準：把對方的句子逐字拆開 —— 「對位框框」是名詞、「反饋」是動詞，
+   而我交付的是版面座標。**名詞對不上就是還沒修到。**
+2. 🔴 **「一旦進入某個狀態就把回饋關掉」是第二次了**（#274 對位弧、本次角括號）。
+   已提煉進 PLAYBOOK。
+3. 🔴 **區間切除（`s.index(A)` 到 `s.index(B)`）會吃掉夾在中間的東西**，
+   而 `node --check` 不會吭聲。這次把 `__gaze` 出口整個切掉，是 harness
+   跑不動才抓到的。
+4. 🔴 **量帶 transition 的元素要先把 transition 關掉**，不要改成「多等一下」。
+5. ⚠️ **退版面之後 10° 那個事實還在**：盯著球看時視線偏離鏡頭約 10°，
+   換算 `0.4·sin(10°) ≈ 0.07`，吃掉約 32% 的垂直視線預算 —— 所以
+   「看著球」時 facing 約 0.68 而非 1，角括號會照實畫出來。
+   那是**刻意留著的現況**（founder 否決了用版面消它），不要再動版面。
+
+## 下次接手點
+
+- 🔴 **GitHub 存取在 2026-10-16 失效**（`403 Your account was suspended`），
+  所以這一輪**只 commit 在本機，沒推、沒 PR**。
+  修法：https://claude.ai/connect-github 重新連接。
+- ⚠️ 恢復後要 `git fetch origin main` 並
+  `git rebase --onto origin/main 7f7d8ffa` —— 本機分支帶著 12 個**已經被
+  squash 合併過**的 commit（main 上是 `46a0a8ac`），不 rebase 會重推一次。
+- 實機要裁的常數又多一個：`LOCKED_ERR_GAIN = 1/3`（鎖定後還保留多少回饋），
+  加上既有五個：`GAZE_X_MAX` 0.14 · `GAZE_Y_MAX` 0.22 ·
+  `READOUT_SQUARE_WEIGHT` 0.45 · `YAW_SQUARE_MAX` 0.22。
+  （`LENS_TARGET_VH` 已隨 revert 消失。）
+
 # 2026-10-15 Session Update（PR #281 的紅燈不是 PR 的 —— 一條會看牆上時鐘的斷言）
 
 ## What was done

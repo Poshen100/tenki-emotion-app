@@ -41,8 +41,14 @@ await new Promise((ok) => server.listen(0, '127.0.0.1', ok));
 const base = `http://127.0.0.1:${server.address().port}`;
 
 const chromium = await getChromium();
-const browser = await chromium.launch();
-const page = await browser.newPage();
+// 假相機：下面「鎖定之後角括號還會不會動」那一組要把覆蓋層真的打開
+// （樣式只在 `begin()` 裡注入），所以需要 getUserMedia 不跳權限視窗。
+// 其餘斷言都是純函式，不受影響。
+const browser = await chromium.launch({
+  args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
+});
+const ctx = await browser.newContext({ permissions: ['camera'] });
+const page = await ctx.newPage();
 await page.goto(`${base}/apps/preview/v6/index.html`, { waitUntil: 'domcontentloaded' }).catch(() => {});
 await page.waitForFunction(() => !!(window.TENKI_READINESS_SCAN
   && window.TENKI_READINESS_SCAN.__pose), null, { timeout: 15_000 });
@@ -104,6 +110,8 @@ check('🔴 閘門仍然真的在看 centering 與 stillness（上一條不是�
 // 「各自以自己的 span 正規化」這兩件事才驗得到 —— 做成對稱的話，
 // 把其中一隻眼整個忽略掉也能讓斷言變綠。
 const G = await page.evaluate(() => window.TENKI_READINESS_SCAN.__gaze.constants);
+const G_IDEAL = G.RETICLE_IDEAL_SIZE;
+await page.evaluate((v) => { window.__ideal = v; }, G_IDEAL);
 
 /**
  * 造一組 478 點 landmark：兩隻眼的虹膜各自偏離眼眶中心 (gx, gy)（已正規化）。
@@ -221,6 +229,103 @@ check('🔴 眼睛正但臉歪 → 掉到 0（眼睛看著也救不回來）',
 check('取 min 不是取平均（任一邊歪掉就等於那一邊的分數）',
   await facing(squarePose, { x: G.GAZE_X_MAX / 2, y: 0 }), 0.5, 1e-9);
 check('兩邊都沒資料時回 1（恆等）', await facing(null, null), 1, 1e-9);
+
+// ── 3d. 🔴 接線：臉與眼睛真的接到「對位框框」上了嗎 ──
+//
+// founder 2026-10-16 實走的糾正：「我要的是當我的臉正對、眼睛正對，
+// 對位框框能正確的反饋。」在這之前 `--rs-err`（角括號的收攏程度）只吃三個
+// **取景**軸（位置／大小），朝向與眼睛完全不在裡面。
+//
+// 這一組驗的是**接線**，不是公式 —— 上面那些斷言全綠的情況下，
+// `alignError` 仍然可以完全不理會 facing，而那正是 2026-10-16 之前的狀態。
+const ALIGNED_BOX = { centerX: 0.5, centerY: 0.5, size: G_IDEAL };
+const err = (pose, gaze) => page.evaluate(
+  ([b, p, g]) => window.TENKI_READINESS_SCAN.__gaze.alignError(b, p, g),
+  [ALIGNED_BOX, pose, gaze]);
+
+const errAligned = await err(squarePose, centredGaze);
+const errCrooked = await err(crookedPose, centredGaze);
+const errDrift = await err(squarePose, driftGaze);
+
+console.log(`\n對位誤差（取景完全對齊時）：臉正眼正 ${errAligned.toFixed(3)}`
+  + ` · 臉歪 ${errCrooked.toFixed(3)} · 眼睛飄 ${errDrift.toFixed(3)}`);
+
+check('取景與朝向都對齊時對位誤差 ＝ 0', errAligned, 0, 1e-9);
+check('🔴 取景一動也不動，但**臉歪**時對位誤差變大（朝向有接到框框上）',
+  errCrooked > errAligned + 0.1, true);
+check('🔴 取景一動也不動，但**眼睛飄**時對位誤差變大（眼睛有接到框框上）',
+  errDrift > errAligned + 0.1, true);
+// 配一條活性：前兩條是「比 0 大」，而取景本身也必須仍然推得動它 ——
+// 少了這條，把 alignError 寫成「只看 facing」也會讓上面全綠。
+check('🔴 取景跑掉時對位誤差也要變大（上面兩條不是把取景軸拆掉換來的）',
+  await err(squarePose, centredGaze).then(() => page.evaluate(
+    ([p, g]) => window.TENKI_READINESS_SCAN.__gaze.alignError(
+      { centerX: 0.5, centerY: 0.5 + 0.09, size: window.__ideal }, p, g),
+    [squarePose, centredGaze])) > errAligned + 0.1, true);
+
+// ── 3e. 🔴 鎖定之後，角括號還會不會動 ──
+//
+// 這一條是 founder 2026-10-16 那句話的**直接守門**，而且不能用原始碼比對 ——
+// 要問真的 render 出來的 computed style。
+//
+// 2026-10-16 之前這裡是寫死的 `transform:scale(1);opacity:1`：入框那一刻
+// 角括號就凍結，而使用者喬正臉、把視線移回鏡頭**正好都發生在入框之後** ——
+// 他最需要回饋的那一段，畫面反而一句話都不說。
+// ⚠️ 跟 #274 修過的「一旦入框，臉朝哪裡對儀器完全沒差」是同一個形狀。
+await page.evaluate(() => {
+  window.TENKI_READINESS_SCAN.begin({ mission: 'daily' }).catch(() => {});
+});
+await page.waitForSelector('#tenki-readiness-scan.open', { timeout: 10_000 });
+await page.waitForTimeout(250);
+
+/**
+ * 把 frame 設成指定 class + err，回傳角括號**真的被算出來的** transform / opacity。
+ *
+ * ⚠️ **先把 transition 關掉再量。** 角括號有 0.16s（鎖定後 0.3s）的過渡，
+ * 設完變數立刻讀到的是**過渡前的舊值** —— 第一版就是這樣，四組數字全都讀成
+ * `--rs-err` 的預設值 1，看起來像產品壞了。關掉過渡比「多等 400ms」好：
+ * 等待會讓這條斷言吃時序，而偶紅的斷言比紅的更貴。
+ */
+const corners = (cls, errVal) => page.evaluate(([c, e]) => {
+  const f = document.querySelector('#tenki-readiness-scan .rs-frame');
+  const el = document.querySelector('#tenki-readiness-scan .rs-halo-corners');
+  el.style.transition = 'none';
+  f.className = 'rs-frame ' + c;
+  f.style.setProperty('--rs-err', String(e));
+  void el.getBoundingClientRect(); // 強制 reflow，讓新值當場生效
+  const cs = getComputedStyle(el);
+  // matrix(a,b,c,d,e,f) 的 a 就是 scaleX（這裡沒有旋轉/傾斜）。
+  const m = cs.transform === 'none' ? [1] : cs.transform.match(/-?[\d.]+/g).map(Number);
+  return { scale: m[0], opacity: Number(cs.opacity) };
+}, [cls, errVal]);
+
+const lock0 = await corners('locked', 0);
+const lock1 = await corners('locked', 1);
+const free0 = await corners('tracking', 0);
+const free1 = await corners('tracking', 1);
+console.log(`\n角括號 scale/opacity —— 鎖定 err0 ${lock0.scale.toFixed(4)}/${lock0.opacity}`
+  + ` · err1 ${lock1.scale.toFixed(4)}/${lock1.opacity}`
+  + ` ‖ 未鎖定 err0 ${free0.scale.toFixed(4)}/${free0.opacity}`
+  + ` · err1 ${free1.scale.toFixed(4)}/${free1.opacity}`);
+
+check('🔴 **鎖定之下**對位誤差仍然推得動角括號的 scale（這是那句話的守門）',
+  lock1.scale > lock0.scale + 0.01, true);
+check('🔴 鎖定之下 opacity 也跟著走（不是只有 scale 這一條通道活著）',
+  lock1.opacity < lock0.opacity - 0.01, true);
+check('🔴 對齊時鎖定仍然是 scale(1) —— 「突然的靜」沒被動到',
+  lock0.scale, 1, 1e-6);
+check('對齊時鎖定仍然是 opacity 1', lock0.opacity, 1, 1e-6);
+// 成對：鎖定的幅度必須明顯小於未鎖定，否則「鎖定」在視覺上就不是一個落點了。
+check('🔴 鎖定的幅度明顯小於未鎖定（鎖定仍然讀得出是收斂的落點）',
+  (lock1.scale - lock0.scale) < (free1.scale - free0.scale) * 0.6, true);
+check('🔴 未鎖定那條路本來就會動（上面幾條不是在量一個壞掉的規則）',
+  free1.scale > free0.scale + 0.05, true);
+
+await page.evaluate(() => {
+  const b = document.querySelector('#tenki-readiness-scan [data-rs="cancel"]');
+  if (b) b.click();
+});
+await page.waitForTimeout(200);
 
 // ── 4. 星塵端：預設恆等、傳了才動，而且只動收散不動色彩 ──
 //

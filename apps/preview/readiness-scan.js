@@ -96,6 +96,16 @@
    * 對應角括號 scale(1.07)＝改動前的固定值，所以鎖定那一刻不會跳。
    */
   var ERR_RATIO_SPAN = 2;
+  /**
+   * 鎖定之後角括號還保留多少對位回饋（1 = 跟未鎖定一樣，0 = 完全凍結）。
+   *
+   * 🔴 **不得取 0。** 取 0 就是 2026-10-16 之前的行為：入框那一刻回饋整個消失，
+   * 而使用者喬正臉與眼睛**正好都發生在入框之後** —— 他最需要回饋的那一段，
+   * 畫面反而一句話都不說。
+   * 取 1/3：鎖定仍然讀得出是「突然的靜」（幅度明顯收小、走 snap 曲線），
+   * 但臉歪或眼睛飄的時候角括號還會張開。
+   */
+  var LOCKED_ERR_GAIN = 1 / 3;
   /** 眨眼遲滯門檻（EAR-normalized，與 takeover 同一組）。 */
   /**
    * Soul Lock Beat 3 的眨眼寬限期（ms）。
@@ -199,40 +209,6 @@
   var FACE_CENTER_X_TOL = 0.08;
   var FACE_CENTER_Y_TOL = 0.09;
   /**
-   * 掃描框該離視窗頂端多近 —— 也就是**把儀器放到鏡頭軸線附近**。
-   *
-   * 🔴 這不是美術決定，是幾何。前鏡頭在手機最上緣，而覆蓋層原本把整個 stage
-   * 置中（`justify-content:center`），量到的框心落在 **0.43–0.47H**。使用者盯著
-   * 星塵球看 → 視線落在螢幕中段 → 相機從上方俯看 → 臉就出現在畫面**下半部**。
-   *
-   * 換算（H=852、機身顯示區約 149mm、手持約 325mm、鏡頭約在 y=55px）：
-   *   原本 frameCY=380.5 → 偏離鏡頭 325px ≈ 57mm → **約 10°**
-   * 而視訊研究裡超過約 **5°** 就讀得出「沒有看著對方」。同一個 10° 也正是
-   * `resolveHint` 一直回「向上對齊」的成因：10° 在垂直 FOV 約 65° 的前鏡頭上
-   * 換算成 `box.centerY ≈ 0.67`，遠在 `FACE_CENTER_Y_TOL = 0.09` 的容許帶外。
-   * **「眼睛沒對正」與「向上對齊一直跳」是同一條幾何**，所以一起修。
-   *
-   * 取 20：H=852 時框心落在 ~0.205H，偏離降到 **約 3.6°**；decision mission 多一行
-   * symbol（+33px）落在 ~0.244H ≈ **4.6°**，兩個都在 5° 以內。
-   * ⚠️ 這是**一個數字就能調的旋鈕** —— 實機覺得太高就把它調大，不要去動
-   * `FACE_CENTER_Y_TOL`（容許帶沒錯，錯的是版面；兩個一起改就分不出哪個有效）。
-   */
-  var LENS_TARGET_VH = 20;
-  /**
-   * stage 頂端到框心的距離，**量出來的不是算出來的**：
-   * `.rs-mission` 15px + stage gap 18px + 半個框 118px = 151px。
-   * （decision mission 會多一個 `.rs-symbol` 15 + gap 18 = +33px，所以框心再低 33px；
-   * harness 兩個 mission 各驗一條。）
-   */
-  var STAGE_TOP_TO_FRAME_PX = 151;
-  /**
-   * padding 的下限 —— **短螢幕的保命索**。
-   * `LENS_TARGET_VH` 的算式在 iPhone SE（667px）會解出 **-17.6px**，照單全收
-   * 會把 mission 標籤推到視窗外。取 24 + safe-area：SE 上框心反而落在 0.26H，
-   * 但 SE 機身更短、手也拿得更近，換算出來約 4.3°，一樣在門檻內。
-   */
-  var LENS_PAD_FLOOR_PX = 24;
-  /**
    * 鎖定遲滯（見 `evalFramed`）。
    *
    * `FRAME_LOCK_STREAK = 2`：以 `FACE_INTERVAL_MS`(180ms) 計 ≈ 360ms 才入鎖。
@@ -287,10 +263,19 @@
    * 取 **0.14（≈20°）**：明顯看開了才喊。要改靈敏度就改這個角度，
    * 不要直接改數字 —— 數字是角度的函式。
    *
-   * 🔴 **為什麼門檻必須遠大於日常值**：儀器現在在 0.20H、鏡頭約在 0.05H，
-   * 使用者盯著星塵球時視線只偏約 3.7°（見 `LENS_TARGET_VH`），
-   * 換算 `0.4·sin(3.7°) ≈ 0.026`。門檻若訂在那附近就會變成**一直亮的提示** ——
+   * 🔴 **為什麼門檻必須遠大於日常值**：掃描框在螢幕中段（約 0.44H）、
+   * 鏡頭在最上緣（約 0.05H），所以使用者盯著星塵球看的時候，視線本來就
+   * **偏離鏡頭約 10°**（H=852、機身約 149mm、手持約 325mm），
+   * 換算 `0.4·sin(10°) ≈ 0.07`。門檻若訂在那附近就會變成**一直亮的提示** ——
    * 而上面 `YAW_SQUARE_MAX` 的註解已經說過，那比沒有提示更糟。
+   *
+   * ⚠️ **而那 0.07 同時是 `gazeSquareness` 在日常使用下的地板**：
+   * 它吃掉約 `0.07 / GAZE_Y_MAX ≈ 0.32` 的垂直預算，所以「看著球」時
+   * facing 大約是 0.68、不是 1。這是**真話**（你確實沒在看鏡頭），
+   * 而且角括號會照實把它畫出來（見 `updateReticle` 的第四軸）。
+   * 🔴 2026-10-15 曾經為了消掉這 10° 把整個儀器上移，**被 founder 否決**
+   * （「我要的不是整個掃描上移」）—— 所以這個地板是**刻意留著的現況**，
+   * 不要再用版面去消它。要動就動 `GAZE_Y_MAX`，而且要有實機依據。
    *
    * ⚠️ **垂直方向另開一組，而且刻意更寬。** 虹膜正視時不保證落在兩眥連線上
    * （上眼瞼會蓋、眥的連線本身是斜的），基線不是 0 —— 跟
@@ -372,19 +357,7 @@
     style.textContent = [
       '#' + OVERLAY_ID + '{position:fixed;inset:0;z-index:' + OVERLAY_Z + ';display:none;',
       'background:#05060A;color:#F4F6FF;font-family:inherit;',
-      // 整個儀器往鏡頭軸線靠（見 LENS_TARGET_VH）。置中的版面把「你該看的東西」
-      // 放在螢幕中段，而鏡頭在最上緣 —— 於是「看著儀器」與「看著鏡頭」
-      // 在物理上是兩個不同的動作。
-      //
-      // ⚠️ 真正決定位置的是 `.rs-stage` 的 `flex:1` + `padding-top`，**不是這行
-      // `justify-content`** —— stage 會撐滿覆蓋層，justify-content 因此沒有作用。
-      // （反向驗證時把它改回 `center`，49 條斷言一條都沒紅，就是這個原因。）
-      // 留 `flex-start` 只當 `flex:1` 哪天被拿掉時的正確退路，不要把它讀成機制。
-      'flex-direction:column;align-items:center;justify-content:flex-start;gap:18px;',
-      // `max()` 而不是 `clamp()`：這裡只需要下限。算式在矮螢幕會解出負值，
-      // 下限同時吃 safe-area，瀏海機不會把 mission 標籤塞進瀏海裡。
-      '--rs-lens-pad:max(calc(env(safe-area-inset-top, 0px) + ' + LENS_PAD_FLOOR_PX + 'px),',
-      ' calc(' + LENS_TARGET_VH + 'vh - ' + STAGE_TOP_TO_FRAME_PX + 'px));}',
+      'flex-direction:column;align-items:center;justify-content:center;gap:18px;}',
       '#' + OVERLAY_ID + '.open{display:flex;}',
       // 🔴 相機影像一幀都不顯示（North Star §4，founder 2026-08-08 拍板）。
       // 看到自己的臉會變成自拍、有容貌焦慮的人反而更緊張，而且牽涉肖像權與免責。
@@ -407,11 +380,7 @@
       '#' + OVERLAY_ID + ' .rs-stardust{position:absolute;inset:0;border-radius:64px;',
       'overflow:hidden;pointer-events:none;}',
       '#' + OVERLAY_ID + ' .rs-stage{position:relative;z-index:1;display:flex;',
-      'flex-direction:column;align-items:center;gap:18px;text-align:center;',
-      // padding-top 走覆蓋層算好的 --rs-lens-pad —— 框心的位置由它決定。
-      // `flex:1` 讓 stage 撐滿覆蓋層，隱私註腳才有「底部」可以靠（見下）。
-      'flex:1;align-self:stretch;',
-      'padding:var(--rs-lens-pad) 24px calc(env(safe-area-inset-bottom, 0px) + 20px);}',
+      'flex-direction:column;align-items:center;gap:18px;padding:0 24px;text-align:center;}',
       '#' + OVERLAY_ID + ' .rs-mission{font-size:11px;letter-spacing:0.24em;',
       'text-transform:uppercase;color:#A6ADC8;}',
       '#' + OVERLAY_ID + ' .rs-symbol{font-size:13px;color:#3DE0FF;letter-spacing:0.08em;}',
@@ -502,7 +471,23 @@
       'fill:rgba(255,212,110,0.18);filter:drop-shadow(0 0 8px rgba(255,212,110,0.55));}',
       '#' + OVERLAY_ID + ' .rs-frame.secured .rs-target{stroke:rgba(255,212,110,0.5);}',
       // snap：四角一起收到位並提亮 —— MOTION-DIRECTION §4「Lock 鎖定」的落點。
-      '#' + OVERLAY_ID + ' .rs-frame.locked .rs-halo-corners{transform:scale(1);opacity:1;}',
+      //
+      // 🔴 **但不得把 `--rs-err` 整個關掉。** 這裡原本寫死 `scale(1);opacity:1`，
+      // 於是入框的那一刻角括號就凍結 —— 而使用者把臉喬正、眼睛看向鏡頭，
+      // **正好都發生在入框之後**。founder 2026-10-16 實走的說法是
+      // 「對位框框沒有正確的反饋」，成因就是這一行。
+      // ⚠️ 這跟 #274 修過的「一旦入框，臉朝哪裡對儀器完全沒差」是同一個形狀 ——
+      // 當時只修了對位弧，沒把教訓推到角括號上。
+      //
+      // 修法是**收幅度、不關通道**：仍然讀 `--rs-err`，但增益降到
+      // `LOCKED_ERR_GAIN`。鎖定仍然是一個「突然的靜」（幅度小、走 snap 曲線），
+      // 而喬正臉與眼睛時框框還會回應。
+      // 兩條都是「未鎖定那組的振幅 × LOCKED_ERR_GAIN」，基準點移到對齊時的
+      // scale(1) / opacity(1) —— 所以 err=0 時與舊行為**逐像素相同**，
+      // 差別只在 err 不為 0 的時候它還說得出話。
+      '#' + OVERLAY_ID + ' .rs-frame.locked .rs-halo-corners{',
+      'opacity:calc(1 - var(--rs-err, 0) * ' + (0.35 * LOCKED_ERR_GAIN).toFixed(4) + ');',
+      'transform:scale(calc(1 + var(--rs-err, 0) * ' + (0.14 * LOCKED_ERR_GAIN).toFixed(4) + '));}',
       // 收束時角括號跟著整組轉 gold（cyan=ACTIVE / gold=SECURED）。
       '#' + OVERLAY_ID + ' .rs-frame.secured .rs-halo-corners{stroke:' + HALO_SECURED + ';}',
       // ── 鎖定那一拍：發散 → 一擊 → 靜 ──
@@ -674,12 +659,7 @@
       'background:#5A6178;display:inline-block;}',
       '#' + OVERLAY_ID + ' .rs-dot.pass i{background:#46E0B0;}',
       '#' + OVERLAY_ID + ' .rs-dot.fail i{background:#FF6B6B;}',
-      // 儀器上移到鏡頭軸線之後，底下空出約半個螢幕。隱私註腳本來就是註腳，
-      // 把它吸到底緣，整個版面才讀得像「刻意的」而不是「沒做完」。
-      // ⚠️ `margin-top:auto` 吃掉的是**剩餘空間**，不是固定值 —— 矮螢幕上剩餘
-      // 空間接近 0 時它自然退回緊接在指示燈下方，不會把自己推出視窗。
-      '#' + OVERLAY_ID + ' .rs-privacy{font-size:11px;color:#5A6178;margin-top:auto;',
-      'padding-top:18px;}',
+      '#' + OVERLAY_ID + ' .rs-privacy{font-size:11px;color:#5A6178;}',
       '#' + OVERLAY_ID + ' .rs-cancel{position:absolute;top:calc(env(safe-area-inset-top,0px) + 14px);',
       'right:16px;z-index:2;background:none;border:0;color:#A6ADC8;font-size:15px;',
       'font-family:inherit;padding:10px 14px;cursor:pointer;}',
@@ -2039,9 +2019,39 @@
     // 所以走同一個面板、同樣停著等點，不是一閃而過。
     revealTone(null, !securedEarned(null)); // 星塵同理：退彩度，不給一個看起來像結果的顏色
     showVerdict('訊號不足', {
-      spec: '這次沒有取得讀數',
+      spec: giveUpSpec(),
       quality: '光線或穩定度不足 · 再試一次',
     }, null);
+  }
+
+  /**
+   * 失敗那一頁的規格行 —— **說出它量到了什麼**。
+   *
+   * 🔴 為什麼要有這個：founder 2026-10-15 晚上實走拿到「訊號不足」，而那一頁
+   * 原本只有「這次沒有取得讀數」一句話。於是那次失敗**沒有留下任何可判讀的
+   * 證據** —— 事後連「相機有沒有看到他」「推論跑了幾幀」都答不出來，
+   * 只能在「太暗」與「推論太慢」之間猜。
+   *
+   * 成功那一頁早就在報 `N 點臉部特徵 · N 幀推論 · N 秒`（見 `verdictFact`），
+   * 失敗這一頁沒有理由更含糊 —— **失敗比成功更需要證據**。
+   *
+   * 🔴 `everSawFace` 這一句是整行的重點：它把「太暗，相機根本沒看到你」跟
+   * 「看到了，但穩不住」分成兩件事。那是兩個完全不同的下一步。
+   *
+   * ⚠️ 只陳述量到的事實，不給建議、不帶醫療／金融語彙（建議在 quality 那一行）。
+   *
+   * @returns {string} 規格行。
+   */
+  function giveUpSpec() {
+    var seconds = ((performance.now() - session.captureStartedAt) / 1000).toFixed(1);
+    var parts = [session.everSawFace ? '偵測到臉' : '整場沒有偵測到臉'];
+    if (session.landmarkCount > 0) {
+      parts.push(session.lmAcc.n + ' 幀推論');
+    } else {
+      parts.push(session.acc.n + ' 幀畫面取樣');
+    }
+    parts.push(seconds + ' 秒');
+    return parts.join(' · ');
   }
 
   /** 取樣迴圈。進度只在光線與取景過關時前進（pause-not-reset）。 */
@@ -2143,6 +2153,39 @@
    * @param {{centerX:number,centerY:number,size:number}} box - 這一幀的臉框。
    * @param {boolean} framed - 是否已落在容差內。
    */
+  /**
+   * 對位誤差 —— 角括號收攏程度（`--rs-err`）的唯一來源。
+   *
+   * 各軸都正規化成「以容差為 1.0」，取最寬鬆的那一個（哪一項最差就聽哪一項），
+   * 再除以 `ERR_RATIO_SPAN` 讓「剛好進容差」對應 err=0.5。
+   *
+   * 🔴 **第四軸是臉與眼睛的朝向**（founder 2026-10-16：「我要的是當我的臉
+   * 正對、眼睛正對，對位框框能正確的反饋」）。在這之前前三軸全是**取景**
+   * （位置與大小）—— 擺正臉、看向鏡頭，框框一點反應都沒有。
+   *
+   * 尺度天然吻合，不需要新的係數：前三軸是「以容差為 1.0」，而
+   * `facingSquareness` 已經正規化成 **0 = 剛好到「正對鏡頭」/「看向鏡頭」
+   * 提示門檻**，所以 `1 - facing` 就是同一把尺上的同一個刻度。
+   *
+   * ⚠️ **只進視覺，不進 `framed`。** `framed` 由 `evalFramed` 算，它餵
+   * `gates.centering` 進而餵 `gatesAdvance()` —— 而朝向門檻沒實機調過，
+   * 進了閘門抓錯就會**掃不完**（見 `gatesAdvance` 的註解）。
+   *
+   * @param {{centerX:number,centerY:number,size:number}} box - 這一幀的臉框。
+   * @param {?{yaw:number,pitch:number}} pose - `headPose()` 的輸出。
+   * @param {?{x:number,y:number}} gaze - `eyeGaze()` 的輸出。
+   * @returns {number} 0 = 完全對齊，1 = 差得最遠。
+   */
+  function alignError(box, pose, gaze) {
+    var ratio = Math.max(
+      Math.abs(box.centerX - 0.5) / FACE_CENTER_X_TOL,
+      Math.abs(box.centerY - 0.5) / FACE_CENTER_Y_TOL,
+      Math.abs(box.size - RETICLE_IDEAL_SIZE) / ((FACE_SIZE_MAX - FACE_SIZE_MIN) / 2),
+      1 - facingSquareness(pose, gaze)
+    );
+    return clamp01(ratio / ERR_RATIO_SPAN);
+  }
+
   function updateReticle(box, framed) {
     if (!session) return;
 
@@ -2157,18 +2200,9 @@
       };
     }
 
-    // 角括號的收斂程度 ＝ 對位誤差。這是「越來越熱」的頻道，
+    // 角括號的收斂程度 ＝ 對位誤差（見 `alignError`）。這是「越來越熱」的頻道，
     // 與標記的「你在哪裡」互補，兩個報告不同的事。
-    //
-    // ratio：以容差為 1.0 的尺度，三軸取最寬鬆的那一個（哪一項最差就聽哪一項）。
-    // ratio ≤ 1 就是 framed。除以 ERR_RATIO_SPAN 讓「剛好進容差」對應 err=0.5
-    // ＝ 舊的固定 scale(1.07)，鎖定瞬間再由 .locked 收到 scale(1) —— 連續且不跳。
-    var ratio = Math.max(
-      Math.abs(box.centerX - 0.5) / FACE_CENTER_X_TOL,
-      Math.abs(box.centerY - 0.5) / FACE_CENTER_Y_TOL,
-      Math.abs(box.size - RETICLE_IDEAL_SIZE) / ((FACE_SIZE_MAX - FACE_SIZE_MIN) / 2)
-    );
-    var err = clamp01(ratio / ERR_RATIO_SPAN);
+    var err = alignError(box, session.headPose, session.gaze);
     var frame = q('frame');
     if (frame) {
       frame.classList.add('tracking');
@@ -2593,37 +2627,29 @@
       },
     },
     /**
-     * Harness contract（`scripts/preview-scan-lens-offset.mjs` 用）。**唯讀**。
-     *
-     * 版面常數開出來，是為了讓 harness 能問「算式用的是不是這幾個具名常數」，
-     * 而不是自己抄一份數字 —— 抄一份的 harness 在常數被改掉時不會紅。
-     */
-    /**
      * Harness contract（`scripts/preview-scan-squareness.mjs` 用）。**唯讀**。
      *
      * 跟 `__pose` 分開開出來，是因為它們錨在不同的門檻上 —— 分開才驗得到
      * 各自的極值。`facing` 是兩者的連言（founder 2026-10-14 那句話本身），
-     * 它要有自己的斷言：頭正 + 眼睛飄必須讓合併分數掉下來，否則「都要正對」
-     * 這個需求等於沒驗到。
+     * `alignError` 則是它**真的有沒有接到框框上**（founder 2026-10-16 的糾正）。
      */
     __gaze: {
       measure: eyeGaze,
       squareness: gazeSquareness,
       facing: facingSquareness,
+      alignError: alignError,
       constants: {
         GAZE_X_MAX: GAZE_X_MAX,
         GAZE_Y_MAX: GAZE_Y_MAX,
         GAZE_SMOOTH_ALPHA: GAZE_SMOOTH_ALPHA,
+        LOCKED_ERR_GAIN: LOCKED_ERR_GAIN,
+        ERR_RATIO_SPAN: ERR_RATIO_SPAN,
+        RETICLE_IDEAL_SIZE: RETICLE_IDEAL_SIZE,
+        FACE_CENTER_X_TOL: FACE_CENTER_X_TOL,
+        FACE_CENTER_Y_TOL: FACE_CENTER_Y_TOL,
         IRIS_L: IRIS_L, IRIS_R: IRIS_R,
         EYE_OUTER_L: EYE_OUTER_L, EYE_OUTER_R: EYE_OUTER_R,
         EYE_INNER_L: EYE_INNER_L, EYE_INNER_R: EYE_INNER_R,
-      },
-    },
-    __layout: {
-      constants: {
-        LENS_TARGET_VH: LENS_TARGET_VH,
-        STAGE_TOP_TO_FRAME_PX: STAGE_TOP_TO_FRAME_PX,
-        LENS_PAD_FLOOR_PX: LENS_PAD_FLOOR_PX,
       },
     },
     __blink: {
