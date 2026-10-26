@@ -750,6 +750,52 @@
     return sec >= 0 ? sec : null;
   }
 
+  // ═════════════════════════════════════════════════
+  // 🔴 守望的牆鐘上限 —— 以及「超過上限」那一筆的用時是什麼
+  //
+  // founder 2026-10-15 實走截圖：一筆「未判定」印著 **41:20**，
+  // 而它旁邊寫著「上限 30:00」。查出來的機制是：
+  // 守望每秒檢查 `elapsed >= 上限`，但 **iOS 把背景分頁的 `setInterval` 凍住**
+  // —— 使用者離開 41 分鐘，那個檢查一次都沒跑；回來的瞬間才醒來收束，
+  // 而 `elapsed` 已經是 41:20，就這樣被寫成 `durationSec`。
+  //
+  // 🔴 **41:20 量到的不是他考慮了多久，是「他隔多久才把 App 打開」。**
+  //    三小時後才開就會印 `3:00:00`。那跟 2026-10-11 退場的「平均用時」是
+  //    同一種數字：看起來在量使用者，實際在量某個無關的東西。
+  //
+  // 所以這種紀錄的 `durationSec` 是 **null**（我們不知道他真的看了多久），
+  // 而我們**確實知道**的那件事由 `endedBy: 'ceiling'` 帶著：它超過了上限。
+  // 夾到 30:00 是錯的解法 —— 那會變成「它在 30:00 結束」的謊。
+  // ═════════════════════════════════════════════════
+
+  /**
+   * 守望的牆鐘上限（秒）。超過就當作沒有判定收掉，避免跨日的殭屍 session。
+   *
+   * 🔴 住在共用模組而不是 `v6/index.html`：**讀端也要它**
+   * （`endedByCeiling()` 靠它判斷舊紀錄），而判定的單一來源要跨檔成立。
+   * ⚠️ v6 原本的註解寫著「與 decision-alert.js 的 WATCH_CEILING_MS 同一個值，
+   *    兩邊要一起改」—— 那句話 2026-10-15 查證時**已經不成立**
+   *    （decision-alert.js 裡沒有那個常數了）。註解過期的成本見 PLAYBOOK。
+   */
+  var WATCH_CEILING_SEC = 30 * 60;
+
+  /**
+   * 這一筆是**被上限收掉**的嗎（而不是使用者自己離開）。
+   *
+   * 🔴 舊紀錄沒有 `endedBy` 這一欄，所以要推：一筆「離開時沒有判定」
+   * 而 `durationSec` **超過上限**的紀錄，必然是上限收的 —— 正常路徑上
+   * 上限一到就會收束，走不到更大的數字。推導而不是改寫 store：
+   * 既有紀錄一個位元組都不動，而畫面立刻就誠實了。
+   *
+   * @param {Object} rec 統一 store 裡的一筆
+   * @returns {boolean}
+   */
+  function endedByCeiling(rec) {
+    if (!rec || rec.outcomeTag !== 'abandoned_no_judgment') return false;
+    if (rec.endedBy === 'ceiling') return true;
+    return typeof rec.durationSec === 'number' && rec.durationSec > WATCH_CEILING_SEC;
+  }
+
   global.TENKI_OUTCOME = {
     TEMPLATE_ID_TO_V6: TEMPLATE_ID_TO_V6,
     OUTCOME_VIEW: OUTCOME_VIEW,
@@ -775,6 +821,8 @@
     entryTimePatch: entryTimePatch,
     waitedSec: waitedSec,
     waitedPrecision: waitedPrecision,
+    WATCH_CEILING_SEC: WATCH_CEILING_SEC,
+    endedByCeiling: endedByCeiling,
     ENTRY_TIME_REASON_ZH: ENTRY_TIME_REASON_ZH,
     isBackfilled: isBackfilled,
     isDayPrecision: isDayPrecision,

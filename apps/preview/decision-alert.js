@@ -381,6 +381,7 @@
     'entryNote', 'entryState', 'entryBand', 'entryReadingAge', 'entryRescan', 'entryEvidence',
     'entryDiscLabel', 'entryDiscRate', 'entryStrip', 'entryDiscipline', 'entryCadence', 'entryCost',
     'btnDismiss', 'btnEngage',
+    'pendingBand', 'pendingBandText', 'pendingBandChips', 'pendingBandMore',
     'tplSheet', 'tplList', 'tplStatus', 'aggSheet', 'aggHead', 'aggList',
     'resultSheet', 'resultHead', 'resultOutcome', 'resultArc', 'resultArcCenter', 'resultArcGlow', 'resultArcTime',
     'resultHistory', 'resultMeterFill', 'resultRate', 'resultStrip',
@@ -479,6 +480,10 @@
     close: { text: '完成', cls: 'outcome' },
     cancel: { text: '取消', cls: 'dismissed' },
     timeout: { text: '時間到', cls: 'outcome' },
+    // 🔴 L1 那條帶補填結果時用。**沒有這一行的話**，`log('result', …)` 會掉進
+    //    `TYPE_LABELS[type] || { text: type }` 的 fallback，事件鏈上印出英文的
+    //    `result` —— 錯了也不吭聲，正是 PLAYBOOK 記的那條。
+    result: { text: '結果補填', cls: 'outcome' },
   };
 
   function nowLabel() {
@@ -703,12 +708,100 @@
     surfaceAlert(alert);
   }
 
+  // ═════════════════════════════════════════════════
+  // 🔴 L1：上一筆還沒填結果，順手帶一下
+  //
+  // founder 2026-10-11 的主意：「之後可能跳快訊可以補記錄」。
+  // 規格 `docs/DECISION-RECORD-LOOP.md` §4 把它列為三層提醒裡**最好**的一層
+  // —— 不只體驗好：它搭的是一個**使用者已經同意被打擾**的時刻，
+  // 所以額外打擾成本是 0；而且**零新基礎設施**（推播、面板、晶片全是現成的，
+  // L2 的盤後推播要排程器）。
+  //
+  // 🔴 補填 ≠ 補記（規格 §2）：這條帶做的是**補填**（紀錄在、只缺結果），
+  //    一下點完。它**不得**把人導去補記那張表單 —— 那是把一下的事變成八下。
+  // ═════════════════════════════════════════════════
+
+  /**
+   * 就地把結果寫回 store 裡的某一筆。
+   *
+   * 🔴 不走 `saveOutcome()`：那支是收束流程用的（它會補 contextTag、
+   * 或在找不到時 **push 一筆新的**）。這條帶只該改一個欄位，
+   * 找不到那一筆就什麼都不做 —— 寧可沒寫進去，也不要生出第二筆紀錄。
+   *
+   * @param {number} ts 那一筆的身分
+   * @param {string} result 新的 tradeResult
+   * @returns {boolean} 有找到並寫進去為 true
+   */
+  function writeTradeResultById(ts, result) {
+    var all = loadOutcomes();
+    for (var i = 0; i < all.length; i += 1) {
+      if (all[i] && all[i].ts === ts) {
+        all[i].tradeResult = result;
+        localStorage.setItem(OUTCOME_STORE_KEY, JSON.stringify(all));
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * 還在等結果的那些（最新的排前面）。
+   *
+   * 🔴 判準走共用模組的 `awaitsResult()` —— Session 列表、Session 詳情、
+   * 這條帶，三個面同一把尺。那支模組的註解早就預留了這件事。
+   *
+   * @returns {Array<Object>}
+   */
+  function awaitingRecords() {
+    return loadOutcomes()
+      .filter(function (r) { return window.TENKI_OUTCOME.awaitsResult(r); })
+      .sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
+  }
+
+  /** L1 那條帶。沒有在等的就整條不存在。 */
+  function renderPendingBand() {
+    if (!el.pendingBand) return;
+    var list = awaitingRecords();
+    if (!list.length) { el.pendingBand.hidden = true; return; }
+
+    var rec = list[0];
+    el.pendingBand.hidden = false;
+    // 🔴 **一條帶最多講一筆。** 三組晶片疊在一條帶上就是一張表單假裝
+    //    自己是帶子，而這一頁的工作是**新的那個決策**。
+    var name = (typeof rec.symbol === 'string' && rec.symbol) ? rec.symbol : '上一筆';
+    el.pendingBandText.textContent = name + ' 還沒填結果';
+    el.pendingBandMore.hidden = list.length < 2;
+    if (list.length >= 2) {
+      el.pendingBandMore.textContent = '還有 ' + (list.length - 1) + ' 筆 · 到決策紀錄補';
+    }
+
+    el.pendingBandChips.textContent = '';
+    window.TENKI_OUTCOME.TRADE_RESULT_CHIPS.forEach(function (opt) {
+      var chip = document.createElement('button');
+      chip.className = 'result-chip';
+      chip.type = 'button';
+      chip.textContent = opt.label;
+      chip.setAttribute('data-trade-result', opt.value);
+      chip.addEventListener('click', function () {
+        if (!writeTradeResultById(rec.ts, opt.value)) return;
+        // 🔴 **就地收起，不跳頁。** 跳頁會把人從他正要做的那個決策上扯走
+        //    —— 那就從「順手」變成「打斷」，整條帶的理由就沒了。
+        renderPendingBand();
+        log('result', name + ' — 結果補上了');
+      });
+      el.pendingBandChips.appendChild(chip);
+    });
+  }
+
   function surfaceAlert(alert) {
     state.lastSurfacedAtBySymbol[alert.symbol] = Date.now();
     state.pendingAlert = alert;
     log('surfaced', alert.symbol + ' — 決策入口開啟');
 
     renderEntryPanel(alert);
+    // 🔴 排在 renderEntryPanel **之後**、openSheet 之前：這條帶是順便，
+    //    不得影響上面那支對新快訊的任何一步。
+    renderPendingBand();
     openSheet(el.entrySheet);
     startEntryAgeTicker(alert);
   }

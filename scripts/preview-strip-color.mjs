@@ -684,6 +684,172 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
   }
 }
 
+// ═════════════════════════════════════════════════
+// 🔴 L1：上一筆還沒填結果，順手帶一下
+//
+// founder 2026-10-11 的主意（規格 `docs/DECISION-RECORD-LOOP.md` §4）。
+// 這一組守的**不是「帶子會不會出現」**，是它的那幾條硬規則：
+//   · 不得阻擋、不得搶焦點 —— 忽略它，新快訊的流程逐步不變
+//   · 一條帶最多講**一筆**
+//   · 填完**就地收起，不跳頁**
+//   · 走共用判準（`awaitsResult`），不自己判一次
+//   · 不得把人導去**補記那張表單**（補填 ≠ 補記，成本差八倍）
+// ═════════════════════════════════════════════════
+{
+  const rp = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const mk = (ts, symbol, tradeResult) => ({
+    ts, symbol, templateId: 'MANCINI_FBD', source: 'alert',
+    outcomeTag: 'judged_entered', tradeResult,
+    durationSec: 90, marks: 0, events: [], reachedReadiness: null,
+  });
+  const now = Date.now();
+  // 🔴 `addInitScript` **每一次導頁／重載都會再跑一次** —— 少了這個旗標，
+  //    重載會把我剛改好的 store 又覆寫回初始值，於是「還有 N 筆」與
+  //    「整條帶不存在」兩條永遠驗不到（2026-10-15 實際踩到：兩條紅，
+  //    而產品碼是對的）。檔頭那支既有的 addInitScript 早就有這個旗標，
+  //    我抄的時候漏了它。
+  await rp.addInitScript((rs) => {
+    if (localStorage.getItem('__seeded')) return;
+    localStorage.setItem('__seeded', '1');
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(rs));
+    // 🔴 **順序與結果都是刻意的**（2026-10-15 反向驗證抓到）：
+    //    原本是 `[ES1!(pending), NQ1!(profit_taken)]`，而帶子挑「最新的在等的」
+    //    ＝ ES1! ＝ **index 0** —— 於是「永遠寫 index 0」那個破壞剛好寫對同一筆，
+    //    「只動那一筆」那條斷言**從來沒有機會失敗**。
+    //    現在：不在等的那筆排在 index 0，而且給它一個**不同的**結果，
+    //    所以寫錯目標一定看得見。
+  }, [mk(now - 10800e3, 'NQ1!', 'stopped_out'), mk(now - 7200e3, 'ES1!', 'pending')]);
+  await rp.goto(`${base}/apps/preview/decision-alert.html`, { waitUntil: 'domcontentloaded' });
+  await rp.waitForTimeout(400);
+  await rp.click('#btnSingle');
+  await rp.waitForTimeout(600);
+
+  const band = await rp.evaluate(() => {
+    const b = document.getElementById('pendingBand');
+    const vis = (el) => !!el && !el.hidden && el.getBoundingClientRect().height > 0;
+    return {
+      shown: vis(b),
+      text: document.getElementById('pendingBandText').textContent.trim(),
+      chips: [...document.querySelectorAll('#pendingBandChips .result-chip')]
+        .map((c) => c.textContent.trim()),
+      moreHidden: document.getElementById('pendingBandMore').hidden,
+      // 🔴 主動線必須原封不動：新快訊的兩顆按鈕還在、還看得見。
+      actions: [...document.querySelectorAll('#entrySheet .sheet-actions .btn')]
+        .filter((x) => x.getBoundingClientRect().width > 0).map((x) => x.textContent.trim()),
+      // 🔴 帶子不得搶焦點。
+      focusInBand: !!(document.activeElement && b.contains(document.activeElement)),
+      sheetText: document.getElementById('entrySheet').textContent,
+    };
+  });
+  check('🔴 有一筆在等結果時，快訊面板上長出那條帶', band.shown, true);
+  check('帶子講的是那一筆的標的', band.text, 'ES1! 還沒填結果');
+  check('🔴 晶片走共用模組的三顆（不自己寫一份清單）',
+    band.chips, ['達到目標', '觸及保護價', '打平出場']);
+  check('🔴 只有一筆在等 → 不印「還有 N 筆」', band.moreHidden, true);
+  check('🔴 新快訊的主動線一步不變（兩顆按鈕都還在）',
+    band.actions, ['略過', '進入決策']);
+  check('🔴 帶子不得搶焦點', band.focusInBand, false);
+  // 🔴 補填 ≠ 補記：這條帶不得把人導去那張表單。
+  check('🔴 帶子不得出現「補記」那條路（那是把一下變成八下）',
+    /補記/.test(band.sheetText), false);
+  check('🔴 不得用倒數／逾期的措辭', /逾期|過期|剩餘|倒數/.test(band.text), false);
+
+  // ── 點一下 → 就地收起、不跳頁、真的寫進 store ──
+  await rp.evaluate(() => {
+    document.querySelector('#pendingBandChips [data-trade-result="profit_taken"]').click();
+  });
+  // 🔴 **導頁要從 Playwright 這一側等一下再問。** 原本是在同一個
+  //    `evaluate` 裡讀 `location.href` 比對 —— 而 `location.href = …` 之後
+  //    導頁是**非同步**的，那一行讀到的還是舊值，所以「不跳頁」那條
+  //    **綠得理由不對**：它讀得太早。2026-10-15 反向驗證抓到
+  //    （破壞「填完跳頁」時它照樣綠，真正的症狀變成後面 evaluate 拋出去）。
+  await rp.waitForTimeout(700);
+  const navigated = !rp.url().includes('decision-alert');
+  check('🔴 **不跳頁**（跳頁會把人從新快訊上扯走）', navigated, false);
+  // ⚠️ 真的被導走的話**先導回來**，否則後面兩個情境會對著 /v3/ 點
+  //    `#btnSingle`（那顆在新頁上不存在）→ click timeout → 整支拋掉，
+  //    於是失敗數不可信。斷言該紅的已經紅了，剩下的要能跑完才有意義。
+  if (navigated) {
+    await rp.goto(`${base}/apps/preview/decision-alert.html`, { waitUntil: 'domcontentloaded' });
+    await rp.waitForTimeout(400);
+  }
+
+  // ⚠️ 真的被導走的話下面讀不到那些元素 —— 容錯，讓該紅的那條去紅，
+  //    不要讓行程去死（同 PLAYBOOK：會拋的解參考會無聲拆掉它後面的守門）。
+  const after = await rp.evaluate(() => {
+    const txt = (sel) => { const n = document.querySelector(sel); return n ? n.textContent.trim() : '(頁面不在了)'; };
+    let all = [];
+    try { all = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1')) || []; } catch (e) { all = []; }
+    const find = (sym) => { const r = all.find((x) => x.symbol === sym); return r ? r.tradeResult : '(找不到)'; };
+    const band = document.getElementById('pendingBand');
+    const sheet = document.getElementById('entrySheet');
+    return {
+      stored: find('ES1!'),
+      // 另一筆**不准被碰到**
+      other: find('NQ1!'),
+      bandHidden: band ? band.hidden : '(頁面不在了)',
+      sheetOpen: sheet ? sheet.classList.contains('show') : '(頁面不在了)',
+      log: txt('#logList .log-item .log-type'),
+    };
+  });
+  check('點一下就把結果寫進去了', after.stored, 'profit_taken');
+  check('🔴 只動那一筆，別人的結果不准被碰到', after.other, 'stopped_out');
+  check('🔴 填完就地收起（沒有別的在等了）', after.bandHidden, true);
+  check('🔴 而且面板還開著，新快訊的流程沒有被打斷', after.sheetOpen, true);
+  check('🔴 事件鏈上是中文的「結果補填」，不是 fallback 印出的英文 kind',
+    after.log, '結果補填');
+
+  // ── 兩筆在等 → 仍然只講一筆，但說得出還有幾筆 ──
+  // ⚠️ 帶子在**開面板時**渲染，所以改完 store 要關掉再開一次 ——
+  //    直接改 localStorage 不會讓畫面自己更新（那是對的：它不該輪詢）。
+  await rp.evaluate(() => {
+    const all = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'));
+    all.forEach((r) => { r.tradeResult = 'pending'; });
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(all));
+  });
+  // 🔴 **重載，不要用「略過 → 再模擬一則」來讓帶子重畫。**
+  //    那條路會撞到同標的冷卻（面板根本沒重開），於是讀到的是上一次渲染的
+  //    殘留 —— 而且第三輪那顆 click 會因為面板蓋住而 timeout 把腳本拋掉
+  //    （2026-10-15 實際踩到）。`addInitScript` 有 `__seeded` 旗標，
+  //    重載不會覆寫我剛改好的 store。
+  await rp.reload({ waitUntil: 'domcontentloaded' });
+  await rp.waitForTimeout(400);
+  await rp.click('#btnSingle');
+  await rp.waitForTimeout(600);
+  const two = await rp.evaluate(() => ({
+    text: document.getElementById('pendingBandText').textContent.trim(),
+    chipGroups: document.querySelectorAll('#pendingBandChips').length,
+    chips: document.querySelectorAll('#pendingBandChips .result-chip').length,
+    more: document.getElementById('pendingBandMore').hidden
+      ? '(沒印)' : document.getElementById('pendingBandMore').textContent.trim(),
+    href: document.getElementById('pendingBandMore').getAttribute('href'),
+  }));
+  check('🔴 兩筆在等時，帶子仍然只講一筆（最新的那筆）',
+    /^NQ1!|^ES1!/.test(two.text) && two.chips === 3, true);
+  check('🔴 而且說得出還有幾筆', two.more, '還有 1 筆 · 到決策紀錄補');
+  check('那條路連到 Session 頁', two.href, '/v3/#session');
+
+  // ── 一筆都沒在等 → 整條帶不存在 ──
+  await rp.evaluate(() => {
+    const all = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'));
+    all.forEach((r) => { r.tradeResult = 'profit_taken'; });
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(all));
+  });
+  await rp.reload({ waitUntil: 'domcontentloaded' });
+  await rp.waitForTimeout(400);
+  await rp.click('#btnSingle');
+  await rp.waitForTimeout(600);
+  const none = await rp.evaluate(() => ({
+    hidden: document.getElementById('pendingBand').hidden,
+    actions: [...document.querySelectorAll('#entrySheet .sheet-actions .btn')]
+      .filter((x) => x.getBoundingClientRect().width > 0).length,
+  }));
+  check('🔴 一筆都沒在等 → 整條帶不存在（不留一個空槽）', none.hidden, true);
+  check('而主動線照樣完整', none.actions, 2);
+
+  await rp.close();
+}
+
 console.log(`\n${fail === 0 ? '🟢' : '🔴'} pass=${pass} fail=${fail}`);
 await browser.close();
 server.close();

@@ -2924,7 +2924,7 @@ a.lab-wide{text-decoration:none}
     <!-- 決策收束判定的唯一來源。⚠️ 必須排在下面那個 inline script 之前 ——
          那支在**頂層**就讀 window.TENKI_OUTCOME（OUTCOME_STORE_KEY_V6 / isDisciplinedV6），
          放到頁尾跟其他 script 一起載會來不及。絕對路徑：本頁同時掛在 /v3/ 與 /preview/v6/。 -->
-    <script src="/preview/decision-outcome.js?v=do10"></script>
+    <script src="/preview/decision-outcome.js?v=do12"></script>
     <!-- Stardust Scan Takeover Styles -->
     <link rel="stylesheet" href="stardust-scan-takeover.css?v=gyro_v6">
 </head>
@@ -4948,6 +4948,9 @@ function saveV6Outcome(session, outcomeTag){
   try { all = JSON.parse(localStorage.getItem(OUTCOME_STORE_KEY_V6)) || []; } catch(e){ all = []; }
   if(!Array.isArray(all)) all = [];
   const ts = Date.now();
+  // 守望 + 沒做出判定 + 已經過了上限 ＝ 這一筆是**上限收的**，不是他自己離開的。
+  const ceilingHit = !!session.watch && outcomeTag === 'abandoned_no_judgment'
+    && elapsed >= WATCH_CEILING_SEC;
   all.push({
     symbol: session.name, templateId: session.templateId, outcomeTag,
     contextTag: null,
@@ -4962,7 +4965,13 @@ function saveV6Outcome(session, outcomeTag){
     // 分支 —— PLAYBOOK 記過一模一樣的傷：一次「判定成立並進場」的決策被印成
     // 「未達 Readiness」。在來源就寫誠實的值，比在每個讀端各加一個 if 可靠。
     reachedReadiness: session.watch ? null : !!session.reachedReadiness,
-    durationSec: elapsed,
+    // 🔴 被**上限**收掉的那一筆不寫 `elapsed`。iOS 把背景分頁的
+    // `setInterval` 凍住，所以 `elapsed` 是「他隔多久才把 App 打開」，
+    // 不是「他考慮了多久」—— 三小時後才開就會寫 `3:00:00`。
+    // 缺就是缺：寫 `null`，而我們真的知道的那件事（超過上限）由
+    // `endedBy: 'ceiling'` 帶著。夾到 30:00 是錯的 —— 那會變成
+    // 「它在 30:00 結束」的謊。判準在共用模組（`endedByCeiling`）。
+    durationSec: ceilingHit ? null : elapsed,
     // marks 是既有的持久化欄位（Timeline strip 的點半徑吃它、harness 也有斷言），
     // SYSTEM.md §6 明訂不得改既有持久化欄位名 —— 所以 events 是**加**，不是換。
     marks: session.marks,
@@ -5002,6 +5011,10 @@ function saveV6Outcome(session, outcomeTag){
     originAlertId: session.originAlertId || null,
     ts, source: session.originAlertId ? 'alert' : 'v6'
   });
+  // 🔴 只在真的是上限收的時候才寫這一欄 —— **沒發生就整個欄位不存在**，
+  //    不是寫 `endedBy: null`。同 `symbol` / `awayCount` 那條既有紀律：
+  //    讀端分得出「沒有這一欄」跟「這一欄是空的」。
+  if(ceilingHit) all[all.length - 1].endedBy = 'ceiling';
   if(all.length > 200) all = all.slice(all.length - 200);
   localStorage.setItem(OUTCOME_STORE_KEY_V6, JSON.stringify(all));
   return ts;
@@ -5416,8 +5429,13 @@ function renderWatchAnchor(){
 }
 
 /** 守望的牆鐘上限（秒）。超過就當作沒有判定收掉，避免跨日的殭屍 session。
- *  與 decision-alert.js 的 WATCH_CEILING_MS 同一個值，兩邊要一起改。 */
-const WATCH_CEILING_SEC = 30 * 60;
+ *
+ *  🔴 2026-10-15 起**正本在 `decision-outcome.js`** —— 讀端也要它
+ *  （`endedByCeiling()` 靠它判斷舊紀錄），判定的單一來源要跨檔成立。
+ *  ⚠️ 原本這裡寫著「與 decision-alert.js 的 WATCH_CEILING_MS 同一個值，
+ *     兩邊要一起改」—— 查證過，那句話**已經不成立**（那個檔案裡沒有那個常數了）。
+ *     過期的註解會讓下一個人去改一個不存在的東西。 */
+const WATCH_CEILING_SEC = window.TENKI_OUTCOME.WATCH_CEILING_SEC;
 
 /** 判定列開著嗎（供 harness 與收束時清理用）。 */
 function watchJudgeOpen(){
@@ -6399,7 +6417,25 @@ function fmtTimeOfDay(ts){
  * @returns {string}
  */
 function fmtWhen(rec){
-  if(!window.TENKI_OUTCOME.isDayPrecision(rec)) return fmtTimeOfDay(rec.ts);
+  if(!window.TENKI_OUTCOME.isDayPrecision(rec)){
+    const t = new Date(rec.ts);
+    if(isNaN(t.getTime())) return '—';
+    // 🔴 **不是今天就要把日期講出來。** 清單依 `ts` 降冪排（排序沒問題），
+    //    但這裡只印 `HH:MM` —— 於是一串跨好幾天的紀錄看起來像排錯了
+    //    （founder 2026-10-15 的截圖：19:49 → 09:44 → 21:19 → 21:45 → 11:19）。
+    //    **畫面知道那是哪一天（`ts` 就在那裡），它只是沒說。**
+    // ⚠️ 用**當地**日期判斷，不用 ET —— 因為下面印的時刻就是當地時刻
+    //    （`fmtTimeOfDay` 走 `getHours()`）。日期跟時刻必須是同一個框架，
+    //    不然會出現「10/14 23:30」其實是另一天的那種矛盾。
+    //    （補記那一支走 ET，因為它的時間戳本來就是照 ET 交易日挑的。）
+    const now = new Date();
+    const sameDay = t.getFullYear() === now.getFullYear()
+      && t.getMonth() === now.getMonth()
+      && t.getDate() === now.getDate();
+    return sameDay
+      ? fmtTimeOfDay(rec.ts)
+      : (t.getMonth() + 1) + '/' + t.getDate() + ' ' + fmtTimeOfDay(rec.ts);
+  }
   const d = new Date(rec.ts);
   if(isNaN(d.getTime())) return '—';
   // 用 ET 的日期來印 —— 時間戳本來就是照 ET 交易日挑的（backfillTsFor），
@@ -6419,6 +6455,12 @@ function fmtWhen(rec){
  * @returns {string} `m:ss`，或不知道時的「—」
  */
 function fmtDurCell(rec){
+  // 🔴 被上限收掉的那一筆：我們不知道他考慮了多久，但**知道它超過了上限**。
+  //    印「—」會把我們真的知道的那件事也丟掉；印一個精確的 41:20 則是在宣稱
+  //    一個我們沒量到的東西（那是「他隔多久才開 App」）。所以印不等式。
+  if(window.TENKI_OUTCOME.endedByCeiling(rec)){
+    return '超過 ' + fmtDur(window.TENKI_OUTCOME.WATCH_CEILING_SEC);
+  }
   return typeof rec.durationSec === 'number' ? fmtDur(rec.durationSec) : '—';
 }
 function renderSessionScreen(){
@@ -7003,14 +7045,28 @@ function openSessionDetail(ts){
   const badge = outcomeBadgeV6(rec.outcomeTag);
   // 🔴 `timed` ＝ 這一筆真的有「用了多久」這個量。補記的沒有（它不是在 App 裡
   // 跑的），所以凡是從 `durationSec` 推導出來的呈現都要整個退場，不是印 0。
-  const timed = typeof rec.durationSec === 'number';
+  // 🔴 **被上限收掉的舊紀錄也沒有**，即使 `durationSec` 欄位裡躺著一個數字 ——
+  //    那個數字是「他隔多久才開 App」（見 decision-outcome.js 的 endedByCeiling）。
+  //    欄位的**型別**說它是數字，欄位的**意義**說它不是用時；這一行問的是後者。
+  //    2026-10-15 守門抓到：少了這一半，節奏卡片會拿那個數字畫出一條三段軌跡，
+  //    而副標會印「41:20 用時」—— 兩個都在宣稱我們沒量到的東西。
+  const timed = typeof rec.durationSec === 'number'
+    && !window.TENKI_OUTCOME.endedByCeiling(rec);
   const dur = timed ? rec.durationSec : 0;
   const b = segBounds(dur);
   const marks = rec.marks || 0;
 
   document.getElementById('sdTitle').textContent = outcomeTitle(m);
-  document.getElementById('sdSubtitle').textContent =
-    fmtWhen(rec) + (timed ? ' · ' + fmtDur(dur) + ' 用時' : ' · 補記');
+  // 🔴 這一行的 else 分支原本寫死「補記」—— 當時 `durationSec` 是 null
+  //    的只有補記那一種。2026-10-15 起**被上限收掉的紀錄也是 null**，
+  //    照舊寫法會在一筆從來沒被補記過的紀錄上印「補記」。
+  //    所以問的是**來源**，不是「有沒有用時」。
+  document.getElementById('sdSubtitle').textContent = fmtWhen(rec) + ' · ' + (
+    timed ? fmtDur(dur) + ' 用時'
+      : window.TENKI_OUTCOME.endedByCeiling(rec) ? fmtDurCell(rec) + ' 未判定'
+        : window.TENKI_OUTCOME.isBackfilled(rec) ? '補記'
+          : '沒有用時'
+  );
   const resultEl = document.getElementById('sdResult');
   resultEl.textContent = badge.text;
   resultEl.className = 'sd-result result ' + badge.cls;

@@ -3260,11 +3260,36 @@ for (const h of [700, 740, 844, 932]) {
   check('🔴 比判定還早的時間不收，而且說得出為什麼',
     bounds.beforeNote, '這比判定的時候還早');
   check('🔴 而且真的沒寫進去', bounds.beforeWrote, false);
+  // ⚠️ 這兩條是走 UI 的「未來」探針。它們能成立是因為上面把頁面端的
+  //    `Date.now` 釘在當天 14:00（main 的修法）—— 沒有那個釘法，
+  //    這兩條在每天開頭的半小時內會整組翻掉。
   check('🔴 還沒到的時間不收（還沒發生的不是紀錄）',
     bounds.futureNote, '這個時間還沒到');
   check('🔴 而且真的沒寫進去', bounds.futureWrote, false);
   check('看不懂的時間不收', bounds.badNote, '看不懂這個時間');
   check('🔴 而且真的沒寫進去', bounds.badWrote, false);
+
+  // 🔴 同一條規則**再用純函式問一次**，把 `now` 當參數注入。
+  //    上面那兩條走 UI、靠頁面端的時鐘釘法成立；這兩條完全不碰時鐘，
+  //    所以就算哪天有人拆了那個釘法，規則本身仍然有人守。
+  const futureRule = await page.evaluate(() => {
+    const OUT = window.TENKI_OUTCOME;
+    const base = Date.UTC(2026, 0, 15, 12, 0, 0);
+    const rec = { ts: base, outcomeTag: 'judged_entered' };
+    const hh = (n) => String(n).padStart(2, '0');
+    const later = new Date(base + 3600e3);
+    const hhmm = hh(later.getHours()) + ':' + hh(later.getMinutes());
+    return {
+      rejected: OUT.entryTimeFrom(rec, hhmm, base),
+      accepted: OUT.entryTimeFrom(rec, hhmm, base + 2 * 3600e3),
+    };
+  });
+  check('🔴 還沒到的時間不收（now 釘死，不吃 harness 幾點跑）',
+    futureRule.rejected.reason, 'future');
+  // 🔴 活性：同一個時間，把 now 往後推就收得進去。
+  //    少了這一條，「永遠拒絕」也能讓上一條綠。
+  check('🔴 而 now 往後推之後同一個時間就收（上一條不是永遠拒絕）',
+    futureRule.accepted.ok, true);
 
   // 答得出來：欄位 + 來源標記 + 等待那一格
   const answered = await page.evaluate((ts) => {
@@ -3359,6 +3384,137 @@ for (const h of [700, 740, 844, 932]) {
     stats.count, '1');
   check('🔴 判定不成立那一格回到 0（幽靈不得留在統計上）', stats.stood, '0');
   check('🔴 結果已填 1/1', stats.filled, '1/1');
+
+  await page.close();
+}
+
+// ═════════════════════════════════════════════════
+// 🔴 founder 2026-10-15 的截圖上兩件「畫面知道、但沒說」
+//
+// ① 一筆「未判定」印著 **41:20**，而旁邊寫著「上限 30:00」。
+//    iOS 凍住背景的 `setInterval` → 回來才收束 → `elapsed` 已經超過上限，
+//    而那個數字量到的是「他隔多久才開 App」，不是「他考慮了多久」。
+// ② 清單時間看起來亂序（19:49 → 09:44 → 21:19 → 21:45 → 11:19）。
+//    排序沒壞（`ts` 降冪），壞的是標籤：非補記的紀錄只印 `HH:MM`，
+//    **日期就在 `ts` 裡，畫面只是沒說。**
+// ═════════════════════════════════════════════════
+{
+  console.log('\n── 畫面知道但沒說：上限用時 + 跨日日期 ──');
+  const page = await openV3(844);
+
+  const CEIL = 30 * 60;
+  const now = Date.now();
+  const mk = (over) => ({
+    ts: now - 2 * 3600e3, symbol: 'ES1!', templateId: 'MANCINI_FBD', source: 'alert',
+    outcomeTag: 'abandoned_no_judgment', tradeResult: null,
+    durationSec: over, marks: 0, events: [], reachedReadiness: null,
+  });
+  const seed = (recs) => page.evaluate((rs) => {
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(rs));
+    window.goTab('today'); window.goTab('session');
+  }, recs);
+
+  // ── ① 舊紀錄（沒有 endedBy）也要被認出來 —— 推導，不改寫 store ──
+  const legacy = await seed([mk(41 * 60 + 20)]).then(() => page.evaluate((ts) => {
+    const cell = (r) => [...r.querySelectorAll('.meta span:not(.sep)')].map((n) => n.textContent);
+    const row = document.querySelector('#sessionList .session-item');
+    window.openSessionDetail(ts);
+    return {
+      listDur: cell(row)[2],
+      factDur: document.getElementById('sdFactDur').textContent.trim(),
+      sub: document.getElementById('sdSubtitle').textContent.trim(),
+      segHidden: document.getElementById('sdSegCard').hidden,
+      // store 一個位元組都不准被改寫
+      stored: JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'))[0].durationSec,
+    };
+  }, now - 2 * 3600e3));
+  check('🔴 超過上限的舊紀錄印「超過 30:00」，不印 41:20', legacy.listDur, '超過 30:00');
+  check('🔴 也不印「—」（那會把我們真的知道的那件事一起丟掉）',
+    legacy.listDur === '—', false);
+  check('詳情那一格同一句話', legacy.factDur, '超過 30:00');
+  check('🔴 副標不得印「補記」（它從來沒被補記過）', /補記/.test(legacy.sub), false);
+  check('副標說得出它是未判定', /超過 30:00 未判定/.test(legacy.sub), true);
+  check('節奏卡片不出現（它整張都是從用時推導的）', legacy.segHidden, true);
+  check('🔴 **推導，不改寫 store** —— 舊紀錄原值原封不動', legacy.stored, 41 * 60 + 20);
+
+  // 🔴 **寫入端產生的那個形狀也要驗。** 上面幾條餵的都是**舊**紀錄
+  //    （`durationSec` 裡有數字、沒有 `endedBy`），而新寫進去的長相相反：
+  //    `durationSec: null` + `endedBy: 'ceiling'`。只驗舊形狀的話，
+  //    寫入端改壞了這裡一聲都不吭。
+  //    ⚠️ 誠實說清楚這條驗的是**讀端對新形狀的處理**；真的跑滿 30 分鐘的
+  //    寫入路徑在 harness 裡跑不動，`endedBy` 那一欄是靠推導以外的保險。
+  const fresh = await seed([{
+    ...mk(null), endedBy: 'ceiling', durationSec: null,
+  }]).then(() => page.evaluate((ts) => {
+    window.openSessionDetail(ts);
+    const row = document.querySelector('#sessionList .session-item');
+    return {
+      listDur: [...row.querySelectorAll('.meta span:not(.sep)')].map((n) => n.textContent)[2],
+      sub: document.getElementById('sdSubtitle').textContent.trim(),
+      segHidden: document.getElementById('sdSegCard').hidden,
+    };
+  }, now - 2 * 3600e3));
+  check('🔴 新形狀（durationSec:null + endedBy）也印「超過 30:00」',
+    fresh.listDur, '超過 30:00');
+  check('新形狀的副標一樣說得出未判定', /超過 30:00 未判定/.test(fresh.sub), true);
+  check('新形狀也不畫節奏卡片', fresh.segHidden, true);
+
+  // ── 剛好等於上限不算超過（邊界）──
+  const atCeil = await seed([mk(CEIL)]).then(() => page.evaluate(() => {
+    const row = document.querySelector('#sessionList .session-item');
+    return [...row.querySelectorAll('.meta span:not(.sep)')].map((n) => n.textContent)[2];
+  }));
+  check('🔴 剛好 30:00 不算超過（印 30:00，不印「超過」）', atCeil, '30:00');
+
+  // ── 判定成立的紀錄就算用時很長也不得被當成上限收的 ──
+  const longEntered = await seed([{
+    ...mk(50 * 60), outcomeTag: 'judged_entered', tradeResult: 'pending',
+  }]).then(() => page.evaluate(() => {
+    const row = document.querySelector('#sessionList .session-item');
+    return [...row.querySelectorAll('.meta span:not(.sep)')].map((n) => n.textContent)[2];
+  }));
+  check('🔴 只認「未判定」那一條路（判定成立的長紀錄照印原值）',
+    longEntered, '50:00');
+
+  // ── ② 跨日：不是今天就把日期印出來 ──
+  const days = await page.evaluate((base) => {
+    const mkAt = (ts, dur) => ({
+      ts, symbol: 'ES1!', templateId: 'MANCINI_FBD', source: 'alert',
+      outcomeTag: 'judged_stood_down', tradeResult: 'no_entry',
+      durationSec: dur, marks: 0, events: [], reachedReadiness: null,
+    });
+    const today = new Date(base);
+    today.setHours(9, 44, 0, 0);
+    const older = new Date(base);
+    older.setDate(older.getDate() - 2);
+    older.setHours(21, 19, 0, 0);
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify([
+      mkAt(today.getTime(), 73), mkAt(older.getTime(), 314),
+    ]));
+    window.goTab('today'); window.goTab('session');
+    const rows = [...document.querySelectorAll('#sessionList .session-item')];
+    const when = (r) => [...r.querySelectorAll('.meta span:not(.sep)')].map((n) => n.textContent)[0];
+    return {
+      today: when(rows[0]),
+      older: when(rows[1]),
+      expectOlder: (older.getMonth() + 1) + '/' + older.getDate() + ' 21:19',
+    };
+  }, now);
+  check('🔴 今天的紀錄只印時刻（不要每一列都掛一個今天的日期）', days.today, '09:44');
+  check('🔴 不是今天的就把日期印出來（清單才不會看起來像排錯）',
+    days.older, days.expectOlder);
+
+  // 🔴 補記那一支**不受影響**：它只知道哪一天，印日期、不得印時刻。
+  const bf = await page.evaluate(() => {
+    localStorage.setItem('tenki.alert.outcomes.v1', '[]');
+    window.openBackfill();
+    document.getElementById('bfDate').value = '2026-10-08';
+    window.bfPickJudge('stood_down');
+    window.bfSave();
+    const row = document.querySelector('#sessionList .session-item');
+    return [...row.querySelectorAll('.meta span:not(.sep)')].map((n) => n.textContent)[0];
+  });
+  check('🔴 補記那一支照舊只印日期（它沒有時刻可印）', /^\d+\/\d+$/.test(bf), true);
 
   await page.close();
 }
