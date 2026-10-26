@@ -27,6 +27,13 @@
 # ⚠️ 這支**絕不印出 token**，也不把帶憑證的 URL 寫進 .git/config
 #    （用 `git push <url>` 的一次性形式，不 `git remote add`）。
 #
+# ⚠️ **建鏡像 project 時若勾了 "Initialize repository with a README"**，對面的
+#    `main` 上會有一顆我們沒有的 commit，跟本機歷史**沒有共同祖先**。
+#    git 會在本機端直接拒絕（non-fast-forward），訊息是制式的
+#    「Updates were rejected…」，看起來像憑證壞掉，其實不是。
+#    下面的 preflight 會先攔下來並說清楚；要覆寫就 `MIRROR_FORCE=1`。
+#    （2026-10-26 實際踩到：founder 的 GitLab project 帶了 README。）
+#
 # ⚠️ 本 repo 的 .git 約 300MB（歷史裡有 node_modules 與 3D 資產，詳見
 #    VENDOR-RISK §2），第一次推可能很久、也可能中斷。**這支可以重跑** ——
 #    git push 本身冪等，已經在對面的物件不會重傳。
@@ -72,11 +79,68 @@ echo "→ 鏡像：${MIRROR_REMOTE}"
 echo "→ 本機 ref：$(git show-ref | wc -l) 個"
 echo
 
+# ── preflight：先問對面有什麼，再決定推不推得動 ──────────────────────
+#
+# 兩個目的：
+#   1. 這是第一個用到憑證的動作。token 錯的話**在這裡**就乾淨地失敗，
+#      而不是等 300MB 傳到一半才知道。
+#   2. 對面若已經有我們沒有的 commit（最常見：建 project 時勾了 README），
+#      push 會被 non-fast-forward 擋下來。與其讓 git 吐制式訊息，
+#      不如自己把「對面有什麼、為什麼擋住、兩條路怎麼走」講清楚。
+echo "問對面現在有哪些分支…"
+if ! remote_heads="$(git ls-remote --heads "$auth_url" 2>&1)"; then
+  echo "🔴 連不上鏡像，或憑證不被接受。"
+  # 🔴 git 的錯誤訊息會把整個 URL 印出來（因而含 token）—— 洗掉再印。
+  #    用樣式比對而不是比對 token 本身，這樣 token 長什麼樣都洗得掉。
+  printf '%s\n' "$remote_heads" | sed 's|oauth2:[^@]*@|oauth2:***@|g'
+  echo
+  echo "常見原因：token 打錯／過期／權限不足（要 write_repository 或 Code→Push）"
+  exit 1
+fi
+
+force_flag=""
+if [ -n "$remote_heads" ]; then
+  blocked=0
+  while read -r sha ref; do
+    [ -n "$sha" ] || continue
+    # 本機連這顆 commit 的物件都沒有 → 它**不可能**是本機任何分支的祖先，
+    # 推上去必被拒。（物件有、但不是祖先的情形 git 自己也會在傳輸前擋下，
+    #   訊息同樣清楚，所以這裡不重複實作祖先檢查。）
+    if ! git cat-file -e "${sha}^{commit}" 2>/dev/null; then
+      blocked=1
+      echo "   ⚠️ 對面的 ${ref} 是 ${sha:0:8}，本機沒有這顆 commit"
+    fi
+  done <<EOF
+$remote_heads
+EOF
+
+  if [ "$blocked" = 1 ]; then
+    if [ "${MIRROR_FORCE:-}" = "1" ]; then
+      echo "   → MIRROR_FORCE=1：改用 force，把鏡像對齊成本機的精確副本。"
+      force_flag="--force"
+    else
+      echo
+      echo "🔴 鏡像上有本機沒有的東西，直接推會被 non-fast-forward 擋下來。"
+      echo "   （還沒送出任何物件。）"
+      echo
+      echo "兩條路，挑一條："
+      echo "  a) 覆寫鏡像 —— 鏡像本來就該是本機的精確副本："
+      echo "       MIRROR_FORCE=1 bash scripts/mirror-push.sh"
+      echo "     ⚠️ 對面那些 commit 會不見。確定它們是拋棄式的（例如建 project"
+      echo "        時自動產生的 README）再做。"
+      echo "  b) 在鏡像上把那些 commit 砍掉／把 project 砍掉重建成空的，再重跑這支。"
+      exit 3
+    fi
+  fi
+fi
+
+echo
 # --all 只涵蓋 refs/heads/*；tag 要另外推。兩個都做才算完整副本。
 echo "推送所有分支…"
-git push --all "$auth_url"
+# shellcheck disable=SC2086  # force_flag 是空字串時要展開成「沒有這個參數」
+git push $force_flag --all "$auth_url"
 echo "推送所有 tag…"
-git push --tags "$auth_url"
+git push $force_flag --tags "$auth_url"
 
 echo
 echo "🟢 推完了。核對兩邊的 ref："
