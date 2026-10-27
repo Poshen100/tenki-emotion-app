@@ -755,7 +755,11 @@
   function awaitingRecords() {
     return loadOutcomes()
       .filter(function (r) { return window.TENKI_OUTCOME.awaitsResult(r); })
-      .sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
+      // 「最新」問的是**發生**的時刻，跟 /v3/ 清單同一把尺（occurredAt）。
+      .sort(function (a, b) {
+        var O = window.TENKI_OUTCOME.occurredAt;
+        return (O(b) || 0) - (O(a) || 0);
+      });
   }
 
   /** L1 那條帶。沒有在等的就整條不存在。 */
@@ -1240,6 +1244,9 @@
       elapsedSec: rec.durationSec || 0,
       awayCount: typeof rec.awayCount === 'number' ? rec.awayCount : 0,
       awayMs: typeof rec.awayMs === 'number' ? rec.awayMs : 0,
+      // iOS 把 App 清掉之後回來，那段「離開」量到的是「隔多久才開 App」——
+      // /v3/ 的 accrueAway 認出來就不累加，改立這個旗子（見 v6 的註解）。
+      awayUnbounded: !!rec.awayUnbounded,
       // 🔴 `null` ＝「我們沒有這個數」，不是 `0` ＝「沒發生過」。
       // 決策進行中的同標的後續觸發由這一頁記在跨頁標記上、由 /v3/ 收束時寫進紀錄
       // （規格 §8）。**沒有這一欄的舊紀錄仍然是 null** —— renderRecap 會整列不顯示，
@@ -1521,8 +1528,13 @@
             segs: [seg(s.sameSymbolUpdates, true), seg(' 次')] }
         : null,
       // 事實，不是扣分項：在桌機/券商 APP 下單本來就會離開。
+      // 🔴 **次數是真的，時長不一定。** 有一段離開跨過守望上限時（iOS 把
+      //    App 清出記憶體），那段量到的是「隔多久才開 App」—— 次數照說，
+      //    時長就說不知道。夾一個上限值等於宣稱「他離開了剛好 30:00」。
       { cls: '', label: '期間離開', segs: s.awayCount > 0
-        ? [seg(s.awayCount, true), seg(' 次 · '), seg(formatClock(Math.round(s.awayMs / 1000)), true)]
+        ? (s.awayUnbounded
+            ? [seg(s.awayCount, true), seg(' 次 · 時長不可知')]
+            : [seg(s.awayCount, true), seg(' 次 · '), seg(formatClock(Math.round(s.awayMs / 1000)), true)])
         : [seg('沒有離開')] },
       { cls: disp.cls === 'disciplined' ? 'on' : 'off', label: '判定', segs: [seg(disp.text)] },
       // 「等了 NN:NN」原本擠在判定那句的尾巴。它是一個**量**，不是判定的形容詞

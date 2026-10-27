@@ -790,6 +790,30 @@
    * @param {Object} rec 統一 store 裡的一筆
    * @returns {boolean}
    */
+  /**
+   * 這一筆**發生**的時刻（不是被寫下來的時刻）。
+   *
+   * 🔴 `ts` 是 `Date.now()` at close，而且它同時是這筆的 **id**
+   *    （`patchOutcome` / `writeTradeResultById` 都靠它比對）—— 不能改它的意思。
+   *    但「什麼時候發生的」問的是**起點**，而被上限收掉的那一筆：
+   *      · `durationSec` 是 null（刻意的 —— 背景分頁的 elapsed 是「隔多久才開 App」）
+   *      · `ts` 就是「他把 App 打開的那一刻」
+   *    於是整筆紀錄**沒有任何欄位說得出它什麼時候發生**。founder 2026-10-27 的
+   *    截圖就是這個：最上面那筆印 08:47，而那是他重開 App 的時刻。
+   *
+   * `startedAt` 是**加**的欄位（SYSTEM.md §6：不得改既有持久化欄位名）。
+   * 舊紀錄沒有它 → 退回 `ts`，行為跟改之前逐位元組相同。
+   * 補記那一支也沒有它（它的 `ts` 本來就是照 ET 交易日挑的）→ 同樣退回 `ts`。
+   *
+   * @param {?Object} rec
+   * @returns {?number}
+   */
+  function occurredAt(rec) {
+    if (!rec) return null;
+    if (typeof rec.startedAt === 'number' && rec.startedAt > 0) return rec.startedAt;
+    return typeof rec.ts === 'number' ? rec.ts : null;
+  }
+
   function endedByCeiling(rec) {
     if (!rec || rec.outcomeTag !== 'abandoned_no_judgment') return false;
     if (rec.endedBy === 'ceiling') return true;
@@ -822,6 +846,7 @@
     waitedSec: waitedSec,
     waitedPrecision: waitedPrecision,
     WATCH_CEILING_SEC: WATCH_CEILING_SEC,
+    occurredAt: occurredAt,
     endedByCeiling: endedByCeiling,
     ENTRY_TIME_REASON_ZH: ENTRY_TIME_REASON_ZH,
     isBackfilled: isBackfilled,
