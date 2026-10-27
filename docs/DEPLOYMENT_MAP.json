@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-09-09",
+  "lastUpdated": "2026-10-27",
   "canonicalHost": "https://tenki-emotion-app.vercel.app",
   "deployments": [
     {
@@ -9,6 +9,15 @@
       "purpose": "307 redirect 到 /story/(#152 起,Hero 正式門面)。apps/web 退居深層路徑 catch-all。",
       "status": "redirect",
       "editable": false
+    },
+    {
+      "route": "/app/",
+      "url": "https://tenki-emotion-app.vercel.app/app/",
+      "source": "apps/preview/app.html",
+      "purpose": "PWA 啟動路由 — manifest 的 start_url。讀 tenki.app.onboarded.v1 決定去 /preview/(首次) 還是 /v3/(回訪);storage 讀不到時走 /v3/。零外部相依,底色 inline 蓋掉 iOS 冷啟動白閃。",
+      "status": "active-dev",
+      "note": "iOS 在加到主畫面那一刻快照 manifest — 改 start_url 要刪掉 icon 重裝才生效",
+      "editable": true
     },
     {
       "route": "/v3/",

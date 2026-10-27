@@ -13,6 +13,15 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TENKI CORE">
+<meta name="theme-color" content="#020617">
+<!-- 🔴 manifest 要掛在**每一頁**，不是只掛在被安裝的那一頁。
+     iOS 的「加到主畫面」用的是**當下這一頁**看得到的 manifest —— 少了它，
+     從 /v3/ 直接安裝會退回「用當前網址當 start_url」，於是又生出一顆
+     繞過啟動路由的 icon（本頁第 3257 行記的「本頁沒有 manifest」就是這個洞）。
+     掛上去之後不管從哪一頁安裝，start_url 都是 /app/。 -->
+<link rel="manifest" href="/app/manifest.webmanifest">
+<link rel="apple-touch-icon" sizes="180x180" href="/brand/favicon/apple-touch-icon-180.png">
 <title>TENKI CORE · 5-Tab Navigation</title>
 <!-- ⚠️ 絕對路徑，不能寫 `../tokens.css`：這一頁在正式站的網址是 `/v3/`（rewrite，
      不是 redirect），所以相對路徑會解成 `/tokens.css`，掉進 vercel.json 最後那條
@@ -3254,8 +3263,9 @@ a.lab-wide{text-decoration:none}
 
         <!-- 🔴 `/drift/` 的入口。先前它只掛在 `/decision-alert/`，而 founder 桌面那顆
              「TENKI CORE」其實是 **`/v3/` 的加入主畫面書籤**（本頁 <title> 就是
-             `TENKI CORE · 5-Tab Navigation`，而且本頁沒有 manifest）—— 所以在他實際
+             `TENKI CORE · 5-Tab Navigation`，當時本頁還沒有 manifest）—— 所以在他實際
              會打開的那個 app 裡，那一頁**一次都點不到**。
+             （2026-10-27 起本頁已掛 manifest，start_url 統一到 `/app/` 啟動路由。） 
              放 Lab 不放 Today 是刻意的：那一頁目前**上半部仍是合成 demo**，
              擺在 Today 就等於把一個假讀數放在真讀數旁邊一個手勢的距離。
              Lab 的抬頭是「Advanced · Beta」，而校準台就在它正上方 —— 同一族。
