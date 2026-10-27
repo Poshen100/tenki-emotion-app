@@ -1868,6 +1868,28 @@
     state.blinkEarned = B.save({ cpm, blinks: c.blinks, windowSec: c.windowMs / 1000 });
   }
 
+  // 🔴 **「走完 onboarding」是一個事實，不能用別的量去代替。**
+  // 最接近的候選是 `tenki.baseline.blink`，但它回答的是「眨眼基線有沒有**量到**」
+  // —— Tier B / MediaPipe CDN 被擋 / demo 模式都不會寫（見 saveBlinkBaseline 的
+  // honest degradation）。拿它當路由依據的後果是：**相機那天被擋的人，之後每次
+  // 開 App 都被丟回 onboarding**。那跟 CLAUDE.md 禁止的「量不到就填一個合理的
+  // 預設值」是同一種錯 —— 用一個近似的量去代替一個沒有量到的事實。
+  //
+  // 所以這裡寫一個只說自己那件事的戳記，而且寫在 `firstScan` 出口：那是「我走
+  // 完了」的真正時刻，**不管基線有沒有 earn**。
+  // 讀端是 `/app/` 啟動路由（apps/preview/app.html）。
+  const ONBOARDED_KEY = 'tenki.app.onboarded.v1';
+  function markOnboarded() {
+    try {
+      localStorage.setItem(ONBOARDED_KEY, JSON.stringify({
+        at: Date.now(),
+        via: 'soul_scan',
+        // 基線有沒有 earn 是**另一件事**，記著但不參與路由判斷。
+        baselineEarned: !!state.blinkEarned,
+      }));
+    } catch (e) { /* Safari 無痕：戳記留不住，啟動路由有 legacy 回退 */ }
+  }
+
   // ── public controls ──
   async function begin() {
     if (state.started) return;
@@ -1913,6 +1935,7 @@
     else if (action === 'firstScan') {
       // Model B: face baseline done → hand off to the v6 stardust Soul Scan + Today reveal
       stopCamera();
+      markOnboarded();
       window.location.href = '/preview/v6/?from=baseline';
     }
     else { begin(); }
