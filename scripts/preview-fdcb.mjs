@@ -3504,6 +3504,64 @@ for (const h of [700, 740, 844, 932]) {
   check('🔴 不是今天的就把日期印出來（清單才不會看起來像排錯）',
     days.older, days.expectOlder);
 
+  // ── ③ 紀錄要說得出自己**什麼時候發生**，不是什麼時候被寫下來 ──
+  // founder 2026-10-27 的截圖：最上面那筆印 08:47，而那是他重開 App 的時刻。
+  // `ts` 是收掉的那一刻（而且是這筆的 id），`startedAt` 才是起點。
+  const occ = await page.evaluate((base) => {
+    const mkAt = (ts, startedAt) => ({
+      ts, startedAt, symbol: 'ES1!', templateId: 'MANCINI_FBD', source: 'alert',
+      outcomeTag: 'abandoned_no_judgment', tradeResult: 'no_entry',
+      durationSec: null, endedBy: 'ceiling', marks: 0, events: [], reachedReadiness: null,
+    });
+    // 兩天前起跑、剛剛才被收掉 —— 就是被 iOS 清掉記憶體那一筆的形狀。
+    const started = new Date(base);
+    started.setDate(started.getDate() - 2);
+    started.setHours(20, 58, 0, 0);
+    // 另一筆：昨天起跑、昨天收掉（它應該排在上面那筆**下面**）。
+    const y = new Date(base);
+    y.setDate(y.getDate() - 1);
+    y.setHours(14, 23, 0, 0);
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify([
+      mkAt(base, started.getTime()),            // 收掉＝現在，起跑＝兩天前
+      mkAt(y.getTime(), y.getTime()),           // 兩者同一天
+    ]));
+    window.goTab('today'); window.goTab('session');
+    const rows = [...document.querySelectorAll('#sessionList .session-item')];
+    const when = (r) => [...r.querySelectorAll('.meta span:not(.sep)')].map((n) => n.textContent)[0];
+    return {
+      first: when(rows[0]), second: when(rows[1]),
+      expectStarted: (started.getMonth() + 1) + '/' + started.getDate() + ' 20:58',
+      expectY: (y.getMonth() + 1) + '/' + y.getDate() + ' 14:23',
+    };
+  }, now);
+  // ⚠️ **順序**：A 的 `ts` 最新（今天收掉）但 `startedAt` 最舊（兩天前起跑），
+  //    B 兩者都是昨天。依 `ts` 排 → A 在上；依 `occurredAt` 排 → **B 在上**。
+  //    所以「B 在上」正是這支排序有沒有換尺的分水嶺。
+  //    🔴 第一版我把期待值寫反了 —— 那等於**斷言壞掉的行為**，而且會全綠。
+  check('🔴 排序走 occurredAt：ts 最新、但起跑最早的那筆排在下面',
+    occ.first, occ.expectY);
+  // 🔴 這一條要是紅的，畫面就是在宣稱一件它不知道的事：
+  //    A 印的必須是兩天前的起跑時刻，不是今天這個「被寫下來」的時刻。
+  check('🔴 印的是決策**發生**的時刻（startedAt），不是被寫下來的時刻（ts）',
+    occ.second, occ.expectStarted);
+
+  // 舊紀錄沒有 startedAt → 退回 ts，行為必須逐位元組不變。
+  const legacyOcc = await page.evaluate((base) => {
+    const t = new Date(base); t.setDate(t.getDate() - 3); t.setHours(11, 19, 0, 0);
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify([{
+      ts: t.getTime(), symbol: 'ES1!', templateId: 'MANCINI_FBD', source: 'alert',
+      outcomeTag: 'judged_stood_down', tradeResult: 'no_entry',
+      durationSec: 90, marks: 0, events: [], reachedReadiness: null,
+    }]));
+    window.goTab('today'); window.goTab('session');
+    const row = document.querySelector('#sessionList .session-item');
+    return {
+      got: [...row.querySelectorAll('.meta span:not(.sep)')].map((n) => n.textContent)[0],
+      want: (t.getMonth() + 1) + '/' + t.getDate() + ' 11:19',
+    };
+  }, now);
+  check('🔴 沒有 startedAt 的舊紀錄退回 ts（行為不變）', legacyOcc.got, legacyOcc.want);
+
   // 🔴 補記那一支**不受影響**：它只知道哪一天，印日期、不得印時刻。
   const bf = await page.evaluate(() => {
     localStorage.setItem('tenki.alert.outcomes.v1', '[]');
