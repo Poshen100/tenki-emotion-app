@@ -8,6 +8,10 @@
 
 **主規則：手機上的固定網址，只顯示已 merge 進 `main` 的東西。**
 
+0. **裝到主畫面的那顆 icon 只能是 `https://tenki-emotion-app.vercel.app/app/`**（啟動路由）。
+   它自己不是畫面 —— 讀 `tenki.app.onboarded.v1` 決定去 `/preview/`（首次）還是 `/v3/`（回訪）。
+   ⚠️ iOS 在「加到主畫面」那一刻就把 manifest 快照了，**改 start_url 不會動到已安裝的 icon**，
+   要刪掉重裝才會生效。
 1. 手機看效果開這兩個：
    - `https://tenki-emotion-app.vercel.app/v3/` → 最新 v3 UI（Today + 5-Tab）
    - `https://tenki-emotion-app.vercel.app/preview/` → Soul Scan 臉部基線建立（Face ID 式，真實前鏡頭）
@@ -25,6 +29,7 @@ One domain, multiple routes. The mobile app has no public URL yet.
 ```
 tenki-emotion-app.vercel.app
 ├── /                         → 307 redirect → /story/  ⭐ Hero front door (apps/web demoted)
+├── /app/                     → apps/preview/app.html  ⭐ PWA 啟動路由（manifest start_url，裝 icon 用這個）
 ├── /v3/                      → apps/preview/v6/       ✨ v3 entry (founder's pick)
 ├── /preview/                 → apps/preview/soul-enroll.html  ✨ Soul Scan front door (live camera)
 ├── /preview/v6/              → apps/preview/v6/       🔧 v6 Today (= /v3/, twin path)
@@ -42,6 +47,7 @@ tenki-emotion-app.vercel.app
 |-----|--------|---------|--------|
 | `https://tenki-emotion-app.vercel.app/` | 307 → `/story/` | **Hero 正式門面** — root 導向 `/story/` 的 Hero（Read your edge…）。apps/web 已退居，深層路徑仍由 catch-all 服務 | ⭐ Front door |
 | `https://tenki-emotion-app.vercel.app/` (legacy) | `apps/web/` | 舊 web prototype v51.1，現僅由 `/(.*)` catch-all 服務深層路徑（root 已導向 Hero） | 🔒 Frozen |
+| `https://tenki-emotion-app.vercel.app/app/` | `apps/preview/app.html` | **PWA 啟動路由** — manifest 的 `start_url`，被安裝的就是這個網址。零外部相依（底色 inline，蓋掉 iOS 冷啟動白閃），只做一個判斷：有 `tenki.app.onboarded.v1`（或任一 legacy 使用痕跡）→ `/v3/`，否則 → `/preview/`。storage 讀不到時走 `/v3/` | ⭐ App front door |
 | `https://tenki-emotion-app.vercel.app/v3/` | `apps/preview/v6/index.html` | **v3 主入口** — Today + 5-Tab Nav + FDCB,v3 nomenclature 已對齊 (Clear/Neutral/Strain) | ✨ Founder 認可,active dev |
 | `https://tenki-emotion-app.vercel.app/preview/` | `apps/preview/soul-enroll.html` | **Soul Scan 臉部基線建立門面**（Face ID 式，真實前鏡頭 + live gates，對應 mobile FSM） | ✨ Front door, active dev |
 | `https://tenki-emotion-app.vercel.app/preview/soul-enroll.html` | `apps/preview/soul-enroll.html` | Soul Scan 直接路徑（內容同 `/preview/` 門面） | ✨ Active dev |

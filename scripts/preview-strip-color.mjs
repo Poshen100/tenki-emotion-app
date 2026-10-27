@@ -850,6 +850,44 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
   await rp.close();
 }
 
+// ══════════════════════════════════════════════════════════════
+// 收束頁的「期間離開」：次數是真的，時長不一定
+// ══════════════════════════════════════════════════════════════
+// founder 2026-10-27 截圖：`期間離開 1 次 · 4922:05`（82 小時）。
+// iOS 把 App 清出記憶體之後回來，那段量到的是「隔多久才開 App」。
+// /v3/ 的 accrueAway 認出來就不累加、改立 `awayUnbounded` 旗子，
+// 這裡驗讀端有沒有照著說 —— **而且不得夾一個上限值充數**。
+for (const [label, rec, want] of [
+  ['超過上限的那段離開', { awayCount: 1, awayMs: 0, awayUnbounded: true }, '1 次 · 時長不可知'],
+  ['正常的離開照舊印時長', { awayCount: 3, awayMs: 251000, awayUnbounded: false }, '3 次 · 04:11'],
+  ['舊紀錄沒有這一欄 → 行為不變', { awayCount: 2, awayMs: 65000 }, '2 次 · 01:05'],
+]) {
+  // ⚠️ 這支沒有 `ctx` —— 分頁一律從 `browser.newPage()` 開（第 619/699 行同形）。
+  const rp = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await rp.addInitScript((r) => {
+    const ts = Date.now();
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify([Object.assign({
+      ts, symbol: 'ES1!', templateId: 'MANCINI_FBD', outcomeTag: 'judged_stood_down',
+      durationSec: 314, sameSymbolUpdates: 1, source: 'alert', originAlertId: 'away-1',
+    }, r)]));
+    localStorage.setItem('tenki.alert.return.v1', JSON.stringify({ ts, at: Date.now() }));
+  }, rec);
+  await rp.goto(`${base}/decision-alert/#result`, { waitUntil: 'domcontentloaded' });
+  await rp.waitForTimeout(1200);
+  // 🔴 依**標籤**找那一列再讀值 —— 不拿整段 textContent 比字串。
+  //    呈現改版時前者會老實地紅，後者會變成一條默默失效的死斷言
+  //    （decision-chain.mjs:461 已經被這件事咬過一次）。
+  const got = await rp.evaluate(() => {
+    const row = [...document.querySelectorAll('#resultRecapList .result-recap-row')]
+      .find((r) => r.querySelector('.rc-label')?.textContent === '期間離開');
+    return row ? (row.querySelector('.rc-value')?.textContent ?? '').trim() : null;
+  });
+  check(`🔴 ${label}`, got, want);
+  // 夾值會變成「他離開了剛好 30:00」的謊 —— 那正是這次拒絕的做法。
+  if (rec.awayUnbounded) check('   而且不得夾一個上限值充數', /30:00/.test(got || ''), false);
+  await rp.close();
+}
+
 console.log(`\n${fail === 0 ? '🟢' : '🔴'} pass=${pass} fail=${fail}`);
 await browser.close();
 server.close();

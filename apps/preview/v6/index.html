@@ -13,6 +13,15 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TENKI CORE">
+<meta name="theme-color" content="#020617">
+<!-- 🔴 manifest 要掛在**每一頁**，不是只掛在被安裝的那一頁。
+     iOS 的「加到主畫面」用的是**當下這一頁**看得到的 manifest —— 少了它，
+     從 /v3/ 直接安裝會退回「用當前網址當 start_url」，於是又生出一顆
+     繞過啟動路由的 icon（本頁第 3257 行記的「本頁沒有 manifest」就是這個洞）。
+     掛上去之後不管從哪一頁安裝，start_url 都是 /app/。 -->
+<link rel="manifest" href="/app/manifest.webmanifest">
+<link rel="apple-touch-icon" sizes="180x180" href="/brand/favicon/apple-touch-icon-180.png">
 <title>TENKI CORE · 5-Tab Navigation</title>
 <!-- ⚠️ 絕對路徑，不能寫 `../tokens.css`：這一頁在正式站的網址是 `/v3/`（rewrite，
      不是 redirect），所以相對路徑會解成 `/tokens.css`，掉進 vercel.json 最後那條
@@ -2924,7 +2933,7 @@ a.lab-wide{text-decoration:none}
     <!-- 決策收束判定的唯一來源。⚠️ 必須排在下面那個 inline script 之前 ——
          那支在**頂層**就讀 window.TENKI_OUTCOME（OUTCOME_STORE_KEY_V6 / isDisciplinedV6），
          放到頁尾跟其他 script 一起載會來不及。絕對路徑：本頁同時掛在 /v3/ 與 /preview/v6/。 -->
-    <script src="/preview/decision-outcome.js?v=do12"></script>
+    <script src="/preview/decision-outcome.js?v=do13"></script>
     <!-- Stardust Scan Takeover Styles -->
     <link rel="stylesheet" href="stardust-scan-takeover.css?v=gyro_v6">
 </head>
@@ -3254,8 +3263,9 @@ a.lab-wide{text-decoration:none}
 
         <!-- 🔴 `/drift/` 的入口。先前它只掛在 `/decision-alert/`，而 founder 桌面那顆
              「TENKI CORE」其實是 **`/v3/` 的加入主畫面書籤**（本頁 <title> 就是
-             `TENKI CORE · 5-Tab Navigation`，而且本頁沒有 manifest）—— 所以在他實際
+             `TENKI CORE · 5-Tab Navigation`，當時本頁還沒有 manifest）—— 所以在他實際
              會打開的那個 app 裡，那一頁**一次都點不到**。
+             （2026-10-27 起本頁已掛 manifest，start_url 統一到 `/app/` 啟動路由。） 
              放 Lab 不放 Today 是刻意的：那一頁目前**上半部仍是合成 demo**，
              擺在 Today 就等於把一個假讀數放在真讀數旁邊一個手勢的距離。
              Lab 的抬頭是「Advanced · Beta」，而校準台就在它正上方 —— 同一族。
@@ -4661,6 +4671,22 @@ function elapsedNow(){
 // 是因為「離開幾次」比進度條真實得多（decision-alert.js:1260 的原話，語氣照搬）。
 // 短暫切換（通知列、誤觸）不算，避免把雜訊記成紀律事件。
 const AWAY_MIN_MS = 3000;
+// 🔴 **「離開」也要有上界，而且理由跟 `durationSec` 一模一樣。**
+//    iOS 會把背景的 web app 清出記憶體。回來的時候 `Date.now() - hiddenAtMs`
+//    量到的是「他隔多久才把 App 打開」，不是「他在這個決策裡離開了多久」。
+//    founder 2026-10-27 的截圖：`期間離開 1 次 · 4922:05`（82 小時）。
+//    🔴 **不夾到上限** —— 同一份檔案第 4978 行已經把這條想清楚過了：
+//       夾值會變成「他離開了剛好 30:00」的謊。缺就是缺。
+//    次數照記（他**確實**離開了，那件事是真的），時長標記成不可知。
+//    ⚠️ 上界在**函式內**讀 `WATCH_CEILING_SEC` —— 它宣告在幾百行之後，
+//       寫成模組層常數會在載入當下就 TDZ（同 renderWatchAxis 的註解）。
+/** 結算一段離開。gap 超過守望上限時只記次數，不累加時長。 */
+function accrueAway(gapMs){
+  if(!sess || !(gapMs >= AWAY_MIN_MS)) return;
+  sess.awayCount = (sess.awayCount || 0) + 1;
+  if(gapMs > WATCH_CEILING_SEC * 1000){ sess.awayUnbounded = true; return; }
+  sess.awayMs = (sess.awayMs || 0) + gapMs;
+}
 let awayAtMs = 0;
 document.addEventListener('visibilitychange', () => {
   if(!sess) return;
@@ -4679,10 +4705,7 @@ document.addEventListener('visibilitychange', () => {
   if(!awayAtMs) { syncActiveDecision(); return; }
   const gap = Date.now() - awayAtMs;
   awayAtMs = 0;
-  if(gap >= AWAY_MIN_MS){
-    sess.awayCount = (sess.awayCount || 0) + 1;
-    sess.awayMs = (sess.awayMs || 0) + gap;
-  }
+  accrueAway(gap);
   syncActiveDecision();
 });
 
@@ -4980,6 +5003,12 @@ function saveV6Outcome(session, outcomeTag){
     // 舊紀錄沒有這兩欄，讀端必須當「不知道」處理，不得顯示 0。
     awayCount: session.awayCount || 0,
     awayMs: session.awayMs || 0,
+    // true ＝ 其中至少一段離開超過守望上限，**總時長不可知**（不是 0）。
+    awayUnbounded: !!session.awayUnbounded,
+    // 🔴 決策**發生**的時刻。`ts` 是收掉的那一刻、而且是這筆的 id，不能改它的
+    //    意思 —— 所以「什麼時候發生」另外存（加，不換，SYSTEM.md §6）。
+    //    讀端一律走 `window.TENKI_OUTCOME.occurredAt()`，不自己挑欄位。
+    startedAt: typeof session.startedAtMs === 'number' ? session.startedAtMs : null,
     // 決策進行中收到幾則同標的快訊（規格 §8）。新增欄位（加，不換 —— SYSTEM.md §6）。
     // null ＝「跨頁標記當時讀不回來，我不知道」，不是 0 ＝「沒發生過」。
     sameSymbolUpdates: typeof session.sameSymbolUpdates === 'number' ? session.sameSymbolUpdates : null,
@@ -5225,6 +5254,7 @@ function activeDecisionSnapshot(){
     events: Array.isArray(sess.events) ? sess.events : [],
     awayCount: sess.awayCount || 0,
     awayMs: sess.awayMs || 0,
+    awayUnbounded: !!sess.awayUnbounded,
     // 離開的那一刻。**還沒回來就被清掉記憶體**時，接回來要靠它把這段補記進去。
     hiddenAtMs: sess.hiddenAtMs || null,
   };
@@ -5383,13 +5413,12 @@ function resumeActiveDecision(){
   sess.marks = sess.events.length;                 // marks 一律由節點數導出
   sess.awayCount = m.awayCount || 0;
   sess.awayMs = m.awayMs || 0;
+  sess.awayUnbounded = !!m.awayUnbounded;
   // 上一趟離開還沒被結算（走的時候頁面就被清掉了）—— 現在補記它。
   if(typeof m.hiddenAtMs === 'number' && m.hiddenAtMs > 0){
-    const gap = now - m.hiddenAtMs;
-    if(gap >= AWAY_MIN_MS){
-      sess.awayCount += 1;
-      sess.awayMs += gap;
-    }
+    // 🔴 這條路徑**就是** 4922:05 的來源：走的時候頁面被清掉，而 `now` 可能是
+    //    好幾天以後。走同一個結算入口，上界才有人守。
+    accrueAway(now - m.hiddenAtMs);
   }
   sess.hiddenAtMs = null;
   if(sess.symbol){
@@ -6418,8 +6447,13 @@ function fmtTimeOfDay(ts){
  */
 function fmtWhen(rec){
   if(!window.TENKI_OUTCOME.isDayPrecision(rec)){
-    const t = new Date(rec.ts);
-    if(isNaN(t.getTime())) return '—';
+    // 🔴 印的是**發生**的時刻（`startedAt`），不是**寫下來**的時刻（`ts`）。
+    //    被上限收掉的那一筆兩者可以差好幾天 —— founder 2026-10-27 的截圖裡，
+    //    最上面那筆印 08:47，而那是他重開 App 的時刻，不是那個決策發生的時刻。
+    //    舊紀錄沒有 `startedAt` → `occurredAt()` 退回 `ts`，行為不變。
+    const at = window.TENKI_OUTCOME.occurredAt(rec);
+    const t = new Date(at);
+    if(at == null || isNaN(t.getTime())) return '—';
     // 🔴 **不是今天就要把日期講出來。** 清單依 `ts` 降冪排（排序沒問題），
     //    但這裡只印 `HH:MM` —— 於是一串跨好幾天的紀錄看起來像排錯了
     //    （founder 2026-10-15 的截圖：19:49 → 09:44 → 21:19 → 21:45 → 11:19）。
@@ -6433,8 +6467,8 @@ function fmtWhen(rec){
       && t.getMonth() === now.getMonth()
       && t.getDate() === now.getDate();
     return sameDay
-      ? fmtTimeOfDay(rec.ts)
-      : (t.getMonth() + 1) + '/' + t.getDate() + ' ' + fmtTimeOfDay(rec.ts);
+      ? fmtTimeOfDay(at)
+      : (t.getMonth() + 1) + '/' + t.getDate() + ' ' + fmtTimeOfDay(at);
   }
   const d = new Date(rec.ts);
   if(isNaN(d.getTime())) return '—';
@@ -6464,7 +6498,11 @@ function fmtDurCell(rec){
   return typeof rec.durationSec === 'number' ? fmtDur(rec.durationSec) : '—';
 }
 function renderSessionScreen(){
-  const recs = loadOutcomes().slice().sort((a,b) => (b.ts||0) - (a.ts||0));
+  // 🔴 排序必須跟 `fmtWhen` 印的是**同一個量**。清單印 `occurredAt` 卻依 `ts` 排，
+  //    被上限收掉的那一筆（起點好幾天前、收掉是剛剛）就會頂在最上面卻標著舊日期
+  //    —— 看起來像排序壞了，而且那正是 2026-10-15 已經修過一次的同一種病。
+  const OCC = window.TENKI_OUTCOME.occurredAt;
+  const recs = loadOutcomes().slice().sort((a,b) => (OCC(b)||0) - (OCC(a)||0));
   const count = recs.length;
   // 🔴 2026-10-11：這三格原本是「對齊率 / 決策次數 / 平均用時」，
   //    其中兩格的**名字比它量到的東西大**，而那正是這個 repo 反覆記載的那條傷。
@@ -6558,7 +6596,11 @@ const outcomeDotV6 = (tag) => {
 };
 
 function renderTimeline(){
-  const recs = loadOutcomes().slice().sort((a,b) => (b.ts||0) - (a.ts||0));
+  // 🔴 排序必須跟 `fmtWhen` 印的是**同一個量**。清單印 `occurredAt` 卻依 `ts` 排，
+  //    被上限收掉的那一筆（起點好幾天前、收掉是剛剛）就會頂在最上面卻標著舊日期
+  //    —— 看起來像排序壞了，而且那正是 2026-10-15 已經修過一次的同一種病。
+  const OCC = window.TENKI_OUTCOME.occurredAt;
+  const recs = loadOutcomes().slice().sort((a,b) => (OCC(b)||0) - (OCC(a)||0));
   const count = recs.length;
   // 🔴 這張卡的 meta 原本是「N 筆 · X% 對齊」—— 跟 Session 那格退場的
   //    是**同一個百分比、同一個名字**（見 renderSessionScreen 的註解）。

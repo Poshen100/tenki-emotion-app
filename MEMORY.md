@@ -28,6 +28,46 @@
      勿刪、勿移動、勿複製第二份：`scripts/verify.sh` 驗它恰好出現一次、
      而且排在所有條目之前。它的存在理由見協議第 1 條。 -->
 
+# 2026-10-27 Session Update（PWA 啟動路由：被安裝的 icon 不該開在一個 demo 設定頁）
+
+## What was done
+- `/app/` 啟動路由（`apps/preview/app.html`）。manifest 的 `start_url` 從
+  `/decision-alert/` 搬過來、`name` 從「TENKI 決策快訊」改成「TENKI CORE」。
+  落點只有兩條：沒走過 onboarding → `/preview/`，走過 → `/v3/`（= Today）。
+- `tenki.app.onboarded.v1` 戳記，寫在 soul-enroll 的 `firstScan` 出口。
+- manifest 與 standalone 三件套掛到**每一頁**（`/v3/` `/preview/` `/decision-alert/`）。
+- 兩個 iOS 時鐘洞：`awayMs` 沒有上界（4922:05）、紀錄的 `ts` 是收掉的那一刻
+  而不是決策發生的時刻（`startedAt` + 共用模組的 `occurredAt()`）。
+- 新 harness `scripts/preview-app-launch.mjs`（40 條），fdcb / strip-color 各補數條。
+
+## 教訓 / 注意
+- 🔴 **「地基已經鋪好了，少的比想的少」要先查了才說得出來。** 這次的 `scope: "/"`、
+  `/v3/` 的 hash 路由與 `resumeActiveDecision()` 全都早就對了，真正錯的只有
+  manifest 裡的一行。先查再設計，省下的是一個不必要的大改。
+- 🔴 **founder 要的第二條規則（首次 → /preview/）本來沒有事實可站。** 整個
+  enrollment 只持久化 `tenki.baseline.blink`，而它回答的是另一個問題。
+  → PLAYBOOK「要判斷一件事，而手上剛好有一個接近的既有量」。
+- 🔴 **新旗標要寫 migration，否則第一個受害者是 founder 自己。**
+  → PLAYBOOK「新功能要讀一個新的 localStorage 旗標」。
+- 🔴 **同一個 iOS 坑、兩個欄位，一個擋了一個漏了**（`durationSec` vs `awayMs`）。
+  → PLAYBOOK「為某個欄位加上『App 被背景清掉』的防護」。
+- 🔴 **印的時間與排序的時間必須同一個量** —— 2026-10-15 同一種病的第二次。
+  → PLAYBOOK「清單上『印的時間』與『排序用的時間』」。
+- ⚠️ `WATCH_CEILING_SEC` 宣告在 v6 第 5448 行，任何在它之前的模組層常數引用都會
+  TDZ。上界要在**函式內**算（`renderWatchAxis` 已經記過同一件事）。
+
+## 下次接手點
+- founder 要**刪掉現有 icon 重裝** `/app/` 才吃得到新的 `start_url`
+  （iOS 在加到主畫面那一刻就把 manifest 快照了）。沒講這件事他會以為沒生效。
+- 規格 §7 還沒做：`alertAt` / `closedAt` 時間戳、收束頁「我下單了」、
+  `sw.js` 兩個洞（所有快訊共用一個 `tag`、`notificationclick` 沒吃 `data.url`）、
+  L2 收盤後推播。
+- 我建議但還沒做：Today 在讀數過期時不該只印「建議重掃」—— 那是把工作推回給
+  使用者。訂閱制產品要做的是把工作拿走（那行字的位置放一顆一按就掃的鍵）。
+- founder 未答：收束頁要不要主動問結果（我的建議仍是不要彈 modal）。
+
+---
+
 # 2026-10-16 Session Update（L1 快訊帶 + 兩個環境差異查清楚了 + GitHub 停權）
 
 🔴 **GitHub 帳號 `Poshen100` 在 2026-10-15 02:01–02:13 UTC 之間被停權**

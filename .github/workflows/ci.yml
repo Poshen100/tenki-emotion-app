@@ -144,6 +144,11 @@ jobs:
       - name: FDCB + Turning Point harness
         run: node scripts/preview-fdcb.mjs
 
+      # `/app/` 啟動路由 —— 它錯掉的兩種方式都很安靜（回訪者被丟回 onboarding、
+      # 新用戶被丟進空的 Today），畫面兩邊都完全正常。所以直接驗落點。
+      - name: App launch harness (PWA 啟動路由)
+        run: node scripts/preview-app-launch.mjs
+
       - name: Strip colour / outcome harness
         run: node scripts/preview-strip-color.mjs
 
