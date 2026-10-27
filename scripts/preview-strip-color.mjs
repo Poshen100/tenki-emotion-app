@@ -862,7 +862,8 @@ for (const [label, rec, want] of [
   ['正常的離開照舊印時長', { awayCount: 3, awayMs: 251000, awayUnbounded: false }, '3 次 · 04:11'],
   ['舊紀錄沒有這一欄 → 行為不變', { awayCount: 2, awayMs: 65000 }, '2 次 · 01:05'],
 ]) {
-  const rp = await ctx.newPage();
+  // ⚠️ 這支沒有 `ctx` —— 分頁一律從 `browser.newPage()` 開（第 619/699 行同形）。
+  const rp = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await rp.addInitScript((r) => {
     const ts = Date.now();
     localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify([Object.assign({

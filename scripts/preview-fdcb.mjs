@@ -3504,6 +3504,44 @@ for (const h of [700, 740, 844, 932]) {
   check('🔴 不是今天的就把日期印出來（清單才不會看起來像排錯）',
     days.older, days.expectOlder);
 
+  // ── ④ 寫端：離開超過上限就不累加（founder 2026-10-27 的 4922:05）──
+  // 🔴 這一條走的是**真正出事的那條路徑**：App 被 iOS 清出記憶體（`hiddenAtMs`
+  //    留在標記裡沒被結算），三天後重開 → `resumeActiveDecision()` 補記那一段。
+  //    先前這裡無條件 `sess.awayMs += now - m.hiddenAtMs`，於是三天變成「離開時長」。
+  //    ⚠️ 收束頁那幾條（preview-strip-color）只驗**讀端**（fixture 直接給
+  //    `awayUnbounded`）—— 把上限拿掉它們一條都不會紅。寫端要自己有人守。
+  {
+    const ap = await openV3(700);
+    const tid = await ap.evaluate(() => Object.keys(TEMPLATES)[0]);
+    const THREE_DAYS = 3 * 24 * 3600 * 1000;
+    const t0 = Date.now() - THREE_DAYS;
+    await ap.addInitScript((snap) => {
+      localStorage.setItem('tenki.v6.activeDecision.v1', JSON.stringify(snap));
+      localStorage.setItem('tenki.alert.outcomes.v1', '[]');
+    }, {
+      templateId: tid, startedAtMs: t0, expiresAtMs: t0 + 60e3,
+      watch: true, symbol: 'ES1!', events: [],
+      awayCount: 0, awayMs: 0, hiddenAtMs: t0 + 5e3,
+    });
+    await ap.reload({ waitUntil: 'load' });
+    await ap.waitForTimeout(1500);
+    const rec = await ap.evaluate(() => {
+      const all = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1') || '[]');
+      return all[all.length - 1] || null;
+    });
+    checkTruthy('🔴 接回來就被上限收掉，而且真的寫了一筆（不是憑空消失）', !!rec);
+    const r = rec || {};
+    // 次數是真的 —— 他**確實**離開了，那件事不該被抹掉。
+    check('🔴 離開次數照記（上限管的是時長，不是次數）', r.awayCount, 1);
+    check('🔴 超過上限的那段不累加進 awayMs（4922:05 的成因）', r.awayMs, 0);
+    check('🔴 而且明說「時長不可知」，不是沉默地寫 0', r.awayUnbounded, true);
+    // 🔴 不得夾到上限充數 —— 那會變成「他離開了剛好 30:00」的謊。
+    check('🔴 不是夾到 30:00，是根本不寫', r.awayMs >= 30 * 60 * 1000, false);
+    // 順便把既有行為一起釘住：上限收的那一筆不寫 elapsed。
+    check('上限收的那一筆 durationSec 仍是 null', r.durationSec, null);
+    await ap.close();
+  }
+
   // ── ③ 紀錄要說得出自己**什麼時候發生**，不是什麼時候被寫下來 ──
   // founder 2026-10-27 的截圖：最上面那筆印 08:47，而那是他重開 App 的時刻。
   // `ts` 是收掉的那一刻（而且是這筆的 id），`startedAt` 才是起點。
