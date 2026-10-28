@@ -70,6 +70,16 @@ const DEVICES = [
  */
 const RATIO_CEIL = { 667: 0.32, 852: 0.255, 932: 0.255 };
 
+/**
+ * 各機型直式的 `safe-area-inset-top`（standalone PWA）。
+ *
+ * 🔴 **這些數字不是裝飾，它們在決定框心的那個 `max()` 裡面。**
+ * Playwright 的 `env(safe-area-inset-top)` 永遠是 0，所以在補上這一組之前，
+ * 這支 harness 量到的是一台**沒有人擁有的機器**。
+ * ⚠️ SE 沒有瀏海 —— 它只有 20px 狀態列，拿 59 套它是假的。
+ */
+const SAFE_TOP = { 667: 20, 852: 59, 932: 59 };
+
 const chromium = await getChromium();
 const browser = await chromium.launch({
   args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
@@ -89,7 +99,7 @@ function check(name, actual, expected, tol) {
 }
 
 /** 開一個指定高度與 mission 的掃描覆蓋層，回傳量到的幾何。 */
-async function measure(h, mission, symbol) {
+async function measure(h, mission, symbol, safeTop) {
   const ctx = await browser.newContext({
     viewport: { width: 390, height: h },
     deviceScaleFactor: 2, isMobile: true, hasTouch: true, permissions: ['camera'],
@@ -103,6 +113,17 @@ async function measure(h, mission, symbol) {
     window.TENKI_READINESS_SCAN.begin({ mission: mi, symbol: sy });
   }, [mission, symbol]);
   await page.waitForSelector('#tenki-readiness-scan.open');
+  // 🔴 **模擬瀏海。** Playwright 的 `env(safe-area-inset-top)` 永遠是 0，而真機是
+  //    ~59px —— 那一項就在決定框心的那個 `max()` 裡面。不模擬它，這整支 harness
+  //    驗的是一台沒有人擁有的機器（2026-10-28 查出來的，見產品端註解）。
+  //    ⚠️ 只覆寫**輸入**（inset），`max()` 仍然由產品那條 CSS 算 ——
+  //    在 harness 裡重算一次就會養出一份會自己腐爛的複製品。
+  if (typeof safeTop === 'number') {
+    await page.evaluate((v) => {
+      document.getElementById('tenki-readiness-scan')
+        .style.setProperty('--rs-safe-top', v + 'px');
+    }, safeTop);
+  }
   await page.waitForTimeout(350);
 
   const geom = await page.evaluate(() => {
@@ -129,6 +150,9 @@ async function measure(h, mission, symbol) {
       aboveFrame: frame.top - (stage.top + padTop),
       mission: { left: mis.left, right: mis.right, top: mis.top, bottom: mis.bottom },
       privacyBottom: R('.rs-privacy').bottom,
+      dotsTop: R('.rs-dots').top,
+      dotsBottom: R('.rs-dots').bottom,
+      instructionBottom: R('.rs-instruction').bottom,
       cancel: { left: cancel.left, right: cancel.right, top: cancel.top, bottom: cancel.bottom },
     };
   });
@@ -163,38 +187,48 @@ async function measure(h, mission, symbol) {
   // ⚠️ 量的是**最後一個看得見的元素**，不是 `.rs-stage` 的 bottom。stage 是
   // `flex:1`（撐滿覆蓋層好讓隱私註腳靠底），它的 bottom 恆等於 H ——
   // 拿它來驗「有沒有爆底」會是一條**永遠綠的死斷言**。
-  geom.revealBottom = await page.evaluate(() => {
+  geom.reveal = await page.evaluate(() => {
     const q = (s) => document.querySelector('#tenki-readiness-scan ' + s);
     q('[data-rs="verdict-fact"]').hidden = false;
     q('[data-rs="verdict-spec"]').textContent = '468 點臉部特徵 · 10.0 秒 · 眨眼 16/分';
     q('[data-rs="verdict-quality"]').textContent = '擷取品質 moderate';
     q('[data-rs="done"]').hidden = false;
-    return Math.max(...['.rs-privacy', '.rs-dots', '[data-rs="done"]', '[data-rs="verdict-fact"]']
-      .map((sel) => q(sel).getBoundingClientRect().bottom));
+    return {
+      max: Math.max(...['.rs-privacy', '.rs-dots', '[data-rs="done"]', '[data-rs="verdict-fact"]']
+        .map((sel) => q(sel).getBoundingClientRect().bottom)),
+      // 🔴 上面那組最低的點。`revealBottom <= H` **抓不到上下兩組互相穿透**
+      //    —— 兩組都還在視窗內，只是疊在一起。所以另外回報這個量。
+      topGroupBottom: q('[data-rs="done"]').getBoundingClientRect().bottom,
+      dotsTop: q('.rs-dots').getBoundingClientRect().top,
+    };
   });
 
   await ctx.close();
   return geom;
 }
 
-const C = (await measure(852, 'daily', null)).constants;
+const C = (await measure(852, 'daily', null, 0)).constants;
 console.log(`框心目標 ${C.LENS_TARGET_VH}vh · stage 頂→框心 ${C.STAGE_TOP_TO_FRAME_PX}px`
   + ` · padding 下限 ${C.LENS_PAD_FLOOR_PX}px\n`);
 
 for (const dev of DEVICES) {
-  for (const [mission, symbol] of [['daily', null], ['decision', 'ES1!']]) {
-    const g = await measure(dev.h, mission, symbol);
+  for (const [mission, symbol, safeTop] of [
+    ['daily', null, 0], ['decision', 'ES1!', 0],
+    // 🔴 真機那一組。59px 是 iPhone 15/16 直式的 safe-area-inset-top。
+    ['daily', null, SAFE_TOP[dev.h]], ['decision', 'ES1!', SAFE_TOP[dev.h]],
+  ]) {
+    const g = await measure(dev.h, mission, symbol, safeTop);
     const ratio = g.frameCY / g.H;
 
     // 角度只印不驗（見 DEVICES 的註解）。
     const mmPerPx = dev.screenMm / dev.h;
     const deg = Math.atan(((g.frameCY - dev.cameraPx) * mmPerPx) / dev.holdMm) * 180 / Math.PI;
-    const tag = `${dev.label} ${mission.padEnd(8)}`;
+    const tag = `${dev.label} ${mission.padEnd(8)} ${safeTop ? 'inset' + safeTop : '無inset '}`;
     console.log(`\n── ${tag} frameCY=${g.frameCY.toFixed(1)} (${ratio.toFixed(3)}H)`
       + ` · 視線約 ${deg.toFixed(1)}°（假設手持 ${dev.holdMm}mm）`);
 
     // 1. 算式真的用那三個具名常數：從常數推導 padding，必須對上 render 出來的。
-    const expectPad = Math.max(C.LENS_PAD_FLOOR_PX,
+    const expectPad = Math.max(safeTop + C.LENS_PAD_FLOOR_PX,
       (C.LENS_TARGET_VH / 100) * g.H - C.STAGE_TOP_TO_FRAME_PX);
     check(`${tag} padding-top 等於常數推導值`, g.padTop, expectPad, 0.6);
 
@@ -204,12 +238,33 @@ for (const dev of DEVICES) {
 
     // 3. 比例在上限內 —— 這條是「這次改動到底有沒有效」的那條。
     const ceil = RATIO_CEIL[dev.h];
-    check(`${tag} 框心比例 ${ratio.toFixed(3)} ≤ ${ceil}`, ratio <= ceil, true);
+    if (!safeTop) {
+      check(`${tag} 框心比例 ${ratio.toFixed(3)} ≤ ${ceil}`, ratio <= ceil, true);
+    } else {
+      // 🔴 **不拿它當紅燈。** 真機現在就是 0.275（> 0.255）—— 那是一個還沒拍板的
+      //    產品取捨（founder 2026-10-28 說框太高、而往下移就是拿「正對臉部」去換），
+      //    把它寫成測試失敗等於用紅燈假裝那個決定已經做完了。
+      //    但它必須**被印出來**，不能再靜悄悄地被一台沒有瀏海的機器蓋過去。
+      console.log(`   ⚠️  真機框心比例 ${ratio.toFixed(3)}`
+        + `（上限 ${ceil}，${ratio <= ceil ? '在內' : '已超出 — 待拍板'}）`);
+      // 可以驗、而且現在就該釘住的是**這一句事實**：瀏海機上動 LENS_TARGET_VH
+      // 沒有用，贏的是下限那一項。文件裡「太高就把它調大」那句建議因此是錯的。
+      const floorTerm = safeTop + C.LENS_PAD_FLOOR_PX;
+      const vhTerm = (C.LENS_TARGET_VH / 100) * g.H - C.STAGE_TOP_TO_FRAME_PX;
+      check(`${tag} 🔴 位置由 safe-area 下限決定，不是 LENS_TARGET_VH`
+        + `（${floorTerm} vs ${vhTerm.toFixed(0)}）`, floorTerm > vhTerm, true);
+      check(`${tag} 而且 padding 真的等於那個下限`, g.padTop, floorTerm, 0.6);
+    }
 
     // 4. 不出界：頂端不被切、揭曉狀態不爆底。
     check(`${tag} stage 頂端沒被推出視窗`, g.stageTop >= -0.5, true);
-    check(`${tag} 揭曉狀態 ${g.revealBottom.toFixed(0)}px 沒爆底 (H=${g.H})`,
-      g.revealBottom <= g.H, true);
+    check(`${tag} 揭曉狀態 ${g.reveal.max.toFixed(0)}px 沒爆底 (H=${g.H})`,
+      g.reveal.max <= g.H, true);
+    // 🔴 揭曉時上面那組會長高，而底部那組是釘死的 —— 兩者可以在**都還在視窗內**
+    //    的情況下互相穿透，上一條完全抓不到。
+    check(`${tag} 揭曉時完成鈕沒壓到底部那組（${g.reveal.topGroupBottom.toFixed(0)}`
+      + ` vs 閘門頂 ${g.reveal.dotsTop.toFixed(0)}）`,
+      g.reveal.topGroupBottom <= g.reveal.dotsTop, true);
 
     // 隱私註腳要真的吸在底緣 —— 儀器上移之後底下空出約半個螢幕，靠底的註腳
     // 是讓版面讀起來「刻意」而不是「沒做完」的那一件事。
@@ -217,6 +272,17 @@ for (const dev of DEVICES) {
     // flex:1 被拿掉時 stage 不再撐滿，註腳也靠不了底，一樣紅。
     check(`${tag} 隱私註腳吸在底緣（距底 ${(g.H - g.privacyBottom).toFixed(0)}px）`,
       g.H - g.privacyBottom <= 40, true);
+
+    // 🔴 **閘門要跟註腳在同一組、一起吸在底部**（2026-10-28）。
+    // 上一輪的解法是只把註腳釘底，而 founder 實機走完說版面還是「掃描在上面」：
+    // 下緣只有一條 11px 的灰字，太輕，撐不住上面那片空白。
+    // 這條驗的是「底部那組真的在底部」，破壞 `.rs-dots` 的 margin-top:auto 會紅。
+    check(`${tag} 閘門跟著吸在底部（距底 ${(g.H - g.dotsBottom).toFixed(0)}px）`,
+      g.H - g.dotsBottom <= 70, true);
+    // 成對的另一半：閘門**離開了**上面那組 —— 只驗「靠底」的話，
+    // 版面矮到整頁沒有空白時它也會綠，而那時這條改動等於沒發生。
+    check(`${tag} 閘門與指示列之間真的留出空白（${(g.dotsTop - g.instructionBottom).toFixed(0)}px）`,
+      g.dotsTop - g.instructionBottom >= 60, true);
 
     // 5. 取消鈕與 mission 標籤的 bounding box 不重疊（上移之後兩者同高）。
     const overlap = g.mission.right > g.cancel.left && g.mission.left < g.cancel.right
