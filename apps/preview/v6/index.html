@@ -3282,6 +3282,25 @@ a.lab-wide{text-decoration:none}
           <div style="color:var(--n-400);font-size:18px">›</div>
         </a>
 
+        <!-- 🔴 `/decision-alert/` 的入口。**跟上面那一列是同一個洞的第二次**：
+             那一頁先前在 app 裡一次都點不到，founder 只能另外開 Safari 貼網址
+             （2026-10-28 截圖實證）。而這一次後果更重 ——
+             **那一頁是 Web Push 的唯一入口，而 iOS 的推播只給「已加入主畫面」
+             的 web app**，Safari 分頁永遠拿不到（他看到的就是那句
+             「🔔 手機推播（這個瀏覽器不支援）」）。
+             也就是說：沒有這一列，推播在產品裡**沒有任何一條路走得到**。
+             manifest 的 scope 是 `/`，所以從這裡點過去仍然待在 standalone 裡，
+             `PushManager` 就在（見 decision-alert.js 的 pushSupported）。
+             ⚠️ 副標刻意留空，字一律由 renderAlertRow() 寫（同下一列的理由）。 -->
+        <a class="lab-wide plain" id="labAlertRow" href="/decision-alert/">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></div>
+          <div class="info">
+            <div class="nm">決策快訊</div>
+            <div class="sub" id="labAlertSub"></div>
+          </div>
+          <div style="color:var(--n-400);font-size:18px">›</div>
+        </a>
+
         <div class="lab-sec">設定</div>
         <div class="lab-grid">
           <!-- 🔴 這一塊的副標原本寫死 `HR 68 · HRV 52 · RR 14`。
@@ -4170,8 +4189,9 @@ function goTab(id){
       return;
     }
     if(allowedTabs.includes(hash)) goTab(hash);
-    // 🔴 沒有 hash 也要接回來 —— PWA 的 start_url 是 /decision-alert/，
-    // 但使用者也可能直接開 /v3/。決策在不在，跟你是從哪個網址進來的無關。
+    // 🔴 沒有 hash 也要接回來 —— 使用者可能從 /app/ 啟動路由進來、也可能直接
+    // 開 /v3/ 或從快訊頁導過來。決策在不在，跟你是從哪個網址進來的無關。
+    // （start_url 自 #284 起是 /app/；這裡原本寫 /decision-alert/，已過期。）
     resumeActiveDecision();
   }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', apply);
@@ -5810,6 +5830,7 @@ function renderLab(){
   const sub = document.getElementById('labBaselineSub');
   if(sub) sub.innerHTML = labBaselineLine();
   renderCalibrationBench();
+  renderAlertRow();
   renderDriftRow();
 }
 
@@ -5822,6 +5843,38 @@ function renderLab(){
  *    0 讓人以為量過而結果是零。
  * ⚠️ 模組沒載到就說沒載到，不編一個看起來正常的數字頂替。
  */
+/**
+ * 決策快訊那一列的副標：自己講出這台裝置接到哪裡了。
+ *
+ * 🔴 每一句都站在一個**量得到的事實**上，不給預設值：
+ *    `tenki.alert.channel` 有沒有東西 ＝ 有沒有產生過專屬連結；
+ *    `tenki.alert.fields.v1.symbol` ＝ 連結裡烤進去的標的；
+ *    `tenki.alert.push.on` ＝ 這台裝置有沒有成功訂閱過推播。
+ * 🔴 沒接上就說沒接上，**不留空也不編一句看起來正常的話** ——
+ *    空白讓人以為壞了（PLAYBOOK §6 同一條）。
+ * ⚠️ 推播那一段只在**真的開過**時才說；沒開過就不提，不要變成一個
+ *    每次都在催的提示。
+ */
+function renderAlertRow(){
+  const el = document.getElementById('labAlertSub');
+  if(!el) return;
+  let channel = '';
+  let symbol = '';
+  let push = false;
+  try {
+    channel = localStorage.getItem('tenki.alert.channel') || '';
+    const f = JSON.parse(localStorage.getItem('tenki.alert.fields.v1') || '{}');
+    if(f && typeof f.symbol === 'string') symbol = f.symbol.trim();
+    push = localStorage.getItem('tenki.alert.push.on') === '1';
+  } catch(e){ /* 無痕模式：下面會落到「尚未接上」，那句話仍然是誠實的 */ }
+
+  if(!channel){ el.textContent = '尚未接上 TradingView'; return; }
+  const parts = ['已接上'];
+  parts.push(symbol || '還沒填標的');
+  if(push) parts.push('推播已開');
+  el.textContent = parts.join(' · ');
+}
+
 function renderDriftRow(){
   const el = document.getElementById('labDriftSub');
   if(!el) return;

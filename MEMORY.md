@@ -28,6 +28,30 @@
      勿刪、勿移動、勿複製第二份：`scripts/verify.sh` 驗它恰好出現一次、
      而且排在所有條目之前。它的存在理由見協議第 1 條。 -->
 
+# 2026-10-28 Session Update（快訊頁在 app 裡點不到 —— 而它是推播的唯一入口）
+
+## What was done
+- Lab 補一列「決策快訊」→ `/decision-alert/`，副標從真的 store 讀
+  （有沒有配對 / 標的 / 推播開了沒），沒配對就說「尚未接上」。
+- 順手修掉過期註解（`applyEntryHash` 還寫著 start_url 是 `/decision-alert/`，
+  自 #284 起是 `/app/`）。
+- lab harness +3 條，反向驗證 4/4。
+
+## 教訓 / 注意
+- 🔴 **同一個洞的第二次**：`/drift/` 2026-09 就因為「只掛在 /decision-alert/、
+  而 founder 的桌面 icon 是 /v3/」被搬進 Lab，但規則沒留下來。
+  → PLAYBOOK「一個功能只掛在某一頁上，而使用者是從桌面 icon 進 app」。
+- 🔴 這次後果更重：**iOS 的 Web Push 只給已加入主畫面的 web app**，
+  所以「快訊頁在 app 裡點不到」等於「推播在產品裡走不到」—— 而程式碼每一行都是對的。
+- ⚠️ 我的「破壞殘留檢查」pattern 本身會命中合法程式碼（`let push = false;`）。
+  要驗「有沒有殘留」就 `cmp` 備份，不要用 grep 關鍵字。
+
+## 下次接手點
+- 掃描框要不要往下移仍未拍板（動 `LENS_PAD_FLOOR_PX`，不是 `LENS_TARGET_VH`）。
+- founder 尚未實走這一列；走完才知道「從 icon → Lab → 決策快訊 → 開推播」通不通。
+
+---
+
 # 2026-10-28 Session Update（掃描框：真機位置跟設計宣稱的差 50px，旋鈕根本沒接上）
 
 ## What was done
