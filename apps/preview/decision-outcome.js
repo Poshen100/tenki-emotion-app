@@ -82,6 +82,209 @@
   }
 
   /**
+   * outcomeTag → 結果軸的預設值。`domain/src/contracts/trade-result.ts` 的鏡射。
+   *
+   * 🔴 **在紀錄產生的當下就要寫**，不能等使用者按收束頁的收尾鍵 ——
+   * 他判定「進場」之後直接關掉收束頁是很正常的事，而那樣寫出來的紀錄會沒有
+   * 這一欄 → 讀回來是 `null` → `countsAsTrade` 回 false → **那筆交易從當日
+   * 計數裡整個消失**：額度永遠用不完、面板照樣彈，畫面上完全看不出異狀。
+   *
+   * 🔴 放在這支共用模組而不是兩頁各抄一份：`/v3/` 建立紀錄、`/decision-alert/`
+   * 之後細化它，兩邊對同一個映射的理解必須是同一份（本檔存在的理由）。
+   *
+   * 對照：
+   *   `judged_entered`        → `pending`（交易發生了，結果待回填，**算一筆**）
+   *   `judged_stood_down`     → `no_entry`（推導，不再問一次）
+   *   `abandoned_no_judgment` → `null`（連有沒有交易都不知道，不猜）
+   *   舊語意的 tag            → `null`（倒數模式不是節奏規則的流程）
+   *
+   * @param {string} outcomeTag
+   * @returns {string|null}
+   * @see docs/TRADINGVIEW-ALERT-SPEC.md §9b
+   */
+  function defaultTradeResult(outcomeTag) {
+    if (outcomeTag === 'judged_entered') return 'pending';
+    if (outcomeTag === 'judged_stood_down') return 'no_entry';
+    return null;
+  }
+
+  // ═══════════════════════════════════════════════
+  // 日界節奏（§6.1 贏停 / 雙輸熔斷）—— `domain/src/policies/day-cadence.ts`
+  // 與 `domain/src/contracts/trade-result.ts` 的鏡射
+  // ═══════════════════════════════════════════════
+  // ⚠️ preview 不能 import `domain/`（CLAUDE.md 架構限制），所以這裡是手抄。
+  // 🔴 這個 repo 為鏡射漂移付過三次學費（同一筆決策，一頁 100%、另一頁 0%）——
+  //    `scripts/preview-drift.mjs` 的做法是逐一比對兩邊的常數值與每一句文案，
+  //    這一段照同一個方式被守著：改這裡**必須**同時改 domain，否則守門會紅。
+  // 🔴 本段**只報事實，不報該怎麼做**：回傳「今天幾筆、上一筆怎麼結束」，
+  //    不回傳任何指示。`contextZh` 可以逐字上畫面（已過合規層）。
+
+  /**
+   * 結果三選一的畫面文案 —— `domain/src/contracts/trade-result.ts` 的鏡射。
+   *
+   * 🔴 **住在這裡而不是各頁各寫一份**：收束頁（`/decision-alert/`）問這一題，
+   * Session 詳情（`/v3/`）回填同一題。兩份清單遲早漂移，而漂移的那一份會讓
+   * 同一筆紀錄在兩頁顯示不同的結果。
+   *
+   * 🔴 文案不得用自然的交易詞彙：`PROHIBITED_VOCABULARY_ZH` 擋掉
+   * 獲利／虧損／停損／停利，所以「獲利了結」「停損」都不能上畫面。
+   * 這三句是實際跑過 `findProhibitedTerms` 確認乾淨的。
+   * ⚠️ 內部識別字（`profit_taken` / `stopped_out`）不受此限 —— 那是 persisted contract。
+   *
+   * 🔴 沒有第四顆「還沒有結果」：那是**未選取**的狀態（值＝ `pending`）。
+   * 多一顆可切換的晶片會讓「取消選取」變成兩個意思。
+   */
+  var TRADE_RESULT_CHIPS = [
+    { value: 'profit_taken', label: '達到目標' },
+    { value: 'stopped_out', label: '觸及保護價' },
+    { value: 'scratch', label: '打平出場' },
+  ];
+
+  /**
+   * 這一筆**還在等結果**嗎。
+   *
+   * 🔴 住在這支共用模組的理由跟 `defaultTradeResult` 一樣：Session 列表、
+   * Session 詳情、未來任何想提醒的面都要用**同一個判準**。兩份實作遲早漂移，
+   * 而漂移的那一份會讓同一筆紀錄在一頁「待填」、另一頁「已完成」。
+   *
+   * 🔴 只有 `judged_entered` 會等結果 —— 另外兩條路的結果是**推導**出來的
+   * （判定不成立 ＝ `no_entry`、未判定就離開 ＝ `null`），它們沒有在等任何人。
+   *
+   * ⚠️ 也收 `undefined`：契約之前寫的紀錄根本沒有這一欄。那種紀錄**不算在等**
+   * —— 我們連它有沒有交易都不知道，催使用者去填一個他也回答不了的問題，
+   * 等於把「我們沒存」說成「你沒填」。所以舊紀錄走 `tradeResult === undefined`
+   * 這一支時要看 `outcomeTag`：它是 `judged_entered` 才算真的在等。
+   *
+   * @param {Object} rec 統一 store 裡的一筆
+   * @returns {boolean}
+   */
+  function awaitsResult(rec) {
+    if (!rec || rec.outcomeTag !== 'judged_entered') return false;
+    var r = rec.tradeResult;
+    return r === 'pending' || r === null || r === undefined;
+  }
+
+  /**
+   * 這一筆是**事後補記**的嗎。
+   *
+   * 補記 ＝ 這段決策真的發生過，但**不是在 App 裡跑的**（founder 2026-10-09：
+   * 「我昨天…依照計劃進場完成，但是後面這一段就沒有記錄到。我今天才補進去」）。
+   * 在這之前，建檔的唯一方式是**現在跑一次** —— 於是昨天的事變成今天的時間戳
+   * 加上一個 17 秒的「用時」，而那個數字是假的。
+   *
+   * 🔴 一個以「絕不捏造」為核心承諾的產品，不能讓使用者**為了留下紀錄而捏造**。
+   *
+   * @param {Object} rec
+   * @returns {boolean}
+   */
+  function isBackfilled(rec) {
+    return !!rec && rec.source === 'backfill';
+  }
+
+  /**
+   * 這一筆的時間戳**只精確到天**嗎。
+   *
+   * 🔴 補記時我們知道「哪一天」，不知道「幾點」。印一個時間出來就是宣稱一件
+   * 不知道的事 —— 所以時間戳帶 `tsPrecision: 'day'`，讀端印日期、不印時刻。
+   * ⚠️ 沒有這個欄位 ＝ 分鐘級（所有既有紀錄），行為一個字都不變。
+   *
+   * @param {Object} rec
+   * @returns {boolean}
+   */
+  function isDayPrecision(rec) {
+    return !!rec && rec.tsPrecision === 'day';
+  }
+
+  /**
+   * 補記那一天的時間戳：**該日 ET 的中午**。
+   *
+   * 🔴 為什麼不是當地中午：這個方法論的「一天」是 **ET 交易日**
+   * （`resolveTradingDayKey`），而日界節奏 §6.1 按它計數。使用者在台北挑
+   * 「10/8」，指的是 10/8 那個**盤**，不是台北的 10/8 —— 兩者差一整個日界。
+   *
+   * ⚠️ 16:30 UTC ＝ EDT 的 12:30 或 EST 的 11:30，兩種都穩穩落在同一個 ET 日的
+   * 正中間，不必處理日光節約的切換，也不會卡在午夜邊界上。
+   *
+   * @param {string} ymd `YYYY-MM-DD`（`<input type="date">` 的值）
+   * @returns {?number} epoch ms；格式不對回 null（不猜一個日期）
+   */
+  function backfillTsFor(ymd) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd || ''));
+    if (!m) return null;
+    return Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 16, 30, 0);
+  }
+
+  /** 方法論的時鐘：交易日是 ET 日，不是 UTC 日。 */
+  var TRADING_DAY_TZ = 'America/New_York';
+
+  /** §6.1 頻率：每天 1–2 筆。 */
+  var DAILY_TRADE_BUDGET = 2;
+
+  var DAY_CADENCE_STATES = [
+    'fresh', 'second_chance', 'stop_after_win', 'circuit_break', 'day_complete',
+  ];
+
+  /**
+   * 這筆結果算不算當日的一筆交易。
+   * 🔴 `pending`（結果還沒回填）**算**：交易發生了，只是結果未知。
+   * 當成不算的話當日額度永遠用不完 —— 見 trade-result 契約檔頭。
+   * ⚠️ 也收 `undefined`（契約之前寫的紀錄根本沒有這一欄）。
+   */
+  function countsAsTrade(result) {
+    return result !== null && result !== undefined && result !== 'no_entry';
+  }
+
+  /** 只有停損算輸（平手不算 —— 熔斷是為了止血，平手沒有在流血）。 */
+  function isLoss(result) { return result === 'stopped_out'; }
+
+  /** 只有達到目標算贏（`pending` 不算 —— 未知不等於好）。 */
+  function isWin(result) { return result === 'profit_taken'; }
+
+  /**
+   * 某個時刻屬於哪一個 ET 日。
+   * ⚠️ **不得**改用 UTC 日界（`toISOString`）—— 那會在 ET 19:00／20:00 換日，
+   * 把傍晚的交易歸到隔天。`en-CA` 直接吐 YYYY-MM-DD，DST 交給 `Intl`。
+   */
+  function resolveTradingDayKey(nowMs) {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: TRADING_DAY_TZ, year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(new Date(nowMs));
+  }
+
+  function cadenceContext(state, tradesToday) {
+    if (state === 'fresh') return '今天還沒有決策紀錄';
+    if (state === 'stop_after_win') return '今天第 1 筆 · 上一筆達到目標';
+    if (state === 'second_chance') return '今天第 1 筆 · 已收束';
+    if (state === 'circuit_break') return '今天 2 筆 · 兩筆都觸及保護價';
+    return '今天已完成 ' + String(tradesToday) + ' 筆';
+  }
+
+  /**
+   * 今天走到哪裡了。
+   * @param {Array<{ts:number, tradeResult:string|null}>} records
+   * @param {number} nowMs
+   * @returns {{tradesToday:number, state:string, contextZh:string}}
+   */
+  function resolveDayCadence(records, nowMs) {
+    var today = resolveTradingDayKey(nowMs);
+    var todays = (records || []).filter(function (r) {
+      return r && countsAsTrade(r.tradeResult) && resolveTradingDayKey(r.ts) === today;
+    }).slice().sort(function (a, b) { return a.ts - b.ts; });
+
+    var tradesToday = todays.length;
+    var state;
+    if (tradesToday === 0) state = 'fresh';
+    else if (tradesToday === 1) {
+      state = isWin(todays[0].tradeResult) ? 'stop_after_win' : 'second_chance';
+    } else if (isLoss(todays[0].tradeResult) && isLoss(todays[1].tradeResult)) {
+      state = 'circuit_break';
+    } else {
+      state = 'day_complete';
+    }
+    return { tradesToday: tradesToday, state: state, contextZh: cadenceContext(state, tradesToday) };
+  }
+
+  /**
    * 讀統一 store。壞資料一律當成空陣列 —— 讀不到歷史不該讓整頁掛掉。
    *
    * @returns {Array<Object>}
@@ -142,15 +345,35 @@
    * `cls` 對應 v6 既有的 badge 樣式（win / breakeven / loss），
    * `dot` 對應 Timeline 的點類別，`fill` 是點的顏色。
    */
+  // 🔴 `fill` 一律由 `isDisciplined()` 推出來，**不是每個 tag 各挑一個顏色**。
+  // 上面那條規則（「畫面上任何跟紀律有關的數字、顏色、文案都要走這一支」）
+  // 原本沒有掃到這裡：Timeline 的點與 strip 各自寫死三個色，於是
+  //   · `judged_entered` 綠、`judged_stood_down` 青 —— **兩個都算紀律，卻不同色**
+  //   · 而 `/decision-alert/` 收束頁的 `segColor()` 早就是照紀律分兩色的
+  // 同一件事兩頁兩種畫法，其中一種一定是假的。現在兩邊同一條規則。
+  //
+  // ⚠️ 順帶修掉一個更硬的錯：Timeline 的圖例寫的是**舊語意**
+  // （跟著流程／完整走完／提前收束），而新紀錄走的是判定語意 ——
+  // 一個判定「不成立」的紀錄，圖例會告訴使用者那個點的意思是「完整走完」。
+  //
+  // 🔴 綠退場的理由不是不好看：`--good #34C759` 在三種色盲下同時撞掉
+  // gold(10.2) / Clear(12.5) / Strain(12.5) / amber(13.5)，而門檻是 20
+  // （`docs/VISUAL-DIRECTION.md` §3.8）。**它可以當表面，不能當宣稱** ——
+  // 而這裡正是「一顆沒有字的彩色圓點」。
+  var FILL_ALIGNED = 'var(--zone-clear)';
+  var FILL_OFF = 'var(--zone-strain)';
   var OUTCOME_VIEW = {
     // 新語意（structure_watch_v1）
-    judged_entered: { text: '判定成立 · 已進場', badge: '判定成立', cls: 'win', dot: 'entry', fill: 'var(--good)' },
-    judged_stood_down: { text: '判定不成立 · 未進場', badge: '判定不成立', cls: 'win', dot: 'exit', fill: 'var(--primary)' },
-    abandoned_no_judgment: { text: '沒有做出判定', badge: '未判定', cls: 'loss', dot: 'cancel', fill: '#ff7e76' },
+    judged_entered: { text: '判定成立 · 已進場', badge: '判定成立', cls: 'win', dot: 'entry', fill: FILL_ALIGNED },
+    judged_stood_down: { text: '判定不成立 · 未進場', badge: '判定不成立', cls: 'win', dot: 'exit', fill: FILL_ALIGNED },
+    abandoned_no_judgment: { text: '沒有做出判定', badge: '未判定', cls: 'loss', dot: 'cancel', fill: FILL_OFF },
     // 舊語意（既有紀錄，仍要認得）
-    stayed_disciplined: { text: '跟著流程完成', badge: '跟著流程', cls: 'win', dot: 'entry', fill: 'var(--good)' },
-    timed_out: { text: '完整走完', badge: '完整走完', cls: 'breakeven', dot: 'exit', fill: 'var(--primary)' },
-    broke_discipline: { text: '提前收束', badge: '提前收束', cls: 'loss', dot: 'cancel', fill: '#ff7e76' },
+    stayed_disciplined: { text: '跟著流程完成', badge: '跟著流程', cls: 'win', dot: 'entry', fill: FILL_ALIGNED },
+    // ⚠️ `cls` 原本是 'breakeven'，但 `timed_out` 在 LEGACY_DISCIPLINED_TAGS 裡 ——
+    //    也就是說同一筆紀錄，`isDisciplined()` 說算紀律、徽章卻印中性的「breakeven」。
+    //    跟 fill 同一條規則：跟紀律走。
+    timed_out: { text: '完整走完', badge: '完整走完', cls: 'win', dot: 'exit', fill: FILL_ALIGNED },
+    broke_discipline: { text: '提前收束', badge: '提前收束', cls: 'loss', dot: 'cancel', fill: FILL_OFF },
   };
 
   /**
@@ -311,6 +534,292 @@
     };
   }
 
+  // ═════════════════════════════════════════════════
+  // 🔴 判定後來改了 —— 「先不動，後來還是照計劃進場」
+  //
+  // founder 2026-10-09 的那一天：掃描 → 標「先不動」→ 等了快一個小時 →
+  // 依計劃進場 → 完成。而 `renderResultBackfill()` 的那一格只在
+  // `judged_entered` 出現，所以**填結果那一格在他那一筆上是隱藏的** ——
+  // 一般情況下那是對的（看了沒做沒有結果可填），但他的「先不動」後面接的是
+  // 一次真的交易，而**判定在當時是終局的：沒有任何路可以說「後來我進場了」**。
+  //
+  // founder 2026-10-12 裁決：**算一筆，判定可以後來改。**
+  // （另外兩個選項是「加第三個判定出口（等觸發）」與「維持兩筆只把路指出來」。）
+  //
+  // 🔴 改寫一筆已存在的紀錄，所以**原始判定必須留得住**：翻 `outcomeTag` 的
+  //    同時把舊值寫進 `originalOutcomeTag`，詳情頁據此印「當時判定不成立 ·
+  //    後來進場」。少了它，這筆紀錄就不再說得出使用者當時判了什麼 ——
+  //    而這個 app 的全部價值就是那句話還在。
+  // 🔴 **沒有 `enteredAt`。** 使用者按下按鈕的那一刻**不是他進場的時刻**
+  //    （他可能收盤後才回來按）。`Date.now()` 塞進去就是 CLAUDE.md 禁止的
+  //    「量不到就填一個合理的預設值」。等待時長要有真的進場時間才算得出來，
+  //    那是 `docs/DECISION-RECORD-LOOP.md` §7 第 2 項，要**問**不是蓋章。
+  // 🔴 只認 `judged_stood_down`。`abandoned_no_judgment`（離開時沒有判定）
+  //    刻意不收 —— 那條路連「有沒有看過」都不確定，在上面接一次交易是另一個
+  //    故事，要做得 founder 另外拍板。
+  // ═════════════════════════════════════════════════
+
+  /**
+   * 這一筆可以說「後來我進場了」嗎。
+   *
+   * @param {Object} rec 統一 store 裡的一筆
+   * @returns {boolean}
+   */
+  function allowsLaterEntry(rec) {
+    return !!rec && rec.outcomeTag === 'judged_stood_down';
+  }
+
+  /**
+   * 這一筆的判定**後來被改過**嗎。
+   *
+   * @param {Object} rec 統一 store 裡的一筆
+   * @returns {boolean}
+   */
+  function hasRevisedJudgment(rec) {
+    return !!rec && typeof rec.originalOutcomeTag === 'string';
+  }
+
+  /**
+   * 改過的判定還**收得回來**嗎（按錯了）。
+   *
+   * 🔴 只要還沒填結果就收得回來 —— 一個不可逆的誤觸會讓使用者的紀錄從此
+   * 說錯話，而這一下就只是一個按鈕。填了結果之後這條路關起來（要收回就先
+   * 把結果那顆晶片再點一次回到 `pending`，那條路本來就存在）。
+   *
+   * @param {Object} rec 統一 store 裡的一筆
+   * @returns {boolean}
+   */
+  function canUndoLaterEntry(rec) {
+    return hasRevisedJudgment(rec) && awaitsResult(rec);
+  }
+
+  /**
+   * 把一筆「判定不成立」改成「後來進場」後該長什麼樣。
+   *
+   * 🔴 回的是**要套上去的欄位**，不自己寫 store —— 寫入在各頁，判準在這裡。
+   * 兩頁各寫一份判準就是這支模組存在的理由（2026-08-09 那次兩頁方言不同）。
+   *
+   * @param {Object} rec 統一 store 裡的一筆
+   * @returns {{outcomeTag: string, originalOutcomeTag: string, tradeResult: string}|null}
+   *   不適用時回 `null`
+   */
+  function laterEntryPatch(rec) {
+    if (!allowsLaterEntry(rec)) return null;
+    return {
+      outcomeTag: 'judged_entered',
+      originalOutcomeTag: rec.outcomeTag,
+      // 🔴 `pending` ＝ 交易發生了、結果未知。**不是 null** ——
+      //    null 會讓這筆從當日計數裡整個消失（見 trade-result 契約檔頭）。
+      tradeResult: 'pending',
+    };
+  }
+
+  /**
+   * 把「後來進場」收回去後該長什麼樣。
+   *
+   * @param {Object} rec 統一 store 裡的一筆
+   * @returns {{outcomeTag: string, originalOutcomeTag: null, tradeResult: string}|null}
+   */
+  function undoLaterEntryPatch(rec) {
+    if (!canUndoLaterEntry(rec)) return null;
+    var back = rec.originalOutcomeTag;
+    return {
+      outcomeTag: back,
+      // 🔴 收回去之後這一欄要**消失**，不是留一個空字串 —— 留著的話
+      //    `hasRevisedJudgment()` 還是真的，詳情頁會繼續印「後來進場」。
+      originalOutcomeTag: null,
+      // 🔴 進場時間也要跟著消失。留著的話這筆紀錄會同時說
+      //    「我沒進場」跟「我 10:28 進場」—— 自相矛盾，而且不會有人報錯。
+      enteredAt: null,
+      enteredAtSource: null,
+      tradeResult: defaultTradeResult(back),
+    };
+  }
+
+  // ═════════════════════════════════════════════════
+  // 🔴 「大概幾點進的」—— 問一句，換一段等待時長
+  //
+  // founder 2026-10-12：要問。而規格 §2 的紅線沒變：**不知道的人仍然是
+  // 一下點完**。所以這一題是**可略過**的，略過就沒有這個欄位 ——
+  // 不是填一個「判定後 10 分鐘吧」的預設值。
+  //
+  // 🔴 這個數字是**使用者回想的**，不是 App 量到的，所以要標記來源
+  //    （`enteredAtSource: 'reported'`）。同 CLAUDE.md 對 HRV 的要求
+  //    （estimated / observed / derived）—— contract 逼你標記就是為了擋
+  //    「把兩種來源的數字當同一個數字比較」。將來收束頁的「我下單了」
+  //    會寫 `'observed'`，兩者不可混算。
+  // ═════════════════════════════════════════════════
+
+  /**
+   * 這一筆問得出「大概幾點進的」嗎。
+   *
+   * 🔴 只問「後來才進場」那條路。本來就 `judged_entered` 的紀錄要等
+   * 收束頁的「我下單了」（規格 §7 第 3 項），那條路的時間是量到的、不用問。
+   * 🔴 判定時刻本身只知道哪一天（補記的紀錄）→ **不問**：
+   * 等待的另一端不存在，問到了也算不出來，只是多騷擾一次。
+   *
+   * @param {Object} rec 統一 store 裡的一筆
+   * @returns {boolean}
+   */
+  function allowsEntryTime(rec) {
+    if (!rec || rec.outcomeTag !== 'judged_entered') return false;
+    if (!hasRevisedJudgment(rec)) return false;
+    if (isDayPrecision(rec)) return false;
+    return typeof rec.enteredAt !== 'number';
+  }
+
+  /** 看不懂／不合理的時間，各自的說法（只陳述事實，不責備）。 */
+  var ENTRY_TIME_REASON_ZH = {
+    unparsable: '看不懂這個時間',
+    before_judgment: '這比判定的時候還早',
+    future: '這個時間還沒到',
+    no_record: '找不到這筆紀錄',
+  };
+
+  /**
+   * 把「HH:MM」換成時間戳 —— 在**這筆紀錄判定的那一天**、使用者的當地時間。
+   *
+   * 🔴 當地時間，因為這一頁印時刻用的就是當地時間（`fmtTimeOfDay`
+   * 走 `getHours()`）。問的框架跟印的框架不一致，使用者會填錯而且沒人會發現。
+   * 🔴 兩個邊界都要擋：**不得早於判定**（還沒判定就進場講不通），
+   * **不得是未來**（還沒發生的不是紀錄，同補記表單那條日期上限）。
+   * ⚠️ 跨午夜進場（23:50 判定、00:20 進場）會被擋下來 —— 這一版刻意只認
+   * 同一天，要放寬得先決定「那一天」對跨日持倉是什麼意思。
+   *
+   * @param {Object} rec 統一 store 裡的一筆
+   * @param {string} hhmm `<input type="time">` 給的值
+   * @param {number} [now] 現在（測試可注入）
+   * @returns {{ok: true, at: number}|{ok: false, reason: string}}
+   */
+  function entryTimeFrom(rec, hhmm, now) {
+    if (!rec || typeof rec.ts !== 'number') return { ok: false, reason: 'no_record' };
+    var m = /^(\d{1,2}):(\d{2})$/.exec(String(hhmm || ''));
+    if (!m) return { ok: false, reason: 'unparsable' };
+    var h = Number(m[1]);
+    var min = Number(m[2]);
+    if (h > 23 || min > 59) return { ok: false, reason: 'unparsable' };
+    var d = new Date(rec.ts);
+    if (isNaN(d.getTime())) return { ok: false, reason: 'no_record' };
+    d.setHours(h, min, 0, 0);
+    var at = d.getTime();
+    if (at < rec.ts) return { ok: false, reason: 'before_judgment' };
+    if (at > (typeof now === 'number' ? now : Date.now())) return { ok: false, reason: 'future' };
+    return { ok: true, at: at };
+  }
+
+  /**
+   * 答出進場時間之後該套的欄位。
+   *
+   * @param {number} at 進場時間戳
+   * @returns {{enteredAt: number, enteredAtSource: string}}
+   */
+  function entryTimePatch(at) {
+    return { enteredAt: at, enteredAtSource: 'reported' };
+  }
+
+  /**
+   * 等待那一格該印到什麼精度。
+   *
+   * 🔴 使用者回想的時間只有**分鐘**精度（`<input type="time">` 給的是
+   * `HH:MM`，`entryTimeFrom()` 把秒歸零）。而判定時刻帶著秒，所以相減的
+   * 結果會長成 `29:22` 這種**看起來精確到秒**的數字 —— 那是在宣稱一個
+   * 使用者從來沒給過的精度。2026-10-12 的守門就是這樣抓到的：
+   * 我斷言「30:00」，實際跑出 `29:22`，而錯的不是斷言，是那一格。
+   *
+   * 將來收束頁的「我下單了」是 `'observed'`（誤差幾秒）→ 印到秒才合理。
+   *
+   * @param {Object} rec 統一 store 裡的一筆
+   * @returns {'minute'|'second'}
+   */
+  function waitedPrecision(rec) {
+    return (rec && rec.enteredAtSource === 'reported') ? 'minute' : 'second';
+  }
+
+  /**
+   * 等了多久（判定 → 進場），秒。算不出來回 `null`。
+   *
+   * 🔴 回 `null` 不是 `0`。沒答進場時間的紀錄不是「等了 0 秒」。
+   *
+   * @param {Object} rec 統一 store 裡的一筆
+   * @returns {number|null}
+   */
+  function waitedSec(rec) {
+    if (!rec || typeof rec.ts !== 'number' || typeof rec.enteredAt !== 'number') return null;
+    if (isDayPrecision(rec)) return null;
+    var sec = Math.round((rec.enteredAt - rec.ts) / 1000);
+    return sec >= 0 ? sec : null;
+  }
+
+  // ═════════════════════════════════════════════════
+  // 🔴 守望的牆鐘上限 —— 以及「超過上限」那一筆的用時是什麼
+  //
+  // founder 2026-10-15 實走截圖：一筆「未判定」印著 **41:20**，
+  // 而它旁邊寫著「上限 30:00」。查出來的機制是：
+  // 守望每秒檢查 `elapsed >= 上限`，但 **iOS 把背景分頁的 `setInterval` 凍住**
+  // —— 使用者離開 41 分鐘，那個檢查一次都沒跑；回來的瞬間才醒來收束，
+  // 而 `elapsed` 已經是 41:20，就這樣被寫成 `durationSec`。
+  //
+  // 🔴 **41:20 量到的不是他考慮了多久，是「他隔多久才把 App 打開」。**
+  //    三小時後才開就會印 `3:00:00`。那跟 2026-10-11 退場的「平均用時」是
+  //    同一種數字：看起來在量使用者，實際在量某個無關的東西。
+  //
+  // 所以這種紀錄的 `durationSec` 是 **null**（我們不知道他真的看了多久），
+  // 而我們**確實知道**的那件事由 `endedBy: 'ceiling'` 帶著：它超過了上限。
+  // 夾到 30:00 是錯的解法 —— 那會變成「它在 30:00 結束」的謊。
+  // ═════════════════════════════════════════════════
+
+  /**
+   * 守望的牆鐘上限（秒）。超過就當作沒有判定收掉，避免跨日的殭屍 session。
+   *
+   * 🔴 住在共用模組而不是 `v6/index.html`：**讀端也要它**
+   * （`endedByCeiling()` 靠它判斷舊紀錄），而判定的單一來源要跨檔成立。
+   * ⚠️ v6 原本的註解寫著「與 decision-alert.js 的 WATCH_CEILING_MS 同一個值，
+   *    兩邊要一起改」—— 那句話 2026-10-15 查證時**已經不成立**
+   *    （decision-alert.js 裡沒有那個常數了）。註解過期的成本見 PLAYBOOK。
+   */
+  var WATCH_CEILING_SEC = 30 * 60;
+
+  /**
+   * 這一筆是**被上限收掉**的嗎（而不是使用者自己離開）。
+   *
+   * 🔴 舊紀錄沒有 `endedBy` 這一欄，所以要推：一筆「離開時沒有判定」
+   * 而 `durationSec` **超過上限**的紀錄，必然是上限收的 —— 正常路徑上
+   * 上限一到就會收束，走不到更大的數字。推導而不是改寫 store：
+   * 既有紀錄一個位元組都不動，而畫面立刻就誠實了。
+   *
+   * @param {Object} rec 統一 store 裡的一筆
+   * @returns {boolean}
+   */
+  /**
+   * 這一筆**發生**的時刻（不是被寫下來的時刻）。
+   *
+   * 🔴 `ts` 是 `Date.now()` at close，而且它同時是這筆的 **id**
+   *    （`patchOutcome` / `writeTradeResultById` 都靠它比對）—— 不能改它的意思。
+   *    但「什麼時候發生的」問的是**起點**，而被上限收掉的那一筆：
+   *      · `durationSec` 是 null（刻意的 —— 背景分頁的 elapsed 是「隔多久才開 App」）
+   *      · `ts` 就是「他把 App 打開的那一刻」
+   *    於是整筆紀錄**沒有任何欄位說得出它什麼時候發生**。founder 2026-10-27 的
+   *    截圖就是這個：最上面那筆印 08:47，而那是他重開 App 的時刻。
+   *
+   * `startedAt` 是**加**的欄位（SYSTEM.md §6：不得改既有持久化欄位名）。
+   * 舊紀錄沒有它 → 退回 `ts`，行為跟改之前逐位元組相同。
+   * 補記那一支也沒有它（它的 `ts` 本來就是照 ET 交易日挑的）→ 同樣退回 `ts`。
+   *
+   * @param {?Object} rec
+   * @returns {?number}
+   */
+  function occurredAt(rec) {
+    if (!rec) return null;
+    if (typeof rec.startedAt === 'number' && rec.startedAt > 0) return rec.startedAt;
+    return typeof rec.ts === 'number' ? rec.ts : null;
+  }
+
+  function endedByCeiling(rec) {
+    if (!rec || rec.outcomeTag !== 'abandoned_no_judgment') return false;
+    if (rec.endedBy === 'ceiling') return true;
+    return typeof rec.durationSec === 'number' && rec.durationSec > WATCH_CEILING_SEC;
+  }
+
   global.TENKI_OUTCOME = {
     TEMPLATE_ID_TO_V6: TEMPLATE_ID_TO_V6,
     OUTCOME_VIEW: OUTCOME_VIEW,
@@ -324,6 +833,34 @@
     LEGACY_DISCIPLINED_TAGS: LEGACY_DISCIPLINED_TAGS,
     isDisciplined: isDisciplined,
     resolveOutcomeTag: resolveOutcomeTag,
+    defaultTradeResult: defaultTradeResult,
+    awaitsResult: awaitsResult,
+    allowsLaterEntry: allowsLaterEntry,
+    hasRevisedJudgment: hasRevisedJudgment,
+    canUndoLaterEntry: canUndoLaterEntry,
+    laterEntryPatch: laterEntryPatch,
+    undoLaterEntryPatch: undoLaterEntryPatch,
+    allowsEntryTime: allowsEntryTime,
+    entryTimeFrom: entryTimeFrom,
+    entryTimePatch: entryTimePatch,
+    waitedSec: waitedSec,
+    waitedPrecision: waitedPrecision,
+    WATCH_CEILING_SEC: WATCH_CEILING_SEC,
+    occurredAt: occurredAt,
+    endedByCeiling: endedByCeiling,
+    ENTRY_TIME_REASON_ZH: ENTRY_TIME_REASON_ZH,
+    isBackfilled: isBackfilled,
+    isDayPrecision: isDayPrecision,
+    backfillTsFor: backfillTsFor,
+    TRADE_RESULT_CHIPS: TRADE_RESULT_CHIPS,
+    TRADING_DAY_TZ: TRADING_DAY_TZ,
+    DAILY_TRADE_BUDGET: DAILY_TRADE_BUDGET,
+    DAY_CADENCE_STATES: DAY_CADENCE_STATES,
+    countsAsTrade: countsAsTrade,
+    isLoss: isLoss,
+    isWin: isWin,
+    resolveTradingDayKey: resolveTradingDayKey,
+    resolveDayCadence: resolveDayCadence,
     load: load,
     MIN_BAND_SAMPLES_FOR_RATE: MIN_BAND_SAMPLES_FOR_RATE,
     BAND_ORDER: BAND_ORDER,

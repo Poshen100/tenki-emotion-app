@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#020617">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TENKI CORE">
+<title>TENKI CORE</title>
+<!-- 🔴 這一頁是**被安裝的那個網址**（manifest 的 start_url）。
+     iOS 在「加到主畫面」的那一刻就把 manifest 快照起來，之後不會再更新 ——
+     所以 start_url 必須指向一個**永遠不會搬家**的路徑。指向 /v3/ 等於把已經
+     安裝的 icon 綁在一個會改版的內部路徑上。 -->
+<link rel="manifest" href="/app/manifest.webmanifest">
+<link rel="apple-touch-icon" sizes="180x180" href="/brand/favicon/apple-touch-icon-180.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/brand/favicon/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/brand/favicon/favicon-16.png">
+<!-- 🔴 **全部 inline，一個外部請求都不發。**
+     這一頁唯一的視覺工作是蓋掉 iOS 冷啟動的白閃，而那個空窗只有幾十毫秒 ——
+     任何外部 CSS／字型／SVG 的 round trip 都比它長，拉進來等於親手製造它要
+     擋掉的那個破綻。底色寫死 `#020617` 而不是 `var(--bg-space)` 也是同一個
+     理由（tokens.css 是外部檔）。兩者必須一致，harness 直接比對數值。 -->
+<style>
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: #020617;           /* = tokens.css --bg-space / --n-950 */
+    color: #637389;                /* = --n-500 */
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang TC", "Noto Sans TC", sans-serif;
+    overscroll-behavior: none;
+    -webkit-user-select: none; user-select: none;
+  }
+  .boot {
+    height: 100%;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .mark {
+    font-size: 15px; font-weight: 600;
+    letter-spacing: 0.34em; text-indent: 0.34em;   /* 末字的 tracking 要補回來，否則整體偏左 */
+    color: #D8DDE6;                                 /* = --n-200 */
+  }
+  .ns { padding: 24px 20px; text-align: center; line-height: 2; }
+  .ns a { color: #00B4D8; }                         /* = --zone-clear */
+</style>
+</head>
+<body>
+  <div class="boot"><div class="mark">TENKI</div></div>
+
+  <!-- JS 關掉時這一頁會是死路 —— 給兩個出口，不要讓人卡在一個空畫面上。 -->
+  <noscript>
+    <div class="ns">
+      <a href="/v3/">進入 TENKI CORE</a><br>
+      <a href="/preview/">第一次使用 · 建立基線</a>
+    </div>
+  </noscript>
+
+<script>
+(function () {
+  'use strict';
+
+  // ══════════════════════════════════════════════════════════════
+  // 啟動落點：**只有兩條規則**，而且每一條都站在一個量得到的事實上。
+  //
+  //   沒走過 onboarding → /preview/（Soul Scan）
+  //   走過             → /v3/（= Today，沒有 hash 就是 Today）
+  //
+  // 🔴 **刻意不做的事**：不看「有沒有在等結果」而把人開在 Session。
+  //    L1 快訊帶剛立的規矩是「補結果是順手，不是打斷」——
+  //    同一個產品不能在啟動路由用相反的規矩。
+  //
+  // 🔴 **進行中的決策不用這裡管**：/v3/ 自己每次載入都無條件跑
+  //    `resumeActiveDecision()`（v6/index.html 的 applyEntryHash）。
+  //    在這裡再判一次 = 同一個決定有兩個地方說了算。
+  // ══════════════════════════════════════════════════════════════
+
+  var KEY = 'tenki.app.onboarded.v1';
+
+  // 🔴 **舊用戶 migration。** 戳記是今天才開始寫的，而在這之前就已經在用的人
+  //    一個戳記都沒有 —— 沒有這段，他們升級後的第一次啟動會被丟回 onboarding，
+  //    而他們是最不該被丟回去的那群人。
+  //    下面每一支都只證明一件事：「這個人**用過**這個 App」。那正是這裡要問的
+  //    問題，所以拿它們回答是誠實的；拿它們回答「基線品質如何」才不是。
+  var LEGACY = [
+    'tenki.baseline.blink',          // 走過 Soul Scan 且基線 earn
+    'tenki.readiness.reading.v1',    // 掃描過（/v3/ 或 /decision-alert/ 都算）
+    'tenki.alert.outcomes.v1',       // 有決策紀錄
+  ];
+
+  /** 空字串／`null`／空容器都**不算**用過 —— 讀端寫回來的空殼很常見。 */
+  function used(raw) {
+    return typeof raw === 'string'
+      && raw !== '' && raw !== 'null' && raw !== 'undefined'
+      && raw !== '[]' && raw !== '{}';
+  }
+
+  function onboarded() {
+    try {
+      if (used(localStorage.getItem(KEY))) return true;
+      for (var i = 0; i < LEGACY.length; i++) {
+        if (!used(localStorage.getItem(LEGACY[i]))) continue;
+        // 認出來就補一張戳記，下次啟動就不用再掃一輪。
+        try {
+          localStorage.setItem(KEY, JSON.stringify({
+            at: Date.now(), via: 'legacy', from: LEGACY[i],
+          }));
+        } catch (e) { /* 寫不進去不影響這次的判斷 */ }
+        return true;
+      }
+      return false;
+    } catch (e) {
+      // 🔴 Safari 無痕／storage 被擋：**我們不知道**。
+      //    兩邊猜錯的代價不對稱 ——
+      //      猜成「新用戶」→ 付費的回訪者每次開 App 都失去他的 App；
+      //      猜成「老用戶」→ 新用戶多按一下去 Scan。
+      //    不對稱就選傷害小的那邊，而不是選「比較可能」的那邊。
+      return true;
+    }
+  }
+
+  // 🔴 replace 不是 href —— 但理由要講對。**在這個頁面結構下兩者行為相同**：
+  //    script 跑在 body 尾端、文件還沒 load 完，這時的導覽本來就不會多留一筆
+  //    歷史。2026-10-27 直接量過：落點、`history.length`、返回後的網址三項
+  //    逐項相同（反向驗證把它改成 href，「返回鍵」那條斷言**沒有紅**）。
+  //    所以 replace 在這裡守的是**前提**：哪天這段被搬到 load 之後（或改成
+  //    等 storage 的非同步版本），href 就會真的多留一筆，而使用者按返回會
+  //    回到這張啟動頁再被導走一次。harness 用來源形狀釘住它，不是用行為。
+  window.location.replace(onboarded() ? '/v3/' : '/preview/');
+})();
+</script>
+</body>
+</html>

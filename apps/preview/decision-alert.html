@@ -11,12 +11,14 @@
        原因：從這裡進入決策會導到 /v3/ 的決策計時器，而**離開 scope 的導覽
        會讓 iOS standalone 把使用者踢回 Safari** —— 連帶失去 PWA 的執行脈絡，
        而 Web Push 正是綁在那個 PWA 上（PLAYBOOK:312、:390 同一家族的坑）。
-       start_url 仍是 /decision-alert/（scope 內，合法）。
+       start_url 是 /app/（啟動路由，scope 內，合法）—— 2026-10-27 從
+       /decision-alert/ 搬走：被安裝的那顆 icon 不該開在一個 demo 設定頁。
        ⚠️ service worker 不受影響：它註冊在 /decision-alert/sw.js、沒指定 scope，
        所以 SW scope 仍是 /decision-alert/，推播照舊。
        ⚠️ 已經加到主畫面的 PWA 要**重裝**才會吃到新的 scope。
        .webmanifest 是 JSON、不能寫註解，所以理由記在這裡。 -->
-  <link rel="manifest" href="/decision-alert/manifest.webmanifest" />
+  <link rel="manifest" href="/app/manifest.webmanifest" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <link rel="apple-touch-icon" href="/brand/favicon/apple-touch-icon-180.png" />
   <title>TENKI — 外部快訊 → 決策入口（Demo）</title>
   <link rel="stylesheet" href="tokens.css" />
@@ -102,6 +104,15 @@
       border: 1px solid var(--premium-600);
       border-radius: 999px; padding: 2px 7px; text-transform: uppercase;
     }
+    /* 導覽列（偏移預警 ›）—— 與展開列同一個外觀，只有尾端記號不同：
+       `▾` 是「在這裡展開」，`›` 是「離開這一頁去別的地方」。
+       🔴 **而那個差別要吃到顏色上**：`▾` 會改變狀態（展開）→ 可動層琥珀；
+       `›` 是導覽 → **中性**。founder 2026-09-08 的三層規則寫得很清楚：
+       「主要動作＝填色；次要動作／可點列＝琥珀的記號；**導覽與關閉＝中性**」。
+       我第一版直接沿用 `.live-chevron`（琥珀）當導覽記號，違反了那一條 ——
+       /v3/ Lab 的 Premium 列（`›` 用 `--n-400`）才是正確樣板。 */
+    a.live-toggle { text-decoration: none; }
+    .live-chevron.nav { color: var(--n-400); }
     .live-body { padding: 0 14px 12px; }
     .live-hint { font-size: 11px; color: var(--n-500); line-height: 1.5; margin-bottom: 8px; }
     .live-push { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
@@ -146,6 +157,16 @@
       animation: chip-in 0.35s var(--ease-calm) forwards;
     }
     @keyframes chip-in { to { opacity: 1; transform: translateY(0); } }
+    /* 🔴 收摺的晶片**真的會做事**（點了面板就開）→ 可動層琥珀。
+       中性的 `.silent-chip` 是「已接收、沒事要做」，兩者不能長一樣，
+       否則使用者學不到哪一顆可以點。 */
+    .silent-chip.actionable {
+      color: var(--amber-400); font-family: inherit;
+      border-color: rgba(var(--amber-400-rgb), 0.38);
+      background: rgba(var(--amber-400-rgb), 0.08);
+      cursor: pointer;
+    }
+    .silent-chip.actionable:active { background: rgba(var(--amber-400-rgb), 0.18); }
 
     /* ── Event chain log ── */
     .log-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; }
@@ -247,10 +268,27 @@
       .result-sheet .result-hero { margin: 6px auto 2px; }
       .result-sheet .result-block { margin-top: 10px; }
       .result-sheet .result-strip { margin-top: 6px; }
-      .result-sheet .result-reflect-wrap { margin-top: 10px; }
+      .result-sheet .result-reflect-wrap { margin-top: 8px; }
+      .result-sheet .result-trade-wrap { margin-top: 4px; }
+      /* 兩列晶片一起壓，不是只壓新的那一列 —— 只壓新的會讓兩列高度不一致，
+         看起來像其中一列壞掉。 */
+      .result-sheet .result-chip { padding: 6px 4px; font-size: 11px; }
+      .result-sheet .result-reflect-q { font-size: 12px; }
+      .result-sheet .result-reflect { margin-top: 4px; }
       .result-sheet .sheet-actions { margin-top: 8px; }
-      /* 弧縮小之後中央文字要跟著縮，否則「判定成立 · 已進場」會擠成兩行貼住環。 */
-      .result-sheet .result-outcome { font-size: 13px; }
+      /* 弧縮小之後中央文字要跟著縮，否則「判定成立 · 已進場」會擠成兩行貼住環。
+         🔴 13px 仍然太大：2026-09-11 逐行四個角對圓心量過，最壞的
+         「判定不成立 · 未進場」在 128px 弧下離環線內緣只剩 **0.2px** ——
+         行盒比字高、所以墨跡還沒真的碰到環，但那是「餘裕只剩幾 px，字型稍微
+         換一下就紅」的同一族（這個 repo 已經為它付過兩次學費）。
+         12px → **3.1px**，而且 `.result-hero` 是固定高、`.result-arc-center`
+         是 `inset:0`，所以這一格**不花任何垂直空間**（那段預算只剩 12px，
+         見下面 result-recap-row 那條）。
+         ⚠️ 三個判定實測（12px）：不成立 2 行 `[67,36]` 餘裕 3.1、
+         成立 2 行 `[55,36]` 餘裕 6.2、未判定 1 行 `[72]` 餘裕 5.4。
+         再往下調到 11px 可以買到 7.1px，但那是收束頁的**結論**那一行，
+         11px 太小 —— 停在 12px。 */
+      .result-sheet .result-outcome { font-size: 12px; }
       /* 弧縮到 128px 之後，環線的內側淨寬只剩約 90px（r = size/2 - 14、線寬 10）。
          內距要夠大才逼得動換行 —— 給太小的話文字不是溢出，是**壓在環線上**
          （量過：文字 103px、容器 128px，看起來像溢出其實是撞線）。 */
@@ -368,6 +406,13 @@
     .result-reflect-wrap { margin-top: 16px; }
     .result-reflect-q { font-size: 13px; color: var(--n-300); }
     .result-reflect { display: flex; gap: 8px; margin-top: 8px; }
+    .result-trade-wrap { margin-top: 16px; }
+    /* 部位常常在 30 分鐘決策窗關掉之後好幾小時才平倉 —— 這一行的工作是讓
+       「還沒有結果」讀起來是正常狀態，而不是一件沒做完的事。 */
+    /* 🔴 併進問句那一行，不自成一列 —— 自成一列會讓收束頁在 660px（in-app
+       瀏覽器的實際高度）多出一整行。#225 那次我造成 36px 遮擋，修法就是
+       「併進既有的行 ＝ 零額外高度」，同一招。 */
+    .result-trade-note { font-size: 11px; color: var(--n-400); }
     @media (prefers-reduced-motion: reduce) {
       .result-meter-fill { transition: none; }
       .result-arc-glow { display: none; }
@@ -396,6 +441,23 @@
     @media (prefers-reduced-motion: reduce) {
       .result-chip, .result-chip:active, .result-chip.sel { transition: none; transform: none; }
     }
+    /* 🔴 L1 的那條帶。刻意長得**像一句旁註**，不像一張待辦卡：
+       沒有邊框色、沒有紅、沒有計數徽章。它只是順手問一句。 */
+    .pending-band{
+      margin:2px 0 14px;padding:10px 12px;border-radius:12px;
+      background:rgba(255,255,255,0.04);
+      border:1px solid rgba(255,255,255,0.06);
+    }
+    .pending-band[hidden]{display:none}
+    .pb-text{font-size:12px;color:var(--n-300);margin-bottom:8px;
+      display:flex;align-items:center;gap:6px}
+    /* 中性的空心點 —— 跟 Session 列表那個「結果還沒填」同一個語彙。 */
+    .pb-text::before{content:'';width:5px;height:5px;border-radius:50%;
+      border:1px solid var(--n-400);background:transparent;flex-shrink:0}
+    .pb-chips{display:flex;gap:6px;flex-wrap:wrap}
+    .pb-more{display:block;margin-top:8px;font-size:11px;color:var(--n-400);
+      text-decoration:none}
+
     /* ── 進入決策：交易者儀器面板 ── */
     .sig { display: flex; align-items: center; gap: 12px; position: relative; }
     .sig-ping {
@@ -545,6 +607,13 @@
     .tpl-head span:nth-child(1) { flex: none; width: 96px; }
     .tpl-head span:nth-child(2) { flex: 1; min-width: 0; }
     .tpl-head span:nth-child(3) { flex: none; width: 44px; text-align: right; }
+    /* 為什麼沒有值 —— 一句話，不是一個破折號。
+       ⚠️ 沒有比對到時第三欄整欄不存在，中間那欄靠上面的 `flex: 1` 自動吃滿寬度，
+       不需要（也不該）為那個狀態另外寫一條規則。 */
+    .tpl-nomatch {
+      font-size: 11px; line-height: 1.5; color: var(--n-400);
+      padding: 8px 0 2px; border-bottom: 1px solid var(--n-800);
+    }
     .tpl-row {
       display: flex; align-items: baseline; gap: 10px;
       padding: 10px 0; border-bottom: 1px solid var(--border);
@@ -679,7 +748,10 @@
         <label class="set-row">聚合窗（秒）<input type="number" id="setAggregation" min="0" step="5" inputmode="numeric" /></label>
         <label class="set-row set-check"><span>Strain 狀態靜默接收</span><input type="checkbox" id="setStrainSilent" /></label>
         <label class="set-row set-check"><span>決策中同標的安靜更新</span><input type="checkbox" id="setSessionQuiet" /></label>
-        <label class="set-row set-check"><span>盤整迴避時段提示（美東 11–14）</span><input type="checkbox" id="setQuietWindow" /></label>
+        <label class="set-row set-check"><span>安靜時段提示</span><input type="checkbox" id="setQuietWindow" /></label>
+        <!-- 日界節奏收摺（§9b 階段 C）。預設 on —— 它實作的是使用者自己方法論
+             裡的停手點，不是我們加的意見。收摺不是靜音：晶片可以點開。 -->
+        <label class="set-row set-check"><span>到了停手點就收摺快訊</span><input type="checkbox" id="setCadenceCollapse" /></label>
         <div class="live-row">
           <button class="btn btn-ghost" id="setReset" type="button">回到預設</button>
         </div>
@@ -699,6 +771,21 @@
       </div>
     </div>
 
+    <!-- 🔴 這一列是 /drift/ 唯一的入口。沒有它，那一頁只能手打網址 ——
+         而一個點不到的功能等於沒上線。目的地與這裡同網域，manifest 的
+         scope 是 `/`，所以在 PWA 裡點它不會被踢回 Safari，localStorage
+         也跟這裡的掃描共用（同一份讀數歷史）。 -->
+    <div class="live-card">
+      <a class="live-toggle" id="driftLink" href="/drift/">
+        <span class="live-title">偏移預警</span>
+        <!-- 🔴 刻意留空：這一格的字**一律由 JS 寫**（renderDriftEntry）。
+             預設值如果就是 JS 會寫的那句，harness 會在 JS 根本沒跑的情況下
+             綠燈 —— 第一版就是這樣過的。 -->
+        <span class="live-status" id="driftStatus"></span>
+        <span class="live-chevron nav">›</span>
+      </a>
+    </div>
+
     <div class="silent-area" id="silentArea"></div>
 
     <div class="log-panel">
@@ -714,6 +801,21 @@
 
   <div class="sheet entry-sheet" id="entrySheet">
     <div class="sheet-handle"></div>
+
+    <!-- 🔴 L1：上一筆還沒填結果，順手帶一下（規格 docs/DECISION-RECORD-LOOP.md §4）。
+         founder 自己的主意，而它是三層提醒裡最好的那一層 —— 它搭的是一個
+         **你已經同意被打擾**的時刻（快訊進來了），所以額外打擾成本是 0，
+         而且零新基礎設施（面板、晶片、store 全是現成的）。
+         🔴 硬規則：它是一條**帶**不是 modal ——
+           · 不得阻擋、不得搶焦點：忽略它，下面新快訊的流程逐步不變
+           · 一條帶最多講**一筆**（多筆就講「還有 N 筆」並連到 Session 頁）
+           · 填完就地收起，**不跳頁**（跳頁會把人從新快訊上扯走）
+           · 不得倒數、不得用紅色 —— 它是一句事實，不是逾期通知 -->
+    <div class="pending-band" id="pendingBand" hidden>
+      <div class="pb-text" id="pendingBandText"></div>
+      <div class="pb-chips" id="pendingBandChips"></div>
+      <a class="pb-more" id="pendingBandMore" href="/v3/#session" hidden></a>
+    </div>
 
     <!-- 訊號讀出（活的：N 秒前持續跳動）-->
     <div class="sig">
@@ -750,6 +852,12 @@
       </div>
       <div class="result-strip" id="entryStrip"></div>
       <div class="stat-sub" id="entryDiscipline"></div>
+      <!-- 日界節奏的事實行（規格 §9b 階段 B）。
+           🔴 放進既有的「紀律脈絡」區塊，**不新增一個區塊** —— 階段 A 那一刀
+           讓收束頁在 660px 多出 62px，就是因為我新增了一整段。
+           🔴 唯讀：這一行只說「今天幾筆、上一筆怎麼結束」，**不閘門、不建議**。
+           閘門是階段 C，而且要等真實紀錄長出來才有意義。 -->
+      <div class="stat-sub" id="entryCadence"></div>
     </div>
 
     <div class="sheet-actions">
@@ -810,6 +918,17 @@
       <div class="result-reflect" id="resultReflect"></div>
     </div>
 
+    <!-- 結果軸（規格 §9b）。刻意排在反思**之後** —— 這張頁問的是紀律，
+         結果是從屬的一軸，版面順序要跟那個從屬關係一致。
+         🔴 只在「判定成立並進場」時出現：判定不成立 ＝ no_entry（推導，不再問一次），
+         未判定就離開 ＝ null（不猜）。兩個都問會讓使用者答出自相矛盾的紀錄。
+         🔴 三顆共用 .result-chip（琥珀＝可動層），選中態**完全相同** ——
+         這個 app 不評價你的交易結果，所以不得有任何一顆長得比較好或比較壞。 -->
+    <div class="result-trade-wrap reveal-item" id="resultTradeWrap">
+      <div class="result-reflect-q">這筆的結果<span class="result-trade-note">（還沒有結果也可以，之後回到這頁再填）</span></div>
+      <div class="result-reflect" id="resultTrade"></div>
+    </div>
+
     <!-- 交接要看得見。先前只在事件鏈留一條「看歷史」小字，founder 2026-08-09：
          「好像不想讓人知道似的」。他是對的 —— 我當時的理由是「不佔收束頁高度」，
          但 .sheet-actions 是 flex + .btn{flex:1}，**同一列加第二顆的高度成本是零**
@@ -866,9 +985,11 @@
   <!-- 正典 Soul Scan 模組：與 /v3/ 共用同一支（一個掃描，多道門）。絕對路徑不依賴
        /decision-alert/(.*) 的 rewrite。必須排在 decision-alert.js 之前 ——
        後者用 hasReadinessScanner() 決定要不要顯示掃描鈕。 -->
-  <script src="/preview/readiness-scan.js?v=rs20"></script>
+  <!-- 讀數歷史：必須排在 readiness-scan.js **之前** —— 它的 saveReading 會呼叫 -->
+  <script src="/preview/readiness-history.js?v=rh1"></script>
+  <script src="/preview/readiness-scan.js?v=rs23"></script>
   <!-- 判定的唯一來源，必須排在 decision-alert.js 之前（後者在頂層就讀它）。 -->
-  <script src="/preview/decision-outcome.js?v=do2"></script>
-  <script src="decision-alert.js?v=alert43"></script>
+  <script src="/preview/decision-outcome.js?v=do13"></script>
+  <script src="decision-alert.js?v=alert50"></script>
 </body>
 </html>

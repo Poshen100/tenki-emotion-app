@@ -23,7 +23,7 @@
  */
 // Playwright 從共用 resolver 拿：CI 走 node_modules、容器退回全域安裝。
 // 這一行原本是寫死的 /opt/node22/... 絕對路徑 —— 那就是 harness 進不了 CI 的原因。
-import { getChromium } from './lib/playwright.mjs';
+import { getChromium, checkFontCanary } from './lib/playwright.mjs';
 import http from 'node:http';
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { extname, join, normalize, resolve } from 'node:path';
@@ -81,6 +81,7 @@ const CLEAR = 'rgb(0, 180, 216)';
 
 let pass = 0;
 let fail = 0;
+function checkTruthy2(name, ok) { check(name, !!ok, true); }
 function check(name, got, want) {
   const ok = JSON.stringify(got) === JSON.stringify(want);
   if (ok) pass += 1;
@@ -98,6 +99,23 @@ page.on('pageerror', (e) => {
   console.error('[pageerror]', e.message);
   fail += 1;
 });
+
+// ═══════════════ 字型金絲雀（必須跑在所有版面斷言之前）═══════════════
+// 🔴 這支有好幾條在量**文字寬度**（「一屏放得下」「離環線至少 2px」
+//    「斷行不得切在詞中間」）—— 全部是字型的函式。
+// 2026-10-10 實際踩到：開發容器換 image 之後 `sans-serif` 變成 Inter，
+// 「短視窗(660px)下收束頁一屏放得下」溢出 3px 而紅，**而這支沒有金絲雀，
+// 所以那條紅得沒有任何解釋**。隔壁 preview-fdcb 早就有這個區塊了。
+console.log('\n── 字型金絲雀 ──');
+{
+  const { drift, measured } = await checkFontCanary(page);
+  measured.forEach((m) => console.log('   ' + m));
+  check('字型與基準一致（不一致就不要相信下面的版面斷言）', drift, []);
+  if (drift.length) {
+    console.log('   ⚠️ 這台機器的字型跟基準不同 —— 先修環境，');
+    console.log('      不要去改產品的版面來迎合它。下面每一條量文字寬度的都不算數。');
+  }
+}
 
 // 🔴 先種一筆**既有**紀錄。理由是這支 harness 的核心斷言就是
 // 「momentum strip 本次段落 = 紀律色」（2026-08-07「條紋與完成率互相矛盾」的守門），
@@ -323,9 +341,12 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
 //
 // 這一組是**真的端到端**，不是分開驗兩邊：Playwright 同一個 context ＝ 同源
 // ＝ 共用 localStorage，跟正式站上兩頁同源的情形一致。上面那次決策已經寫進
-// store，這裡直接開 /v3/#session 讀它算出來的對齊率。
+// store，這裡直接開 /v3/#session 問它把那筆決策歸到哪一類。
 //
-// 反向驗證過：把 isDisciplinedV6 改回只認舊 tag → 對齊率變 0%，這條會紅。
+// 🔴 2026-10-11：這條原本讀「對齊率 100%」。那一格已退場（它對「判定成立並
+// 進場」和「判定不成立」都算對齊，所以只要有判定就是 100%）。現在讀的是
+// insight 行的**分類計數** —— 方言沒對上時 `judged_entered` 會一路掉進
+// 「離開時沒有判定」，那句話會整句變樣，比百分比更貼近這條要守的事。
 {
   // 先真的按下「記錄並關閉」—— 決策要**被記錄**才會進統一 store。
   // （這一步先前的 harness 沒做過，所以 store 一直是空的。）
@@ -380,17 +401,27 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
   await page.goto(`${base}/v3/#session`, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(2500);
   const session = await page.evaluate(() => ({
-    align: document.getElementById('statAlign').textContent.trim(),
-    count: document.getElementById('statCount').textContent.trim(),
+    insight: document.getElementById('sessionInsightBody').textContent,
+    // 🔴 缺的格子讀成一個值，不要拋 —— page.evaluate 一拋就整支 harness
+    //    當場死掉，後面所有斷言一條都不會跑，而失敗數會剛好等於環境基線，
+    //    報告讀起來像「全部通過」。2026-10-11 反向驗證實證（見 preview-fdcb.mjs）。
+    count: (document.getElementById('statCount') || { textContent: '(缺這一格)' })
+      .textContent.trim(),
+    stood: (document.getElementById('statStoodDown') || { textContent: '(缺這一格)' })
+      .textContent.trim(),
   }));
-  check('🔴 /v3/ Session 認得快訊決策（對齊率不是 0%）', session.align, '100%');
+  check('🔴 /v3/ Session 認得快訊決策（算進「判定成立並進場」）',
+    /2 次判定成立並進場/.test(session.insight), true);
+  check('🔴 而且沒有任何一筆掉進「離開時沒有判定」',
+    /沒有判定/.test(session.insight), false);
+  check('判定不成立那一格是 0（這兩筆都進場了，它不是一個固定值）', session.stood, '0');
   // 2 筆＝這一輪走的 1 筆 + 開頁時種的 1 筆（種它的理由見檔頭的 addInitScript：
   // momentum strip 在 N<2 時整條不出現，只走一次就沒有 strip 可驗）。
   check('/v3/ Session 看得到那筆決策', session.count, '2');
 
   // ── 這筆紀錄要**認得出自己是誰** ──
   //
-  // ⚠️ 上一刀的教訓：我修好 isDisciplined 讓對齊率變 100%，就宣告「接通了」。
+  // ⚠️ 上一刀的教訓：我修好 isDisciplined 讓那個百分比變 100%，就宣告「接通了」。
   // **一個數字對了不等於這筆紀錄被認得。** 同一筆決策當時在 Session 頁長這樣：
   //     ❤️ ES1!  ·  15:23 · 未達 Readiness · 0:04  ·  [已記錄]
   // 四處都錯，而且**沒有一處會報錯** —— 全是 `|| fallback`。
@@ -439,7 +470,26 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
     const e = document.querySelector('#tlEventLog .tl-event .desc');
     return { fill: c ? c.getAttribute('fill') : null, desc: e ? e.textContent.trim() : null };
   });
-  check('Timeline 的點有 outcome 顏色，不是 fallback 灰', dot.fill, 'var(--good)');
+  // ⚠️ 這條守的是「有沒有掉進 fallback」，不是守某一個特定的顏色 ——
+  // 2026-09-21 顏色從 `var(--good)` 改成紀律色時它會紅，那是**預期的紅**。
+  check('Timeline 的點有 outcome 顏色，不是 fallback 灰', dot.fill, 'var(--zone-clear)');
+
+  // 🔴 真正的不變量：**每一個 tag 的 fill 都要跟 isDisciplined 一致**。
+  // 上面那條只看得到「這一筆」，而壞法是「某一個 tag 被單獨挑了一個顏色」——
+  // `judged_entered` 綠、`judged_stood_down` 青就是這樣來的（兩個都算紀律）。
+  const fillMap = await page.evaluate(() => {
+    const V = window.TENKI_OUTCOME.OUTCOME_VIEW;
+    return Object.keys(V).map((tag) => ({
+      tag, fill: V[tag].fill, disciplined: window.TENKI_OUTCOME.isDisciplined(tag),
+    }));
+  });
+  checkTruthy2(`掃得到全部 outcome（${fillMap.length} 個，0 個＝這條是死斷言）`, fillMap.length >= 6);
+  const wrong = fillMap.filter((x) => x.fill !== (x.disciplined ? 'var(--zone-clear)' : 'var(--zone-strain)'));
+  check('🔴 每個 outcome 的顏色都跟 isDisciplined() 一致（沒有人被單獨挑色）',
+    wrong.map((x) => `${x.tag}=${x.fill}`), []);
+  // 兩組必須真的分得開 —— 全部同色的話上面那條也會綠
+  check('🔴 而且兩組真的是不同的顏色（不是全部塗成同一個）',
+    new Set(fillMap.map((x) => x.fill)).size, 2);
   check('Timeline 那一列認得出流程與結果', dot.desc, 'Mancini FBD · 判定成立 · 已進場');
 
   // ══════════════════════════════════════════════════════════════════
@@ -620,14 +670,222 @@ check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
 
       if (!m) { check(`收束頁環心開得起來（${height} / ${tag}）`, 'missing', 'rendered'); await rp.close(); continue; }
       check(`收束頁環心印對文案（${height} / ${tag}）`, m.txt, want);
-      // TOL=4：行盒比字高（15px 字、約 21px 行盒），角落距離會被高估約 2~3px。
-      // 來源與第十二輪同一條推導，不從「剛好通過」反推。
-      check(`🔴 環心文字整段在圓內（${height} / 弧 ${m.arc} / 溢出 ${m.outside}px）`, m.outside <= 4, true);
+      // 🔴 門檻不是「有沒有跑出去」，是「離環線還有多遠」。
+      // 行盒比字高，角落距離被高估約 2~3px —— 所以要求**行盒本身再內縮 2px**，
+      // 等於墨跡至少離環線 4~5px。這條把 2026-09-11 買到的餘裕鎖住：
+      // 當時 128px 弧下 13px 字只剩 0.2px（行盒剛好還在圓內、但字型一變就出去），
+      // 改成 12px 之後是 3.1px。只問「在不在圓內」的話，那個 0.2px 是綠的。
+      check(`🔴 環心文字離環線至少 2px（${height} / 弧 ${m.arc} / 實測 ${(-m.outside).toFixed(1)}px）`,
+        m.outside <= -2, true);
       check(`🔴 斷行不得切在詞中間（${height} / 行寬 ${m.lineW} / 段寬 ${m.segW}）`,
         Math.min(...m.lineW) >= Math.min(...m.segW) - 2, true);
       await rp.close();
     }
   }
+}
+
+// ═════════════════════════════════════════════════
+// 🔴 L1：上一筆還沒填結果，順手帶一下
+//
+// founder 2026-10-11 的主意（規格 `docs/DECISION-RECORD-LOOP.md` §4）。
+// 這一組守的**不是「帶子會不會出現」**，是它的那幾條硬規則：
+//   · 不得阻擋、不得搶焦點 —— 忽略它，新快訊的流程逐步不變
+//   · 一條帶最多講**一筆**
+//   · 填完**就地收起，不跳頁**
+//   · 走共用判準（`awaitsResult`），不自己判一次
+//   · 不得把人導去**補記那張表單**（補填 ≠ 補記，成本差八倍）
+// ═════════════════════════════════════════════════
+{
+  const rp = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const mk = (ts, symbol, tradeResult) => ({
+    ts, symbol, templateId: 'MANCINI_FBD', source: 'alert',
+    outcomeTag: 'judged_entered', tradeResult,
+    durationSec: 90, marks: 0, events: [], reachedReadiness: null,
+  });
+  const now = Date.now();
+  // 🔴 `addInitScript` **每一次導頁／重載都會再跑一次** —— 少了這個旗標，
+  //    重載會把我剛改好的 store 又覆寫回初始值，於是「還有 N 筆」與
+  //    「整條帶不存在」兩條永遠驗不到（2026-10-15 實際踩到：兩條紅，
+  //    而產品碼是對的）。檔頭那支既有的 addInitScript 早就有這個旗標，
+  //    我抄的時候漏了它。
+  await rp.addInitScript((rs) => {
+    if (localStorage.getItem('__seeded')) return;
+    localStorage.setItem('__seeded', '1');
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(rs));
+    // 🔴 **順序與結果都是刻意的**（2026-10-15 反向驗證抓到）：
+    //    原本是 `[ES1!(pending), NQ1!(profit_taken)]`，而帶子挑「最新的在等的」
+    //    ＝ ES1! ＝ **index 0** —— 於是「永遠寫 index 0」那個破壞剛好寫對同一筆，
+    //    「只動那一筆」那條斷言**從來沒有機會失敗**。
+    //    現在：不在等的那筆排在 index 0，而且給它一個**不同的**結果，
+    //    所以寫錯目標一定看得見。
+  }, [mk(now - 10800e3, 'NQ1!', 'stopped_out'), mk(now - 7200e3, 'ES1!', 'pending')]);
+  await rp.goto(`${base}/apps/preview/decision-alert.html`, { waitUntil: 'domcontentloaded' });
+  await rp.waitForTimeout(400);
+  await rp.click('#btnSingle');
+  await rp.waitForTimeout(600);
+
+  const band = await rp.evaluate(() => {
+    const b = document.getElementById('pendingBand');
+    const vis = (el) => !!el && !el.hidden && el.getBoundingClientRect().height > 0;
+    return {
+      shown: vis(b),
+      text: document.getElementById('pendingBandText').textContent.trim(),
+      chips: [...document.querySelectorAll('#pendingBandChips .result-chip')]
+        .map((c) => c.textContent.trim()),
+      moreHidden: document.getElementById('pendingBandMore').hidden,
+      // 🔴 主動線必須原封不動：新快訊的兩顆按鈕還在、還看得見。
+      actions: [...document.querySelectorAll('#entrySheet .sheet-actions .btn')]
+        .filter((x) => x.getBoundingClientRect().width > 0).map((x) => x.textContent.trim()),
+      // 🔴 帶子不得搶焦點。
+      focusInBand: !!(document.activeElement && b.contains(document.activeElement)),
+      sheetText: document.getElementById('entrySheet').textContent,
+    };
+  });
+  check('🔴 有一筆在等結果時，快訊面板上長出那條帶', band.shown, true);
+  check('帶子講的是那一筆的標的', band.text, 'ES1! 還沒填結果');
+  check('🔴 晶片走共用模組的三顆（不自己寫一份清單）',
+    band.chips, ['達到目標', '觸及保護價', '打平出場']);
+  check('🔴 只有一筆在等 → 不印「還有 N 筆」', band.moreHidden, true);
+  check('🔴 新快訊的主動線一步不變（兩顆按鈕都還在）',
+    band.actions, ['略過', '進入決策']);
+  check('🔴 帶子不得搶焦點', band.focusInBand, false);
+  // 🔴 補填 ≠ 補記：這條帶不得把人導去那張表單。
+  check('🔴 帶子不得出現「補記」那條路（那是把一下變成八下）',
+    /補記/.test(band.sheetText), false);
+  check('🔴 不得用倒數／逾期的措辭', /逾期|過期|剩餘|倒數/.test(band.text), false);
+
+  // ── 點一下 → 就地收起、不跳頁、真的寫進 store ──
+  await rp.evaluate(() => {
+    document.querySelector('#pendingBandChips [data-trade-result="profit_taken"]').click();
+  });
+  // 🔴 **導頁要從 Playwright 這一側等一下再問。** 原本是在同一個
+  //    `evaluate` 裡讀 `location.href` 比對 —— 而 `location.href = …` 之後
+  //    導頁是**非同步**的，那一行讀到的還是舊值，所以「不跳頁」那條
+  //    **綠得理由不對**：它讀得太早。2026-10-15 反向驗證抓到
+  //    （破壞「填完跳頁」時它照樣綠，真正的症狀變成後面 evaluate 拋出去）。
+  await rp.waitForTimeout(700);
+  const navigated = !rp.url().includes('decision-alert');
+  check('🔴 **不跳頁**（跳頁會把人從新快訊上扯走）', navigated, false);
+  // ⚠️ 真的被導走的話**先導回來**，否則後面兩個情境會對著 /v3/ 點
+  //    `#btnSingle`（那顆在新頁上不存在）→ click timeout → 整支拋掉，
+  //    於是失敗數不可信。斷言該紅的已經紅了，剩下的要能跑完才有意義。
+  if (navigated) {
+    await rp.goto(`${base}/apps/preview/decision-alert.html`, { waitUntil: 'domcontentloaded' });
+    await rp.waitForTimeout(400);
+  }
+
+  // ⚠️ 真的被導走的話下面讀不到那些元素 —— 容錯，讓該紅的那條去紅，
+  //    不要讓行程去死（同 PLAYBOOK：會拋的解參考會無聲拆掉它後面的守門）。
+  const after = await rp.evaluate(() => {
+    const txt = (sel) => { const n = document.querySelector(sel); return n ? n.textContent.trim() : '(頁面不在了)'; };
+    let all = [];
+    try { all = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1')) || []; } catch (e) { all = []; }
+    const find = (sym) => { const r = all.find((x) => x.symbol === sym); return r ? r.tradeResult : '(找不到)'; };
+    const band = document.getElementById('pendingBand');
+    const sheet = document.getElementById('entrySheet');
+    return {
+      stored: find('ES1!'),
+      // 另一筆**不准被碰到**
+      other: find('NQ1!'),
+      bandHidden: band ? band.hidden : '(頁面不在了)',
+      sheetOpen: sheet ? sheet.classList.contains('show') : '(頁面不在了)',
+      log: txt('#logList .log-item .log-type'),
+    };
+  });
+  check('點一下就把結果寫進去了', after.stored, 'profit_taken');
+  check('🔴 只動那一筆，別人的結果不准被碰到', after.other, 'stopped_out');
+  check('🔴 填完就地收起（沒有別的在等了）', after.bandHidden, true);
+  check('🔴 而且面板還開著，新快訊的流程沒有被打斷', after.sheetOpen, true);
+  check('🔴 事件鏈上是中文的「結果補填」，不是 fallback 印出的英文 kind',
+    after.log, '結果補填');
+
+  // ── 兩筆在等 → 仍然只講一筆，但說得出還有幾筆 ──
+  // ⚠️ 帶子在**開面板時**渲染，所以改完 store 要關掉再開一次 ——
+  //    直接改 localStorage 不會讓畫面自己更新（那是對的：它不該輪詢）。
+  await rp.evaluate(() => {
+    const all = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'));
+    all.forEach((r) => { r.tradeResult = 'pending'; });
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(all));
+  });
+  // 🔴 **重載，不要用「略過 → 再模擬一則」來讓帶子重畫。**
+  //    那條路會撞到同標的冷卻（面板根本沒重開），於是讀到的是上一次渲染的
+  //    殘留 —— 而且第三輪那顆 click 會因為面板蓋住而 timeout 把腳本拋掉
+  //    （2026-10-15 實際踩到）。`addInitScript` 有 `__seeded` 旗標，
+  //    重載不會覆寫我剛改好的 store。
+  await rp.reload({ waitUntil: 'domcontentloaded' });
+  await rp.waitForTimeout(400);
+  await rp.click('#btnSingle');
+  await rp.waitForTimeout(600);
+  const two = await rp.evaluate(() => ({
+    text: document.getElementById('pendingBandText').textContent.trim(),
+    chipGroups: document.querySelectorAll('#pendingBandChips').length,
+    chips: document.querySelectorAll('#pendingBandChips .result-chip').length,
+    more: document.getElementById('pendingBandMore').hidden
+      ? '(沒印)' : document.getElementById('pendingBandMore').textContent.trim(),
+    href: document.getElementById('pendingBandMore').getAttribute('href'),
+  }));
+  check('🔴 兩筆在等時，帶子仍然只講一筆（最新的那筆）',
+    /^NQ1!|^ES1!/.test(two.text) && two.chips === 3, true);
+  check('🔴 而且說得出還有幾筆', two.more, '還有 1 筆 · 到決策紀錄補');
+  check('那條路連到 Session 頁', two.href, '/v3/#session');
+
+  // ── 一筆都沒在等 → 整條帶不存在 ──
+  await rp.evaluate(() => {
+    const all = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'));
+    all.forEach((r) => { r.tradeResult = 'profit_taken'; });
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(all));
+  });
+  await rp.reload({ waitUntil: 'domcontentloaded' });
+  await rp.waitForTimeout(400);
+  await rp.click('#btnSingle');
+  await rp.waitForTimeout(600);
+  const none = await rp.evaluate(() => ({
+    hidden: document.getElementById('pendingBand').hidden,
+    actions: [...document.querySelectorAll('#entrySheet .sheet-actions .btn')]
+      .filter((x) => x.getBoundingClientRect().width > 0).length,
+  }));
+  check('🔴 一筆都沒在等 → 整條帶不存在（不留一個空槽）', none.hidden, true);
+  check('而主動線照樣完整', none.actions, 2);
+
+  await rp.close();
+}
+
+// ══════════════════════════════════════════════════════════════
+// 收束頁的「期間離開」：次數是真的，時長不一定
+// ══════════════════════════════════════════════════════════════
+// founder 2026-10-27 截圖：`期間離開 1 次 · 4922:05`（82 小時）。
+// iOS 把 App 清出記憶體之後回來，那段量到的是「隔多久才開 App」。
+// /v3/ 的 accrueAway 認出來就不累加、改立 `awayUnbounded` 旗子，
+// 這裡驗讀端有沒有照著說 —— **而且不得夾一個上限值充數**。
+for (const [label, rec, want] of [
+  ['超過上限的那段離開', { awayCount: 1, awayMs: 0, awayUnbounded: true }, '1 次 · 時長不可知'],
+  ['正常的離開照舊印時長', { awayCount: 3, awayMs: 251000, awayUnbounded: false }, '3 次 · 04:11'],
+  ['舊紀錄沒有這一欄 → 行為不變', { awayCount: 2, awayMs: 65000 }, '2 次 · 01:05'],
+]) {
+  // ⚠️ 這支沒有 `ctx` —— 分頁一律從 `browser.newPage()` 開（第 619/699 行同形）。
+  const rp = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await rp.addInitScript((r) => {
+    const ts = Date.now();
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify([Object.assign({
+      ts, symbol: 'ES1!', templateId: 'MANCINI_FBD', outcomeTag: 'judged_stood_down',
+      durationSec: 314, sameSymbolUpdates: 1, source: 'alert', originAlertId: 'away-1',
+    }, r)]));
+    localStorage.setItem('tenki.alert.return.v1', JSON.stringify({ ts, at: Date.now() }));
+  }, rec);
+  await rp.goto(`${base}/decision-alert/#result`, { waitUntil: 'domcontentloaded' });
+  await rp.waitForTimeout(1200);
+  // 🔴 依**標籤**找那一列再讀值 —— 不拿整段 textContent 比字串。
+  //    呈現改版時前者會老實地紅，後者會變成一條默默失效的死斷言
+  //    （decision-chain.mjs:461 已經被這件事咬過一次）。
+  const got = await rp.evaluate(() => {
+    const row = [...document.querySelectorAll('#resultRecapList .result-recap-row')]
+      .find((r) => r.querySelector('.rc-label')?.textContent === '期間離開');
+    return row ? (row.querySelector('.rc-value')?.textContent ?? '').trim() : null;
+  });
+  check(`🔴 ${label}`, got, want);
+  // 夾值會變成「他離開了剛好 30:00」的謊 —— 那正是這次拒絕的做法。
+  if (rec.awayUnbounded) check('   而且不得夾一個上限值充數', /30:00/.test(got || ''), false);
+  await rp.close();
 }
 
 console.log(`\n${fail === 0 ? '🟢' : '🔴'} pass=${pass} fail=${fail}`);

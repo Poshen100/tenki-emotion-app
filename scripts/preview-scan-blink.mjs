@@ -13,6 +13,11 @@
  * 直接餵開合度序列給模組開出來的純狀態機（`TENKI_READINESS_SCAN.__blink`），
  * 不開相機、不走完整場掃描。
  *
+ * 第二段（2026-09-25）：**gold 的判準**（`__policy.securedEarned`）。
+ * 放在這裡而不是 preview-scan-stardust.mjs，理由很實際 —— 那支**不在 verify.sh
+ * 也不在 CI**（它倚賴「容器連不到 cdnjs」這個前提），guard 放進去等於永遠不會跑。
+ * 這支同樣只需要把 readiness-scan.js 載進一個頁面，而且兩邊都跑得到。
+ *
  * Run: node scripts/preview-scan-blink.mjs
  */
 // Playwright 的取得集中在 scripts/lib/playwright.mjs：先走 devDependency，
@@ -20,7 +25,7 @@
 // CI 的唯一硬阻礙（#226 第四輪），這支是 #240 之後才寫的，當時漏掉。
 import { getChromium } from './lib/playwright.mjs';
 import http from 'node:http';
-import { createReadStream, existsSync, statSync } from 'node:fs';
+import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
 import { extname, join, normalize, resolve } from 'node:path';
 
 const repoRoot = resolve(new URL('..', import.meta.url).pathname);
@@ -93,6 +98,47 @@ for (const r of results) {
   const ok = r.got === r.want;
   if (ok) pass++; else fail++;
   console.log(`${ok ? '✓' : '✗'} ${r.name}` + (ok ? '' : `  ← 期望 ${r.want} 次，得到 ${r.got} 次`));
+}
+
+// ── gold 的判準（founder 2026-09-25：信心低就不給 SECURED）──
+//
+// 為什麼要有這一段：一次「穩定度 58% · 未偵測到眨眼 · 信心低」的掃描，教練文案
+// 正說「讀數僅供參考」，外框與完成鈕卻是 SECURED 的金色。**顏色宣稱的比文字強**，
+// 兩個一起出現時使用者信的是顏色。而「有讀數但信心低」那一格只有走完整場掃描
+// 才碰得到 —— CI 裡跑不出來，所以規則開成純函式，直接驗真值表。
+function check(name, actual, expected) {
+  const ok = JSON.stringify(actual) === JSON.stringify(expected);
+  if (ok) pass++; else fail++;
+  console.log(`${ok ? '✓' : '✗'} ${name}`);
+  if (!ok) console.log(`   期待 ${JSON.stringify(expected)}，實際 ${JSON.stringify(actual)}`);
+}
+
+console.log('\n── gold 的判準 ──');
+check('🔴 gold 的真值表（沒讀數 / 信心低都不給，中以上才給）', await page.evaluate(() => {
+  const earned = window.TENKI_READINESS_SCAN.__policy.securedEarned;
+  return {
+    none: earned(null),
+    low: earned({ confidence: 'low' }),
+    moderate: earned({ confidence: 'moderate' }),
+    high: earned({ confidence: 'high' }),
+  };
+}), { none: false, low: false, moderate: true, high: true });
+
+// 🔴 **接線守衛**：真值表對了不代表產品有在問它。
+// 這個 repo 反覆踩到的就是那一類 —— 規則存在，但它的掃描範圍比它宣稱的小。
+// 所以直接掃原始碼：檔案裡每一處 `classList.add('secured')` 與每一個
+// `revealTone(` 的**呼叫**都必須在同一行問到 `securedEarned`。
+// 把條件改回 `if (frame)` 或 `revealTone(reading.band)` 都會讓這條紅。
+// ⚠️ 若之後把那些呼叫拆成多行，這條會誤報 —— 請一起更新，不要直接刪。
+{
+  const src = readFileSync(join(repoRoot, 'apps/preview/readiness-scan.js'), 'utf8');
+  const unguarded = src.split('\n').filter((line) => {
+    if (/^\s*(\*|\/\/)/.test(line)) return false;         // 註解行不算
+    if (/function revealTone\(/.test(line)) return false;  // 宣告不是呼叫
+    const touchesGold = /classList\.add\('secured'\)/.test(line) || /revealTone\(/.test(line);
+    return touchesGold && !/securedEarned/.test(line);
+  });
+  check('🔴 每一個上 gold 的出口都問過 securedEarned（接線守衛）', unguarded, []);
 }
 
 await browser.close();

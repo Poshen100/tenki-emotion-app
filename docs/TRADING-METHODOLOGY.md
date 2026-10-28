@@ -253,7 +253,7 @@ Step 1: 判斷 Mode → Step 2: 選擇策略 → Step 3: 等待結構 → Step 4
 1. ✅ **Mode 標籤進快訊**（2026-07-18 完成）：alert `condition`/`note` 帶 `Mode 1`/`Mode 2` → Entry Panel 脈絡行（事實陳述，非建議）。`domain/src/policies/market-mode.ts` + preview `?v=alert7`。
 2. ⏳ **Mode-aware 模板提示**：Mode 1 日對 FBD 類快訊降權提示（本檔 §5 整合表的機器化）。
 3. ⏳ **行為統計分層**：事件鏈統計依 Mode 分組（「Mode 2 日的紀律完成率」），仍走流程統計語言（勝率語言已禁）。
-4. ✅ **時段感知（quiet window）**（2026-07-19 完成）：§6.1 迴避時段（11:00–14:00 盤整帶）→ **軟性事實提示**。`domain/src/policies/alert-policy.ts` `isWithinQuietWindowET`（美東 ET，DST-aware）+ `QUIET_WINDOW_CONTEXT_ZH`「盤整迴避時段」；preview 設定面板開關（`?v=alert10`）。面板仍浮出、加一行脈絡，不硬靜音。
+4. ✅ **時段感知（quiet window）**（2026-07-19 完成）：§6.1 迴避時段（11:00–14:00 盤整帶）→ **軟性事實提示**。`domain/src/policies/alert-policy.ts` `isWithinQuietWindowET`（美東 ET，DST-aware）+ `QUIET_WINDOW_CONTEXT_ZH`「安靜時段」；preview 設定面板開關（`?v=alert10`）。面板仍浮出、加一行脈絡，不硬靜音。
 5. 🚧 **節奏熔斷**（2026-08-04 domain 層完成，UI 待接）：§6.1 贏停/雙輸熔斷。
    ⚠️ **原本寫「勝負須映射到 session close/cancel」—— 那是硬湊，close/cancel 不是輸贏。**
    實際缺的是資料不是邏輯：持久化的每一欄都在描述紀律，沒有一欄描述結果。
@@ -273,5 +273,13 @@ Step 1: 判斷 Mode → Step 2: 選擇策略 → Step 3: 等待結構 → Step 4
    ⚠️ 語意斷點：新紀錄帶 `judgmentSchema: 'structure_watch_v1'`，統計混算時必須標註舊語意筆數。
 
 7. ⏳ **Runner 帳本**：§4 level-to-level 管理的機器化（75% 鎖利 / runner 狀態）。
-   目前「對齊率」只量到進場之前；提早砍 runner、沒鎖 75%、加碼攤平都沒被記錄。
+   目前的紀律判準只量到進場之前；提早砍 runner、沒鎖 75%、加碼攤平都沒被記錄。
+   🔴 **2026-10-11：那個叫「對齊率」的格子因此退場。** 這一行寫了很久，
+   但畫面上照舊有一格叫「對齊率 100%」—— 一個只量到進場之前的布林，
+   被取名成涵蓋整段交易的比率。Session 統計列換成
+   **決策次數 / 判定不成立 / 結果已填 N/M**，Timeline 的 meta 與圖例改講
+   「有判定 / 未判定」。等這個 runner 帳本做出來，才有東西可以叫「對齊」。
+   ⚠️ 同一輪拿掉「平均用時」（按鈕之間的秒數），而且**刻意沒有**換成
+   「從快訊到進場等了多久」—— 理由就是上一條（第 6 條，結構守望取代決策計時器）：
+   把等待做成統計數字，等於把拆掉的計時器從另一個方向裝回去。
 6. ✅ **session 中同標的安靜更新**（2026-07-18 完成，源自 7553/7547 實戰）：active session 中同標的後續觸發 → 計時條下浮一行事實更新、不彈新面板；異標的維持 silent。`domain/src/policies/alert-policy.ts` 的 `session_quiet_update` 決策 + preview 鏡像。

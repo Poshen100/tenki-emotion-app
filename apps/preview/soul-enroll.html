@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>TENKI CORE — Soul Scan Enrollment</title>
   <meta name="description" content="TENKI CORE Face Baseline enrollment — Face ID-grade precision, stardust soul.">
   <meta name="theme-color" content="#030407">
@@ -13,6 +13,14 @@
   <link rel="icon" type="image/png" sizes="32x32" href="/brand/favicon/favicon-32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/brand/favicon/favicon-16.png">
   <link rel="apple-touch-icon" sizes="180x180" href="/brand/favicon/apple-touch-icon-180.png">
+  <!-- standalone 三件套：少了 capable 這一頁在主畫面上會開成一般 Safari 分頁，
+       少了 status-bar-style 會多出一條白狀態列 —— 兩個都是「這是網頁」的破綻。
+       manifest 掛在這裡的理由同 /v3/：從哪一頁安裝都要落到 /app/。 -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="TENKI CORE">
+  <link rel="manifest" href="/app/manifest.webmanifest">
   <meta property="og:title" content="TENKI Core — Soul Scan">
   <meta property="og:description" content="Create your Face Baseline. Face ID-grade precision, stardust soul.">
   <meta property="og:image" content="https://tenki-emotion-app.vercel.app/brand/marketing/og-card-1200x630.png">

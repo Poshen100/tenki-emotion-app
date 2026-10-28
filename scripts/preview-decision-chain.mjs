@@ -275,6 +275,57 @@ check('🔴 標記過期之後，快訊必須照常彈出決策入口（不得�
   await entryOpen(), true);
 await alertPage.evaluate(() => document.getElementById('btnDismiss').click());
 await patchMarker({ expiresAtMs: liveUntil });
+// ═══════════════════════════════════════════════
+// §8 的**真實動線**：PWA 被清出記憶體 → 冷開 start_url → 收到快訊
+//
+// 🔴 上面那一段驗的是「兩頁同時開著」，但 PWA 實際走的**不是**那條路：
+// `start_url` 是 `/decision-alert/`，所以 iOS 把 App 清掉之後，使用者點開
+// 看到的是一個**冷開的快訊頁**，而 `/v3/` 那一頁已經不存在了。
+// 那條路上「決策還在跑」完全靠 localStorage 的標記獨自撐著 ——
+// 規則有了，但先前沒有一條斷言走過這一條路。
+//
+// （founder 2026-09-24 回報：在主畫面的 TENKI 裡，決策跑著卻看到面板彈出來。
+//  這一段就是為了把那條路釘住而加的；實測這條路徑本身是對的，見下。）
+// ═══════════════════════════════════════════════
+{
+  const relaunch = await ctx.newPage();
+  relaunch.on('pageerror', (e) => pageErrors.push('[relaunch] ' + e.message));
+  await relaunch.goto(`${base}/decision-alert/`, { waitUntil: 'domcontentloaded' });
+  await relaunch.waitForTimeout(2200);
+
+  const before = await relaunch.evaluate(
+    (k) => JSON.parse(localStorage.getItem(k)), ACTIVE_KEY);
+  const marker = before;
+  checkTruthy('🔴 冷開之後標記還在（它是這條路上唯一的依據）',
+    !!marker && marker.expiresAtMs > Date.now());
+
+  const open = () => relaunch.evaluate(
+    () => document.getElementById('entrySheet').className.includes('show'));
+  await relaunch.evaluate(() => document.getElementById('btnSingle').click());
+  await relaunch.waitForTimeout(700);
+  check('🔴 冷開的快訊頁，決策進行中仍然不得彈出面板', await open(), false);
+
+  // 對照：標記過期 → 必須照常彈（否則這條斷言只是「面板永遠不開」）
+  await relaunch.evaluate((k) => {
+    const m = JSON.parse(localStorage.getItem(k));
+    m.expiresAtMs = Date.now() - 1000;
+    localStorage.setItem(k, JSON.stringify(m));
+  }, ACTIVE_KEY);
+  await relaunch.evaluate(() => document.getElementById('btnSingle').click());
+  await relaunch.waitForTimeout(700);
+  check('🔴 而標記過期之後照常彈（證明上一條不是「永遠不開」）', await open(), true);
+  await relaunch.evaluate(() => document.getElementById('btnDismiss').click());
+  // 🔴 把標記還原成進來時的樣子 —— 這一段是**插隊**進整條鏈的，
+  //    不還原的話後面那條「收束頁印『同標的更新：1 次』」會被我多按的兩下打壞。
+  await relaunch.evaluate(([k, n, t]) => {
+    const m = JSON.parse(localStorage.getItem(k));
+    m.sameSymbolUpdates = n;
+    m.expiresAtMs = t;
+    localStorage.setItem(k, JSON.stringify(m));
+  }, [ACTIVE_KEY, before.sameSymbolUpdates, before.expiresAtMs]);
+  await relaunch.close();
+}
+
 
 // ── 點橫幅回到那一筆決策 ──
 // 先重新載入這一頁 —— 那正是 iOS 把 App 換回前景時實際會發生的事，
@@ -358,6 +409,13 @@ checkTruthy('紀錄帶著來源快訊 id（join key）', !!rec.originAlertId);
 // §8：決策期間收到的同標的快訊，數字要真的走到紀錄裡（不是 null、更不是 0）。
 check('🔴 同標的更新的真數字進了紀錄', rec.sameSymbolUpdates, 1);
 check('紀錄認得自己是快訊決策', rec.source, 'alert');
+// ── 結果軸（規格 §9b ①）──
+// 🔴 「判定不成立」與「沒有進場」描述的是同一件事 —— 結果要**推導**出來，
+// 不得再問一次。兩個都問會讓使用者答出「判定不成立」＋「達到目標」這種
+// 自相矛盾、而且會污染節奏計數的紀錄。
+check('🔴 判定不成立 → tradeResult 推導成 no_entry', rec.tradeResult, 'no_entry');
+check('🔴 而且這條路不問結果（區塊隱藏）',
+  await page.evaluate(() => document.getElementById('resultTradeWrap').hasAttribute('hidden')), true);
 check('紀錄標上語意版本', rec.judgmentSchema, 'structure_watch_v1');
 checkTruthy('這筆算紀律', await page.evaluate((t) => window.TENKI_OUTCOME.isDisciplined(t), rec.outcomeTag));
 
@@ -491,6 +549,508 @@ check('🔴 Session 列不得出現否定的 readiness（守望沒有這個量�
   /未達|未進入/.test(row || ''), false);
 
 // ═══════════════════════════════════════════════
+// 結果三選一（規格 §9b）—— 走「判定成立並進場」那條路
+//
+// 🔴 為什麼另開一段而不是在上面那條鏈裡做：上面走的是 `stood_down`，
+// 那條路**刻意不問結果**。要驗晶片就必須有一筆 `judged_entered`。
+// 這裡種一筆紀錄 + 一張回程票，然後走**真實入口**
+// （acceptReturnTicket → openResult → saveOutcome），不是直接呼叫內部函式。
+//
+// 🔴 最關鍵的是「取消選取回到 pending 而不是 null」那條：null 會讓這筆交易
+// 從當日計數裡整個消失（額度永遠用不完、面板照樣彈），而畫面上完全看不出來。
+// ═══════════════════════════════════════════════
+console.log('\n── 結果三選一（進場路徑）──');
+{
+  const ENTERED_TS = Date.now() - 5 * 60 * 1000;
+  const SEED = {
+    symbol: 'ES1!', templateId: 'MANCINI_FBD', outcomeTag: 'judged_entered',
+    contextTag: null, judgmentSchema: 'structure_watch_v1',
+    awayCount: 0, awayMs: 0, durationSec: 420, ts: ENTERED_TS, source: 'alert',
+  };
+
+  /**
+   * 開一次收束頁（判定成立並進場那一筆）。
+   *
+   * ⚠️ 每一輪都**先回 /v3/ 再跨頁進來** —— 兩個理由，兩個都踩過：
+   *   1. `goto` 到「只有 hash 不同」或「完全相同」的 URL 是 same-document
+   *      navigation，文件不會重載 → 回程票不會被消費 → 晶片一顆都不長，
+   *      而畫面看起來沒壞。
+   *   2. 反過來，已經跨頁載入之後再補一個 `reload()` 也會壞：票在第一次載入
+   *      就被消費掉了（讀完即刪），重載等於開一張沒有票的收束頁。
+   * 先離開再回來就沒有這兩個坑，而且這正是真實動線（使用者從 /v3/ 判定完回來）。
+   */
+  async function openEnteredResult(seedStore) {
+    await page.goto(`${base}/v3/#session`, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(600);
+    await page.evaluate(({ store, ts }) => {
+      if (store) localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(store));
+      localStorage.setItem('tenki.alert.return.v1', JSON.stringify({ ts, at: Date.now() }));
+    }, { store: seedStore || null, ts: ENTERED_TS });
+    await page.goto(`${base}/decision-alert/#result`, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(2200);
+  }
+
+  await openEnteredResult([SEED]);
+
+  const shown = await page.evaluate(() => ({
+    // 🔴 問「有沒有 hidden」是假綠：這個區塊在 HTML 裡本來就沒有 hidden 屬性，
+    //    所以 openResult 根本沒跑時它照樣讀成「可見」。改問真正的證據 ——
+    //    收束頁有沒有開，以及晶片有沒有長出來。
+    sheetOpen: document.getElementById('resultSheet').className.includes('show')
+      || document.getElementById('resultSheet').className.includes('reveal'),
+    hidden: document.getElementById('resultTradeWrap').hasAttribute('hidden'),
+    chips: [...document.querySelectorAll('#resultTrade .result-chip')].map((c) => c.textContent),
+    selected: document.querySelectorAll('#resultTrade .result-chip.sel').length,
+  }));
+  checkTruthy('收束頁真的開起來了（0 顆晶片就是死斷言）', shown.sheetOpen && shown.chips.length === 3);
+  check('🔴 判定成立並進場 → 才問結果', shown.hidden, false);
+  check('三選一，而且用的是合規文案（不得出現自然的交易詞彙）',
+    shown.chips, ['達到目標', '觸及保護價', '打平出場']);
+  // 🔴 預設不選取 ＝「還沒有結果」。逼使用者選一個會拿到捏造的資料，
+  // 而捏造的資料比沒有更糟（CLAUDE.md：量不到就回 null，不要填合理的預設值）。
+  check('🔴 預設一顆都不選（「還沒有結果」是正常狀態）', shown.selected, 0);
+
+  // 🔴 一顆都不選就收尾 → 值必須是 `pending`，**不是 null**。
+  // null 會讓這筆交易從當日計數裡整個消失：額度永遠用不完、面板照樣彈，
+  // 而畫面上完全看不出異狀。這是整個階段 A 最重要的一條。
+  await page.evaluate(() => document.getElementById('btnResultSave').click());
+  await page.waitForTimeout(400);
+  const untouched = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'))[0]);
+  check('🔴 一顆都不選 → tradeResult 是 pending（不是 null）', untouched.tradeResult, 'pending');
+
+  // 選一顆 → 值要落地（走的是 saveOutcome 的**就地更新**分支）。
+  await openEnteredResult();
+  await page.evaluate(() => document.querySelectorAll('#resultTrade .result-chip')[1].click());
+  await page.waitForTimeout(150);
+  check('選中的是第二顆', await page.evaluate(() =>
+    [...document.querySelectorAll('#resultTrade .result-chip')].findIndex((c) => c.classList.contains('sel'))), 1);
+  await page.evaluate(() => document.getElementById('btnResultSave').click());
+  await page.waitForTimeout(400);
+  const saved = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1')));
+  // 🔴 這一條守的是 saveOutcome 的就地更新分支：收束頁只補「這一頁真的產生的
+  // 欄位」，漏掉 tradeResult 的話使用者選的結果會被靜默丟掉 —— 而晶片仍然亮著、
+  // 存檔仍然成功，畫面上完全正常。
+  check('🔴 選的結果有寫進那一筆（就地更新不得漏欄位）', saved[0].tradeResult, 'stopped_out');
+  check('一筆決策仍然只留一筆紀錄', saved.length, 1);
+  checkTruthy('結果沒有改變紀律判定', await page.evaluate((t) =>
+    window.TENKI_OUTCOME.isDisciplined(t), saved[0].outcomeTag));
+  check('就地更新的是同一筆（ts 沒變 ＝ 沒有被 push 成第二筆）', saved[0].ts, ENTERED_TS);
+
+  // 再次點同一顆 ＝ 取消選取 → 必須回到 pending。
+  await openEnteredResult();
+  await page.evaluate(() => document.querySelectorAll('#resultTrade .result-chip')[0].click());
+  await page.waitForTimeout(120);
+  await page.evaluate(() => document.querySelectorAll('#resultTrade .result-chip')[0].click());
+  await page.waitForTimeout(120);
+  await page.evaluate(() => document.getElementById('btnResultSave').click());
+  await page.waitForTimeout(400);
+  const cleared = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'))[0]);
+  check('🔴 取消選取回到 pending，不是 null（交易發生過，只是結果未知）',
+    cleared.tradeResult, 'pending');
+
+  // 🔴 把頁面還原回 /v3/ —— 下一段吃 v6 的全域（window.nextState）。
+  // 不還原的話那一段會以 `window.nextState is not a function` 整支崩掉，
+  // 而錯誤訊息完全看不出是「上一段把頁面開走了」。
+  await page.goto(`${base}/v3/#session`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1500);
+}
+
+// ═══════════════════════════════════════════════
+// 日界節奏的事實行（規格 §9b 階段 B）
+//
+// 🔴 這一段驗兩件不同的事：
+//   1. **行為** —— 鏡射的 `resolveDayCadence` 在同一組情境下，要跟 domain 那
+//      28 條 jest 斷言算出同一個答案。常數可以比字面（preview-drift 在做），
+//      但 `countsAsTrade` 這類語意兩邊是不同語言，比不了原始碼，只能實跑。
+//   2. **接線** —— 那句事實行真的上了畫面。「值對」與「看得見」是兩件事
+//      （PLAYBOOK §3：進度環被一條 legacy CSS 整個關掉，而值全部正確）。
+//
+// 🔴 階段 B 刻意**不閘門**：面板照常浮出，只多一行事實。先例是 quiet window
+//    的裁決（「面板仍浮出、加一行脈絡，不硬靜音」）。閘門是階段 C。
+// ═══════════════════════════════════════════════
+console.log('\n── 日界節奏的事實行 ──');
+{
+  // 🔴 **偏移用秒，不要用小時。**
+  // `resolveDayCadence` 按 **ET 日**過濾，而這支 harness 任何時刻都可能被跑到 ——
+  // 在 ET 午夜到凌晨 3 點之間，「2 小時前」是**昨天**，整組情境會全部回 `fresh`。
+  // 2026-10-09 04:52 UTC（＝ 00:52 EDT）實際踩到：**乾淨的 main 紅 11 條**，
+  // 而且那 11 條每一條的訊息都長得像產品壞了。
+  // 這條 policy 不看「多久以前」，只看「是不是同一個 ET 日」＋筆數＋輸贏 ——
+  // 所以秒級偏移對它跟小時級是同一件事，而秒級在任何時刻都安全。
+  // ⚠️ 「昨天不算」那條**仍然要用 30 小時**（它驗的就是跨日），不要一起改。
+  const H = 1000; // ＝ 1 秒（名字保留，免得下面整張表重寫；語意見上）
+  // 🔴 這一組是**純函式**，`now` 是參數 —— 所以直接釘在一個固定時刻，
+  //    連「現在幾點」都不問。2026-01-15 12:00 EST，永遠是 ET 的正中午。
+  const FIXED_NOW = Date.UTC(2026, 0, 15, 17, 0, 0);
+  // 情境表與 domain 的 jest 斷言同一組 —— 兩邊算出不同答案就是漂移。
+  const CASES = [
+    ['沒有紀錄 → fresh', [], 'fresh', '今天還沒有決策紀錄'],
+    ['一筆達到目標 → stop_after_win（贏停）',
+      [[-2 * H, 'profit_taken']], 'stop_after_win', '今天第 1 筆 · 上一筆達到目標'],
+    ['🔴 一筆未回填仍然算一筆（second_chance，不是 fresh）',
+      [[-2 * H, 'pending']], 'second_chance', '今天第 1 筆 · 已收束'],
+    ['兩筆都觸及保護價 → circuit_break（雙輸熔斷）',
+      [[-3 * H, 'stopped_out'], [-2 * H, 'stopped_out']],
+      'circuit_break', '今天 2 筆 · 兩筆都觸及保護價'],
+    ['🔴 未回填 + 停損 → day_complete，不宣稱驗證不了的雙輸',
+      [[-3 * H, 'pending'], [-2 * H, 'stopped_out']], 'day_complete', '今天已完成 2 筆'],
+    ['🔴 no_entry 不吃額度（收手是紀律，不是交易）',
+      [[-2 * H, 'no_entry'], [-1 * H, 'no_entry']], 'fresh', '今天還沒有決策紀錄'],
+    ['🔴 契約前的紀錄（沒有這一欄）不猜、不計入',
+      [[-2 * H, undefined]], 'fresh', '今天還沒有決策紀錄'],
+  ];
+
+  await page.goto(`${base}/decision-alert/`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1500);
+
+  for (const [name, recs, state, zh] of CASES) {
+    const got = await page.evaluate(({ offsets, now }) => {
+      const records = offsets.map(([off, result]) => {
+        const r = { ts: now + off };
+        if (result !== undefined) r.tradeResult = result;
+        return r;
+      });
+      const out = window.TENKI_OUTCOME.resolveDayCadence(records, now);
+      return { state: out.state, zh: out.contextZh };
+    }, { offsets: recs, now: FIXED_NOW });
+    check(name, got, { state, zh });
+  }
+
+  // 🔴 ET 日界：昨天的不算。用一個「UTC 已經換日、ET 還沒」的時刻會驗不到
+  // 真正的差別，所以直接用 30 小時前 —— 那在任何時區都是昨天。
+  const yesterday = await page.evaluate(() => {
+    const now = Date.now();
+    return window.TENKI_OUTCOME.resolveDayCadence(
+      [{ ts: now - 30 * 60 * 60 * 1000, tradeResult: 'profit_taken' }], now).state;
+  });
+  check('🔴 昨天的紀錄不算進今天', yesterday, 'fresh');
+
+  // ── 接線：事實行真的在畫面上 ──
+  // ⚠️ 先種紀錄再開面板 —— renderEntryDiscipline 在面板浮出時才跑。
+  //
+  // 🔴 這一段**刻意把階段 C 的收摺關掉**。它要驗的是「事實行渲染得出來」，
+  //    而那需要面板是開著的；階段 C 預設會把贏停的快訊收摺起來（面板不自己
+  //    浮出），兩段耦在一起的話這裡會測到別人的行為。
+  //    收摺本身由「到了停手點就收摺」那一段完整驗。
+  // ⚠️ 這一行是補上去的：原本沒有它，於是階段 C 一落地，這一段當場紅三條 ——
+  //    其中一條還寫著「階段 B 不閘門」，那句話在階段 C 之後就不再成立了。
+  //    教訓：斷言的文字會把當下的產品狀態寫死，下一階段要記得回來改它。
+  await page.evaluate((ts) => {
+    localStorage.setItem('tenki.alert.settings.v1', JSON.stringify({ cadenceCollapse: false }));
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify([{
+      symbol: 'NVDA', templateId: 'MANCINI_FBD', outcomeTag: 'judged_entered',
+      judgmentSchema: 'structure_watch_v1', durationSec: 300,
+      ts, source: 'alert', tradeResult: 'profit_taken',
+    }]));
+  }, Date.now() - 2000); // 2 秒前 —— 小時級偏移在 ET 凌晨會變成昨天（見上）
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(2000);
+  await page.evaluate(() => document.getElementById('btnSingle').click());
+  await page.waitForTimeout(900);
+  const line = await page.evaluate(() => {
+    const n = document.getElementById('entryCadence');
+    return { text: n ? n.textContent : null, panelOpen: document.getElementById('entrySheet').className.includes('show') };
+  });
+  checkTruthy('決策入口面板打開了（沒開就讀不到那一行，會是死斷言）', line.panelOpen);
+  check('🔴 事實行真的上了畫面', line.text, '今天第 1 筆 · 上一筆達到目標');
+  // 🔴 階段 B 不閘門 —— 贏停狀態下面板照樣浮出（quiet window 的先例）。
+  // 🔴 原本寫「階段 B 不閘門」—— 階段 C 之後那句話不成立了。它現在驗的是
+  // 「把收摺關掉時，贏停的快訊仍然照常浮出」，也就是那個設定真的有效。
+  checkTruthy('🔴 收摺關掉時，贏停的快訊仍然照常浮出', line.panelOpen);
+
+  // 事實行不得出現評價或指示。紅線詞與 domain 那一組同源。
+  const bannedInLine = await page.evaluate(() => {
+    const t = document.getElementById('entryCadence').textContent;
+    return ['建議', '應該', '休息', '停手', '表現', '勝率', '獲利', '停損']
+      .filter((w) => t.includes(w));
+  });
+  check('🔴 事實行不得評價或指示', bannedInLine, []);
+
+  await page.evaluate(() => {
+    localStorage.removeItem('tenki.alert.outcomes.v1');
+    // 自己塞的設定自己清 —— 留著會讓後面每一段都在「收摺關掉」的狀態下跑。
+    localStorage.removeItem('tenki.alert.settings.v1');
+  });
+  await page.goto(`${base}/v3/#session`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1200);
+}
+
+// ═══════════════════════════════════════════════
+// 結果回填（規格 §9b）—— Session 詳情是「之後可回填」的唯一入口
+//
+// 🔴 為什麼需要這個入口：收束頁只由一次性回程票開啟，在這之前**沒有任何
+//    路徑回到一筆過去的決策**。而填寫時機的裁決（founder 2026-09-28）是
+//    「收束當下問，但『還沒有結果』是預設」—— 那個裁決假設了回填可行。
+//
+// 🔴 這一段最重要的兩條：
+//   1. 回填只動 `tradeResult`，其餘欄位逐一不變（這一頁是回填，不是重寫）。
+//   2. 一筆決策仍然只留一筆紀錄（寫成 push 的話紀律統計立刻失真）。
+// ═══════════════════════════════════════════════
+console.log('\n── 結果回填（Session 詳情）──');
+{
+  const TS = Date.now() - 3000; // 3 秒前（同上：不得用小時）
+  const SEED = {
+    symbol: 'NVDA', templateId: 'MANCINI_FBD', outcomeTag: 'judged_entered',
+    contextTag: '跟計畫', judgmentSchema: 'structure_watch_v1',
+    reachedReadiness: null, durationSec: 540, marks: 2, events: [],
+    awayCount: 1, awayMs: 45000, sameSymbolUpdates: 2,
+    originAlertId: 'demo-1', ts: TS, source: 'alert', tradeResult: 'pending',
+  };
+
+  async function openDetail(store) {
+    await page.goto(`${base}/v3/#session`, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(1500);
+    await page.evaluate((s) => {
+      localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(s));
+    }, store);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(1800);
+    await page.evaluate((ts) => window.openSessionDetail(ts), store[0].ts);
+    await page.waitForTimeout(500);
+  }
+
+  await openDetail([SEED]);
+
+  const shown = await page.evaluate(() => ({
+    hidden: document.getElementById('sdBackfillCell').hasAttribute('hidden'),
+    chips: [...document.querySelectorAll('#sdBackfillChips .tp-chip')].map((c) => c.textContent),
+    picked: document.querySelectorAll('#sdBackfillChips .tp-chip.picked').length,
+    note: document.getElementById('sdBackfillNote').textContent,
+  }));
+  checkTruthy('詳情表單真的開了、晶片真的長出來（0 顆就是死斷言）', shown.chips.length === 3);
+  check('🔴 判定成立並進場的紀錄才有回填', shown.hidden, false);
+  check('文案與收束頁同一份（共用模組，不是各寫一份）',
+    shown.chips, ['達到目標', '觸及保護價', '打平出場']);
+  check('未回填時一顆都不選', shown.picked, 0);
+  checkTruthy('未回填時就地說出「還沒填」', shown.note.includes('還沒填'));
+
+  // 點一顆 → 立刻落地（這一頁沒有收尾鍵，記錄不是選項）
+  await page.evaluate(() => document.querySelectorAll('#sdBackfillChips .tp-chip')[0].click());
+  await page.waitForTimeout(250);
+  const after = await page.evaluate(() => ({
+    store: JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1')),
+    picked: [...document.querySelectorAll('#sdBackfillChips .tp-chip')].findIndex((c) => c.classList.contains('picked')),
+    note: document.getElementById('sdBackfillNote').textContent,
+  }));
+  check('🔴 點一顆就寫進那一筆（不必按任何收尾鍵）', after.store[0].tradeResult, 'profit_taken');
+  check('畫面同步標記選中的那顆', after.picked, 0);
+  check('回填完就不再說「還沒填」', after.note, '');
+  check('🔴 一筆決策仍然只留一筆紀錄（回填不得 push）', after.store.length, 1);
+
+  // 🔴 只動 tradeResult —— 這一頁是回填，不是重寫。
+  const untouched = await page.evaluate((seed) => {
+    const r = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'))[0];
+    const changed = Object.keys(seed).filter((k) => JSON.stringify(r[k]) !== JSON.stringify(seed[k]));
+    return changed;
+  }, SEED);
+  check('🔴 除了 tradeResult，其他欄位逐一不變', untouched, ['tradeResult']);
+
+  // 再點同一顆 ＝ 取消 → 回到 pending（不是 null）
+  await page.evaluate(() => document.querySelectorAll('#sdBackfillChips .tp-chip')[0].click());
+  await page.waitForTimeout(250);
+  check('🔴 取消回到 pending，不是 null（交易發生過，只是結果未知）',
+    await page.evaluate(() => JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'))[0].tradeResult),
+    'pending');
+
+  // 判定不成立的紀錄不該出現回填（結果是推導出來的）
+  await openDetail([{ ...SEED, outcomeTag: 'judged_stood_down', tradeResult: 'no_entry' }]);
+  check('🔴 判定不成立的紀錄不問結果（整格隱藏）',
+    await page.evaluate(() => document.getElementById('sdBackfillCell').hasAttribute('hidden')), true);
+
+  // 回填會讓節奏狀態回溯改變 —— 這是對的，狀態是從紀錄重算的。
+  await openDetail([SEED]);
+  const beforeState = await page.evaluate(() =>
+    window.TENKI_OUTCOME.resolveDayCadence(
+      JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1')), Date.now()).state);
+  await page.evaluate(() => document.querySelectorAll('#sdBackfillChips .tp-chip')[0].click());
+  await page.waitForTimeout(250);
+  const afterState = await page.evaluate(() =>
+    window.TENKI_OUTCOME.resolveDayCadence(
+      JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1')), Date.now()).state);
+  check('回填前是 second_chance（未知 ≠ 贏）', beforeState, 'second_chance');
+  check('🔴 回填後節奏狀態回溯改變成 stop_after_win', afterState, 'stop_after_win');
+
+  await page.evaluate(() => localStorage.removeItem('tenki.alert.outcomes.v1'));
+}
+
+// ═══════════════════════════════════════════════
+// 靜默理由不只一個時，要**全部**講得出來（規格 §9b ②）
+//
+// 🔴 改寫前 `evaluateDelivery` 是早退 + 單一 `reason` 字串：兩個理由同時成立
+//    （決策進行中 ＋ Strain）時，事件鏈只印其中一個，使用者會學到錯的規則
+//    （「是因為我在 Strain」），而真正攔住那則快訊的是另一件事。
+//
+// ⚠️ 刻意**不**為測試把 `evaluateDelivery` 掛到 window（那支檔是封閉 IIFE，
+//    什麼都不外露）。改從使用者真正看得到的地方驗：事件鏈那一行。
+//    這也順便守住「值對 ≠ 看得見」。
+// ⚠️ 必須先確認真的有**兩個**條件成立 —— 只有一個的話，下面那條看不出差別，
+//    會是一條死斷言。
+// ═══════════════════════════════════════════════
+console.log('\n── 靜默理由要講全部 ──');
+{
+  await page.goto(`${base}/decision-alert/`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1800);
+
+  // 同時造出「決策進行中」（跨頁標記，**不同標的**才不會走 session_update）
+  // 與「Strain 狀態」（一筆新鮮讀數 —— effectiveZone 真讀數優先）。
+  await page.evaluate(() => {
+    const now = Date.now();
+    localStorage.setItem('tenki.v6.activeDecision.v1', JSON.stringify({
+      symbol: 'ZZZZ', startedAtMs: now - 60000, expiresAtMs: now + 20 * 60 * 1000,
+    }));
+    localStorage.setItem('tenki.readiness.reading.v1', JSON.stringify({
+      band: 'strain', confidence: 'high', ts: now, evidence: null,
+    }));
+  });
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(2200);
+
+  // 前置條件要先證明成立，否則整段是死的。
+  const pre = await page.evaluate(() => ({
+    marker: !!localStorage.getItem('tenki.v6.activeDecision.v1'),
+    strainOn: document.getElementById('setStrainSilent')
+      ? document.getElementById('setStrainSilent').checked : null,
+  }));
+  checkTruthy('前置：決策進行中的標記在（不在就驗不到第一個理由）', pre.marker);
+  checkTruthy('前置：Strain 靜默是開著的（預設 on）', pre.strainOn === true);
+
+  await page.evaluate(() => document.getElementById('btnSingle').click());
+  await page.waitForTimeout(900);
+
+  const silentLine = await page.evaluate(() => {
+    const items = [...document.querySelectorAll('#logList .log-item')];
+    const hit = items.reverse().find((n) => {
+      const t = n.querySelector('.log-type');
+      return t && t.textContent.includes('靜默');
+    });
+    return hit ? hit.querySelector('.log-detail').textContent : null;
+  });
+  checkTruthy(`事件鏈真的印了一條靜默（實際：${JSON.stringify(silentLine)}）`, !!silentLine);
+  checkTruthy('🔴 兩個理由都講出來了（只講一個，使用者會學到錯的規則）',
+    !!silentLine && silentLine.includes('決策進行中') && silentLine.includes('Strain 狀態'));
+  // 行為不得變：決策仍然是 silent（面板不浮出）。
+  check('🔴 decision 不變 —— 面板仍然沒有浮出',
+    await page.evaluate(() => document.getElementById('entrySheet').className.includes('show')), false);
+
+  await page.evaluate(() => {
+    localStorage.removeItem('tenki.v6.activeDecision.v1');
+    localStorage.removeItem('tenki.readiness.reading.v1');
+  });
+
+  // 🔴 還原回 /v3/ —— 下一段吃 v6 的全域。這是我在這支 harness 上**第二次**
+  // 忘記還原（上一段已經為此寫了同樣的註解），所以這裡再寫一次：
+  // 任何把 page 導去別的路由的區塊，離開前都要導回來。
+  await page.goto(`${base}/v3/#session`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1500);
+}
+
+// ═══════════════════════════════════════════════
+// 到了停手點就收摺（規格 §9b 階段 C）
+//
+// 🔴 這是整條路線上**第一次真的改變快訊行為**的改動 —— 前面全是「多一行事實」
+//    或「多一個可填的欄位」。所以守得最緊。
+//
+// 🔴 收摺**不是靜音**：那則快訊真的來了，而且使用者永遠沒有被擋住。
+//    一顆可點的晶片，點了面板照樣開。先例是 quiet window 的裁決
+//    （「面板仍浮出、加一行脈絡，不硬靜音」）。
+// 🔴 只收摺 §6.1 明文的兩個停手點。`day_complete`（額度用完）刻意不收摺 ——
+//    domain 自己的註解就說它是「較弱的事實」。
+// ═══════════════════════════════════════════════
+console.log('\n── 到了停手點就收摺 ──');
+{
+  // 同上：偏移用秒。這一段走的是真實 UI，產品內部自己讀 Date.now()，
+  // 所以沒辦法像上面那樣釘死 now —— 只能把偏移縮到不可能跨 ET 日界。
+  const H = 1000; // ＝ 1 秒
+  const rec = (offset, result) => ({
+    symbol: 'NVDA', templateId: 'MANCINI_FBD', outcomeTag: 'judged_entered',
+    judgmentSchema: 'structure_watch_v1', durationSec: 300,
+    ts: Date.now() + offset, source: 'alert', tradeResult: result,
+  });
+
+  async function fireWith(store) {
+    await page.goto(`${base}/decision-alert/`, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(1500);
+    await page.evaluate((s) => {
+      localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(s));
+      localStorage.removeItem('tenki.v6.activeDecision.v1');
+      localStorage.removeItem('tenki.readiness.reading.v1');
+    }, store);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(2200);
+    await page.evaluate(() => document.getElementById('btnSingle').click());
+    await page.waitForTimeout(900);
+    return page.evaluate(() => ({
+      panelOpen: document.getElementById('entrySheet').className.includes('show'),
+      chips: [...document.querySelectorAll('#silentArea .silent-chip')].map((c) => ({
+        text: c.textContent, actionable: c.classList.contains('actionable'), tag: c.tagName,
+      })),
+    }));
+  }
+
+  // ① 贏停（§6.1 明文停手點）→ 收摺
+  const win = await fireWith([rec(-2 * H, 'profit_taken')]);
+  check('🔴 贏停 → 面板不自己浮出', win.panelOpen, false);
+  checkTruthy(`🔴 但留下一顆**可點**的晶片（實際：${JSON.stringify(win.chips)}）`,
+    win.chips.length === 1 && win.chips[0].actionable && win.chips[0].tag === 'BUTTON');
+  checkTruthy('晶片就地說出那個事實（不是只說「已靜默」）',
+    win.chips[0] && win.chips[0].text.includes('上一筆達到目標'));
+  checkTruthy('🔴 而且給得出一條路（仍要查看）',
+    win.chips[0] && win.chips[0].text.includes('仍要查看'));
+
+  // 🔴 點它 → 面板真的開得起來。收摺買的是摩擦，不是封鎖。
+  await page.evaluate(() => document.querySelector('#silentArea .silent-chip.actionable').click());
+  await page.waitForTimeout(800);
+  check('🔴 點了晶片，面板照樣開（使用者永遠沒有被擋住）',
+    await page.evaluate(() => document.getElementById('entrySheet').className.includes('show')), true);
+
+  // ② 雙輸熔斷 → 同樣收摺
+  const brk = await fireWith([rec(-3 * H, 'stopped_out'), rec(-2 * H, 'stopped_out')]);
+  check('🔴 雙輸熔斷 → 收摺', brk.panelOpen, false);
+  checkTruthy('熔斷的晶片說出的是熔斷那句事實',
+    brk.chips.length === 1 && brk.chips[0].text.includes('兩筆都觸及保護價'));
+
+  // ③ 額度用完（較弱的事實）→ **不**收摺
+  const done = await fireWith([rec(-3 * H, 'pending'), rec(-2 * H, 'stopped_out')]);
+  check('🔴 額度用完不收摺（domain 自己說它是較弱的事實）', done.panelOpen, true);
+
+  // ④ 還有第二次機會 → 照常浮出
+  const second = await fireWith([rec(-2 * H, 'pending')]);
+  check('第二次機會仍然照常浮出', second.panelOpen, true);
+
+  // ⑤ 關掉設定 → 回到收摺前的行為
+  await page.goto(`${base}/decision-alert/`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1500);
+  await page.evaluate((s) => {
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(s));
+    const k = 'tenki.alert.settings.v1';
+    const cur = JSON.parse(localStorage.getItem(k) || '{}');
+    cur.cadenceCollapse = false;
+    localStorage.setItem(k, JSON.stringify(cur));
+  }, [rec(-2 * H, 'profit_taken')]);
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(2200);
+  const toggle = await page.evaluate(() => ({
+    checked: document.getElementById('setCadenceCollapse').checked,
+  }));
+  check('設定讀得回來（關掉就是關掉）', toggle.checked, false);
+  await page.evaluate(() => document.getElementById('btnSingle').click());
+  await page.waitForTimeout(900);
+  check('🔴 關掉設定 → 贏停也照常浮出（這條確認閘門真的由設定控制）',
+    await page.evaluate(() => document.getElementById('entrySheet').className.includes('show')), true);
+
+  await page.evaluate(() => {
+    localStorage.removeItem('tenki.alert.outcomes.v1');
+    localStorage.removeItem('tenki.alert.settings.v1');
+  });
+  // 🔴 還原回 /v3/ —— 下一段吃 v6 的全域（這支 harness 上我已經忘記兩次）。
+  await page.goto(`${base}/v3/#session`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1500);
+}
+
+// ═══════════════════════════════════════════════
 // 離開太久：不是接回一個殭屍，是誠實收束
 //
 // 🔴 這條守的是 resume 最容易做錯的方向。「決策活得過離開」很容易寫成
@@ -521,6 +1081,126 @@ check('🔴 超過上限的標記要被清掉', stale.marker, null);
 check('🔴 而且要留下一筆誠實的紀錄（決策不能憑空消失）', stale.store.length, 1);
 checkTruthy(`那筆紀錄說得出它是怎麼結束的（${stale.store[0] && stale.store[0].outcomeTag}）`,
   stale.store.length === 1 && !!stale.store[0].outcomeTag);
+
+// ═══════════════════════════════════════════════
+// 真實快訊沒有指名結構：MATCH 欄整欄不出現，並就地說出為什麼
+//
+// 🔴 為什麼要用 **live 頻道**而不是 demo 按鈕：demo 的 `strategyHint` 是
+// 'Mancini'，永遠比對得到，所以「沒有比對到」那一格在 demo 路徑上根本走不到。
+// founder 2026-09-24 的真快訊是「ES1! 下穿 7,740.00」—— 沒有 strategyHint、
+// 訊息欄也沒有結構名，於是 MATCH 欄頭立在那裡承諾一個它給不出來的值。
+// 這一段照真路徑走：塞頻道 id + 攔 /api/alerts，讓產品自己 ingest。
+//
+// ⚠️ 方向詞（下穿 / 上穿 / 跌破）刻意**不**列入關鍵字：它只說了價格穿過一個
+// 數字，沒說這是不是一個 failed breakdown —— 那正是使用者要守望的事。
+// 所以「沒有比對到」是**正常情形**，不是壞掉，畫面必須這樣講。
+// ═══════════════════════════════════════════════
+console.log('\n── 真快訊（沒有指名結構）── ');
+{
+  const ctx2 = await browser.newContext({
+    viewport: { width: 390, height: 700 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true,
+  });
+  const p2 = await ctx2.newPage();
+  const errs2 = [];
+  p2.on('pageerror', (e) => errs2.push(e.message));
+  // 頻道只是一個 localStorage key —— 有它產品就自動開始輪詢。
+  await ctx2.addInitScript(() => {
+    localStorage.setItem('tenki.alert.channel', 'harness');
+  });
+  await p2.route('**/api/channel*', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ bypassQuery: '' }),
+  }));
+  // 真快訊的形狀：條件是一句方向描述，strategyHint 與 note 都空。
+  await p2.route('**/api/alerts*', (route) => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ alerts: [{
+      id: 'live-nomatch-1', symbol: 'ES1!', condition: '下穿 7,740.00',
+      timeframe: '1m', price: 7740, receivedAt: Date.now(),
+    }] }),
+  }));
+  await p2.goto(`${base}/decision-alert/`, { waitUntil: 'domcontentloaded' });
+  await p2.waitForTimeout(2500);
+  checkTruthy('真快訊自己把決策面板浮出來了',
+    await p2.evaluate(() => document.getElementById('entrySheet').className.includes('show')));
+  await p2.evaluate(() => document.getElementById('btnEngage').click());
+  await p2.waitForTimeout(700);
+
+  const nomatch = await p2.evaluate(() => {
+    const head = document.querySelector('#tplList .tpl-head');
+    const why = document.querySelector('#tplList .tpl-nomatch');
+    return {
+      headCells: head ? head.children.length : null,
+      headLabels: head ? Array.from(head.children).map((c) => c.textContent) : null,
+      flags: document.querySelectorAll('#tplList .tpl-flag').length,
+      why: why ? why.textContent.trim() : null,
+      whyVisible: why ? getComputedStyle(why).display !== 'none' : false,
+      rows: document.querySelectorAll('#tplList .tpl-row').length,
+    };
+  });
+  // 🔴 「印一個破折號」被 founder 2026-09-25 否決了：那只是把空白換一個寫法，
+  // 欄頭仍然在承諾一個給不出來的值。所以第三欄**整欄不存在**。
+  check('🔴 沒有比對到時 MATCH 欄整欄不出現（不是留一欄印「—」）',
+    { headCells: nomatch.headCells, headLabels: nomatch.headLabels },
+    { headCells: 2, headLabels: ['CODE', 'STRUCTURE'] });
+  check('🔴 每一列也沒有那個空欄', nomatch.flags, 0);
+  checkTruthy(`而且就地說出為什麼沒有值（${nomatch.why}）`,
+    !!nomatch.why && nomatch.whyVisible && nomatch.why.indexOf('沒有指名結構') !== -1);
+  // 三個流程照樣全部可選 —— 沒有比對到不代表少一條路。
+  check('三個流程照樣都在（沒有比對到不等於不能選）', nomatch.rows, 3);
+  // ⚠️ 語氣：陳述事實，不下指示。「請選擇 / 建議你」都是在替使用者決定。
+  check('🔴 那句話不得寫成建議語氣', /請選|建議你|應該/.test(nomatch.why || ''), false);
+
+  check('這一段沒有 page error', errs2, []);
+  await ctx2.close();
+}
+
+// 對照組：同一支渲染器在**真的比對到**的時候必須把第三欄放回來 ——
+// 否則上面那幾條可以用「永遠不畫第三欄」造假通過。
+//
+// ⚠️ 必須開**新的 context**，不能在同一頁再點 demo 按鈕：同標的冷卻
+// （`lastSurfacedAtBySymbol`）會把第二則 ES1! 直接吃掉，畫面根本不會重畫，
+// 於是「第三欄沒回來」這件事會被誤讀成規則壞了（寫這支時實際踩到）。
+//
+// 順便驗到中文關鍵字走得通：結構名寫在**條件欄**（不是 strategyHint）也要比對到 ——
+// 那正是這一輪改動的重點，真實 TradingView 快訊就是這樣填的。
+{
+  const ctx3 = await browser.newContext({
+    viewport: { width: 390, height: 700 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true,
+  });
+  const p3 = await ctx3.newPage();
+  const errs3 = [];
+  p3.on('pageerror', (e) => errs3.push(e.message));
+  await ctx3.addInitScript(() => { localStorage.setItem('tenki.alert.channel', 'harness'); });
+  await p3.route('**/api/channel*', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ bypassQuery: '' }),
+  }));
+  await p3.route('**/api/alerts*', (route) => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ alerts: [{
+      id: 'live-match-1', symbol: 'ES1!', condition: '假跌破 掃低後收回',
+      timeframe: '1m', price: 7740, receivedAt: Date.now(),
+    }] }),
+  }));
+  await p3.goto(`${base}/decision-alert/`, { waitUntil: 'domcontentloaded' });
+  await p3.waitForTimeout(2500);
+  await p3.evaluate(() => document.getElementById('btnEngage').click());
+  await p3.waitForTimeout(700);
+  const matched = await p3.evaluate(() => {
+    const head = document.querySelector('#tplList .tpl-head');
+    return {
+      headLabels: head ? Array.from(head.children).map((c) => c.textContent) : null,
+      alerts: Array.from(document.querySelectorAll('#tplList .tpl-flag'))
+        .map((f) => f.textContent).filter(Boolean),
+      why: !!document.querySelector('#tplList .tpl-nomatch'),
+    };
+  });
+  check('🔴 結構名寫在條件欄也要比對到（strategyHint 是空的）',
+    matched.headLabels, ['CODE', 'STRUCTURE', 'MATCH']);
+  check('而且只標一列', matched.alerts, ['ALERT']);
+  check('比對到就不再說「沒有指名結構」', matched.why, false);
+  check('對照組沒有 page error', errs3, []);
+  await ctx3.close();
+}
 
 check('整條鏈走完沒有任何 page error', pageErrors, []);
 

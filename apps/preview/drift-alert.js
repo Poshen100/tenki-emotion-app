@@ -16,6 +16,8 @@
   'use strict';
 
   var DI = window.TENKI_DRIFT;
+  /** 真實讀數歷史（與 demo 判定不同的模組，刻意分開）。 */
+  var HIST = window.TENKI_READINESS_HISTORY;
 
   var $ = function (id) {
     return document.getElementById(id);
@@ -383,11 +385,117 @@
     $('chain-empty').hidden = timeline.events.length > 0;
   }
 
+  // ═══════════════════════════════════════════
+  // 真實累積（不是合成）
+  //
+  // 🔴 這一段是**下一步的輸入**，不是給使用者的 insight：它對人不做任何宣稱，
+  //    只回答「我們量到的訊號實際上怎麼走」。drift 的軸與門檻要靠它才敢定 ——
+  //    CLAUDE.md：訊號正規化成 0..1，不代表它會走遍 0..1。
+  // ═══════════════════════════════════════════
+
+  /** 0..1 的訊號一律三位小數 —— span 常常很小，兩位會把它四捨五入成 0。 */
+  function unit(value) {
+    return value.toFixed(3);
+  }
+
+  function distRow(label, key, dist, values) {
+    var row = document.createElement('div');
+    row.className = 'dist-row';
+
+    var name = document.createElement('div');
+    name.className = 'dist-name';
+    name.innerHTML = label + '<b>n=' + (dist ? dist.count : 0) + '</b>';
+    row.appendChild(name);
+
+    if (!dist) {
+      var none = document.createElement('div');
+      none.className = 'dist-nums';
+      none.textContent = '尚未量到';
+      row.appendChild(none);
+      return row;
+    }
+
+    var nums = document.createElement('div');
+    nums.className = 'dist-nums';
+    // span 是唯一上主要字色的欄位 —— 撐不撐得起門檻看它。
+    nums.innerHTML =
+      'min ' + unit(dist.min) +
+      ' · med ' + unit(dist.median) +
+      ' · max ' + unit(dist.max) +
+      ' · <em>span ' + unit(dist.span) + '</em>' +
+      ' · sd ' + unit(dist.std);
+    row.appendChild(nums);
+
+    var buckets = HIST.histogram(values, 10);
+    var peak = buckets.reduce(function (m, v) { return Math.max(m, v); }, 0);
+    var hist = document.createElement('div');
+    hist.className = 'hist';
+    buckets.forEach(function (count) {
+      var bar = document.createElement('i');
+      bar.style.height = peak > 0 ? Math.max(1, Math.round((count / peak) * 34)) + 'px' : '1px';
+      if (count > 0) bar.className = 'on';
+      hist.appendChild(bar);
+    });
+    row.appendChild(hist);
+
+    if (key) row.dataset.signal = key;
+    return row;
+  }
+
+  function renderReal() {
+    var headline = $('real-headline');
+    var body = $('real-body');
+    var list = $('real-dist');
+    var droppedEl = $('real-dropped');
+    list.innerHTML = '';
+
+    if (!HIST) {
+      headline.textContent = '歷史模組沒載到';
+      body.textContent =
+        'readiness-history.js 沒有載入，這一頁不會用別的來源頂替 —— 那會生出第二份 store。';
+      droppedEl.hidden = true;
+      return;
+    }
+
+    var result = HIST.summary();
+    var s = result.summary;
+
+    if (s.sampleCount === 0) {
+      headline.textContent = '還沒有你的資料';
+      body.textContent =
+        '到 /v3/ 或 /decision-alert/ 做一次掃描，這裡就會開始累積。' +
+        '⚠️ 讀的是這個瀏覽器的儲存空間 —— 主畫面 PWA 與 Safari 分頁不共用。';
+      droppedEl.hidden = true;
+      return;
+    }
+
+    headline.textContent = s.sampleCount + ' 次掃描 · ' + s.distinctDays + ' 天';
+    body.textContent =
+      '這是量到的東西本身，不是對你的判讀。span 是每個訊號實際走過的範圍 —— ' +
+      'span 太小的訊號撐不起任何門檻，不管它正規化得多漂亮。';
+
+    var samples = HIST.read().samples;
+    var pluck = function (key) {
+      return samples.map(function (row) { return row[key]; });
+    };
+    var blinks = pluck('blinkCadence').filter(function (v) { return v !== null; });
+
+    list.appendChild(distRow('穩定度 stillness', 'stillness', s.signals.stillness, pluck('stillness')));
+    list.appendChild(distRow('眨眼節律 blink cadence', 'blinkCadence', s.signals.blinkCadence, blinks));
+    list.appendChild(distRow('光線 lighting', 'lighting', s.signals.lighting, pluck('lighting')));
+    list.appendChild(distRow('均勻度 uniformity', 'uniformity', s.signals.uniformity, pluck('uniformity')));
+
+    // 讀不動的列要說出來 —— 用一半的資料算出來的分布，必須有辦法說它只有一半。
+    droppedEl.hidden = result.dropped === 0;
+    droppedEl.textContent = result.dropped + ' stored rows were unreadable and left out';
+  }
+
   function renderAll() {
     renderDrift();
     renderCalibration();
     renderTwin();
     renderChain();
+    renderReal();
   }
 
   // ═══════════════════════════════════════════

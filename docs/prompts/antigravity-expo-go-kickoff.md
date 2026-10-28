@@ -3,6 +3,19 @@
 > 建立：2026-08-19 ｜ 執行環境：**圖書館公用 Windows PC + Antigravity**
 > founder 硬體：**只有 iPhone**（無 Mac、無 Android 機、無 Apple Developer 帳號）
 
+> ## ⚠️ 2026-09-19 更新：§0「切到那條分支」已經不該照做
+>
+> **環境與安裝那幾節（§3～§5、§7、§8）仍然有效，照走。**
+> 但**分支那一段過期了**：
+> - 那條分支最後一個**程式碼** commit 是 **2026-08-19**（之後只有文件）
+> - 它從 main 分叉在 **2026-08-11**，而 `main` 的 `apps/mobile` 之後**又走了 17 個 commit**
+>   （BLE 胸帶、Health Connect、相機 PPG 引擎鏈）
+> - 分支 tip 也已經不是下面寫的 `126effe`，而是 `2f72a15c`
+>
+> 照舊文切過去，founder 會看到一個**少掉整個九月**的 app。
+> **今天在 `main` 上跑** —— 依據與交付物見
+> `docs/prompts/antigravity-2026-09-19-kickoff.md` §2。
+
 ---
 
 ## 0. 程式碼不在 `main` 上 — 先切分支
@@ -23,7 +36,7 @@
 cd <你 clone 的路徑>\tenki-emotion-app
 git fetch origin claude/tenki-core-growth-arch-7teiqj
 git checkout claude/tenki-core-growth-arch-7teiqj
-git log --oneline -1     # 應為 126effe docs: stop the next agent from inventing a plan
+git log --oneline -1     # 過期：tip 現在是 2f72a15c，且今天不該切到這條分支（見頁首）
 ```
 
 零次 API 呼叫。

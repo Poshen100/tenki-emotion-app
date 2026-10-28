@@ -21,6 +21,9 @@
     strainSilent: true,
     sessionQuietUpdate: true,
     quietWindow: false,
+    // 日界節奏收摺（規格 §9b 階段 C）。預設 **on** —— 它實作的是使用者自己
+    // 方法論裡的停手點（§6.1 贏停／雙輸熔斷），不是我們加的意見。
+    cadenceCollapse: true,
   };
 
   function loadSettings() {
@@ -32,6 +35,7 @@
       aggregationSec: (typeof s.aggregationSec === 'number' && s.aggregationSec >= 0) ? s.aggregationSec : DEFAULT_SETTINGS.aggregationSec,
       strainSilent: typeof s.strainSilent === 'boolean' ? s.strainSilent : DEFAULT_SETTINGS.strainSilent,
       sessionQuietUpdate: typeof s.sessionQuietUpdate === 'boolean' ? s.sessionQuietUpdate : DEFAULT_SETTINGS.sessionQuietUpdate,
+      cadenceCollapse: typeof s.cadenceCollapse === 'boolean' ? s.cadenceCollapse : DEFAULT_SETTINGS.cadenceCollapse,
       quietWindow: typeof s.quietWindow === 'boolean' ? s.quietWindow : DEFAULT_SETTINGS.quietWindow,
     };
   }
@@ -91,14 +95,13 @@
    * 畫面上顯示的代號 —— **內部 template id 一律不上畫面**。
    *
    * 🔴 `MODE_2` 絕對不能出現在任何 user-facing 字串裡。理由不是美觀：
-   * 在 Adam Mancini 的語彙裡「Mode 2」指的是**盤整日盤勢**，跟這個模板
-   * （Canslim High RS Breakout）完全是兩回事。engine 自己也記著這件事 ——
-   * `packages/engine/src/session/templates.ts` 的註解寫明那個 id 是歷史遺留、
+   * 在使用者每天在用的專業語彙裡，「Mode 2」指的是另一種完全不同的東西，
+   * 跟這個模板（Canslim High RS Breakout）是兩回事。engine 自己也記著這件事
+   * —— `packages/engine/src/session/templates.ts` 的註解寫明那個 id 是歷史遺留、
    * 因為是 persisted contract 才留著。
    *
-   * 2026-08-09 founder 實走當場指出：「Canslim 不是 mode2，mode2 是 Adam 交易
-   * 系統的盤整環境」—— 當時畫面把 id 直接印在標題後面（`nameZh（id）`），
-   * 等於讓介面洩漏實作細節，還剛好撞上他每天在用的專業術語。
+   * 2026-08-09 founder 實走當場指出這個撞名 —— 當時畫面把 id 直接印在標題
+   * 後面（`nameZh（id）`），等於讓介面洩漏實作細節，還剛好撞上他的專業術語。
    *
    * engine 的 id 不動（會壞掉既有紀錄），只有這張表決定顯示什麼。
    */
@@ -116,11 +119,38 @@
     { keyword: 'high rs', templateId: 'MODE_2' },
     { keyword: 'mode 2', templateId: 'MODE_2' },
     { keyword: 'sensitivity', templateId: 'MODE_2' },
+    // 中文：交易者在 TradingView 的訊息欄就是這樣寫的。
+    // ⚠️ 全部都是**指名結構**的詞，沒有一個是方向詞（見 suggestTemplate 的註解）。
+    { keyword: '假跌破', templateId: 'FBD' },
+    { keyword: 'failed breakdown', templateId: 'FBD' },
+    { keyword: '曼奇尼', templateId: 'FBD' },
+    { keyword: '高相對強度', templateId: 'MODE_2' },
+    { keyword: '高 rs', templateId: 'MODE_2' },
+    { keyword: '成長股', templateId: 'CANSLIM' },
   ];
 
+  /** 快訊自己帶的文字：結構提示 + 條件 + 訊息欄。三個都是它說的，不是我們猜的。 */
+  function alertOwnWords(alert) {
+    return [alert && alert.strategyHint, alert && alert.condition, alert && alert.note]
+      .filter(Boolean).join(' ');
+  }
+
+  /**
+   * 這則快訊**自己說**了哪一種結構。
+   *
+   * 🔴 只吃 `strategyHint` 是不夠的：真實的 TradingView 快訊把結構寫在
+   * **訊息欄**（`note`）或條件欄裡 —— founder 2026-09-24 那則是
+   * 「ES1! 下穿 7,740.00」，`strategyHint` 是空的，於是 MATCH 欄永遠沒有值。
+   * 現在三個欄位一起看。
+   *
+   * ⚠️ **只加「指名結構」的詞，不加方向詞。**「下穿 / 上穿 / 跌破」只說了價格
+   * 穿過一個數字，**沒有說這是不是一個 failed breakdown** —— 那正是交易者要
+   * 守望的事。把方向詞映射到某個流程，等於讓 App 替使用者猜一件還沒發生的事，
+   * 那是這一整條產品線最不能做的動作。
+   */
   function suggestTemplate(hint) {
     if (!hint) return null;
-    var normalized = hint.trim().toLowerCase();
+    var normalized = String(hint).trim().toLowerCase();
     if (!normalized) return null;
     for (var i = 0; i < STRATEGY_KEYWORDS.length; i++) {
       if (normalized.indexOf(STRATEGY_KEYWORDS[i].keyword) !== -1) {
@@ -152,6 +182,8 @@
   // Mirror of domain decision-outcome（流程語言，非勝負；禁 PnL/勝率）
   var OUTCOME_STORE_KEY = window.TENKI_OUTCOME.STORE_KEY; // 唯一來源見 decision-outcome.js
   var REFLECT_TAGS = ['跟計畫', '有點急', '偏離計畫'];
+
+
 
   // 收束頁顯示偏好（可調 + 持久）。記錄一律 on（安全、不可關）→ 不提供關閉記錄的開關。
   var RESULT_SETTINGS_KEY = 'tenki.alert.result.settings.v1';
@@ -223,6 +255,9 @@
     if (idx >= 0) {
       // 只補這一頁真的產生的欄位，其餘沿用計時器那邊寫的事實。
       all[idx].contextTag = record.contextTag;
+      // 🔴 結果也是這一頁產生的 —— 漏掉這一行，使用者選的結果會被靜默丟掉，
+      // 而畫面上看起來完全正常（晶片亮著、存檔成功）。
+      all[idx].tradeResult = record.tradeResult;
     } else {
       all.push(record);
     }
@@ -291,9 +326,12 @@
     } catch (e) { return null; }
   }
 
-  function saveReading(reading) {
-    localStorage.setItem(READING_STORE_KEY, JSON.stringify(reading));
-  }
+  // ⚠️ 這裡**刻意沒有** saveReading。寫入「當下讀數」的只有一個地方：
+  //    `readiness-scan.js` 的 saveReading —— 因為那支同時會把讀數 append
+  //    進歷史（`readiness-history.js`）。在這裡另開一條寫入路徑，寫進去的
+  //    讀數就會繞過歷史，而那正是「護城河每天被抹掉」的那個 bug 的形狀。
+  //    `scripts/preview-drift.mjs` 有一條斷言鎖住這件事。
+  //    （本檔原本有一個沒有任何呼叫端的 saveReading，2026-09-16 刪除。）
 
   function isReadingFresh(reading, now) {
     if (!reading) return false;
@@ -341,12 +379,14 @@
     'silentArea', 'logList', 'backdrop', 'entrySheet',
     'entryPing', 'entrySymbol', 'entryCond', 'entryAge', 'entrySource', 'entryChips',
     'entryNote', 'entryState', 'entryBand', 'entryReadingAge', 'entryRescan', 'entryEvidence',
-    'entryDiscLabel', 'entryDiscRate', 'entryStrip', 'entryDiscipline', 'entryCost',
+    'entryDiscLabel', 'entryDiscRate', 'entryStrip', 'entryDiscipline', 'entryCadence', 'entryCost',
     'btnDismiss', 'btnEngage',
+    'pendingBand', 'pendingBandText', 'pendingBandChips', 'pendingBandMore',
     'tplSheet', 'tplList', 'tplStatus', 'aggSheet', 'aggHead', 'aggList',
     'resultSheet', 'resultHead', 'resultOutcome', 'resultArc', 'resultArcCenter', 'resultArcGlow', 'resultArcTime',
     'resultHistory', 'resultMeterFill', 'resultRate', 'resultStrip',
     'resultRecap', 'resultRecapList', 'resultReflectWrap', 'resultReflect', 'btnResultSave', 'btnResultRecord',
+    'resultTradeWrap', 'resultTrade',
     'timerBar', 'timerLabel', 'timerClock',
     'watchAnchor', 'timerBack', 'timerUpdate',
     'liveToggle', 'liveDot', 'liveStatus', 'liveChevron', 'liveBody',
@@ -355,8 +395,9 @@
     'livePushRow', 'livePushBtn', 'livePushStatus',
     'liveSelfTest', 'liveSelfTestResult',
     'setToggle', 'setStatus', 'setChevron', 'setBody', 'setCooldown', 'setAggregation',
-    'setStrainSilent', 'setSessionQuiet', 'setQuietWindow', 'setReset',
+    'setStrainSilent', 'setSessionQuiet', 'setQuietWindow', 'setCadenceCollapse', 'setReset',
     'resToggle', 'resChevron', 'resBody', 'resShowHistory', 'resShowRecap', 'resShowReflect',
+    'driftStatus',
   ].forEach(function (id) { el[id] = document.getElementById(id); });
 
   // ── 狀態卡 ──
@@ -433,11 +474,16 @@
     dismissed: { text: '已略過', cls: 'dismissed' },
     suppressed: { text: '冷卻抑制', cls: 'suppressed' },
     silent: { text: '靜默接收', cls: 'received' },
+    collapsed: { text: '收摺呈現', cls: 'received' },
     aggregated: { text: '聚合呈現', cls: 'surfaced' },
     mark: { text: '過程標記', cls: 'engaged' },
     close: { text: '完成', cls: 'outcome' },
     cancel: { text: '取消', cls: 'dismissed' },
     timeout: { text: '時間到', cls: 'outcome' },
+    // 🔴 L1 那條帶補填結果時用。**沒有這一行的話**，`log('result', …)` 會掉進
+    //    `TYPE_LABELS[type] || { text: type }` 的 fallback，事件鏈上印出英文的
+    //    `result` —— 錯了也不吭聲，正是 PLAYBOOK 記的那條。
+    result: { text: '結果補填', cls: 'outcome' },
   };
 
   function nowLabel() {
@@ -489,6 +535,34 @@
     el.logList.insertBefore(item, el.logList.firstChild);
   }
 
+  /**
+   * 收摺的快訊：一顆**可點**的晶片，點了面板照樣開。
+   *
+   * 🔴 這不是靜音 —— 那則快訊真的來了，而且使用者永遠沒有被擋住。
+   * 收摺買的是一拍的摩擦，讓他看見自己方法論裡的停手點，而不是替他決定。
+   * 🔴 可動層 ＝ 琥珀（它真的會做事）。中性的 `.silent-chip` 是「已接收、
+   * 沒事要做」，兩者不能長一樣。
+   * 🔴 文案只陳述事實（節奏狀態那一句，已過合規層）＋ 一個動作提示，
+   * **不得**出現「不要再做」這類指示。
+   *
+   * @param {Object} alert 被收摺的那一則
+   * @param {string} factText 節奏事實（`contextZh`）
+   */
+  function collapsedChip(alert, factText) {
+    var chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'silent-chip actionable';
+    chip.textContent = alert.symbol + ' 快訊 · ' + factText + ' · 仍要查看';
+    chip.addEventListener('click', function () {
+      chip.remove();
+      surfaceAlert(alert);
+    });
+    el.silentArea.appendChild(chip);
+    while (el.silentArea.children.length > 3) {
+      el.silentArea.removeChild(el.silentArea.firstChild);
+    }
+  }
+
   function silentChip(text) {
     var chip = document.createElement('div');
     chip.className = 'silent-chip';
@@ -524,15 +598,36 @@
     return m;
   }
 
+  /**
+   * 會讓快訊收摺的節奏狀態 —— §6.1 **明文的兩個停手點**。
+   * ⚠️ `day_complete` 不在內：domain 的註解自己就說它是「較弱的事實」
+   * （額度用完 ≠ 方法論叫你停手），而階段 B 的事實行已經在陳述它。
+   */
+  var CADENCE_COLLAPSE_STATES = ['stop_after_win', 'circuit_break'];
+
   // ── Delivery policy（mirror of domain alert-policy 判定順序）──
+  //
+  // 🔴 這一支**收集全部成立的理由**，不是碰到第一個就 return。
+  //
+  // 改寫前是早退 + 單一 `reason` 字串，於是兩個理由同時成立時（例如決策進行中
+  // ＋ Strain）使用者只看到其中一個 —— 然後他會學到錯的規則（「是因為我在
+  // Strain」），而真正攔住那則快訊的是另一件事。這是「畫面宣稱了一件不成立的
+  // 事」那個家族，而且它在加入第四個閘門（日界節奏）之後只會更糟。
+  //
+  // `decision` 仍然取**最強的那一個**（陣列順序＝強度，強的先 push），所以
+  // 行為與改寫前逐一相同；多出來的是 `reasons`，讓畫面講得出全部。
+  // @returns {{decision:string, reason:string, reasons:string[]}}
   function evaluateDelivery(alert, nowMs) {
+    var matched = [];
+
     var active = readActiveDecision(nowMs);
     if (active) {
       var activeSymbol = (typeof active.symbol === 'string') ? active.symbol : null;
       if (state.settings.sessionQuietUpdate && activeSymbol !== null && activeSymbol === alert.symbol) {
-        return { decision: 'session_update', reason: '同標的後續觸發' };
+        matched.push({ decision: 'session_update', reason: '同標的後續觸發' });
+      } else {
+        matched.push({ decision: 'silent', reason: '決策進行中' });
       }
-      return { decision: 'silent', reason: '決策進行中' };
     }
     // 以前這裡看的是點擊循環出來的假 zone（預設 Neutral），等於這個設定的行為
     // 由一個 demo 開關決定。改看 effectiveZone()：真讀數優先、示意覆蓋次之。
@@ -540,13 +635,38 @@
     // 當理由吃掉一則快訊。
     var zone = effectiveZone();
     if (state.settings.strainSilent && zone && zone.zone === 'strain') {
-      return { decision: 'silent', reason: 'Strain 狀態' };
+      matched.push({ decision: 'silent', reason: 'Strain 狀態' });
     }
     var last = state.lastSurfacedAtBySymbol[alert.symbol];
     if (last !== undefined && nowMs - last < state.settings.cooldownSec * 1000) {
-      return { decision: 'suppressed', reason: '同標的冷卻中' };
+      matched.push({ decision: 'suppressed', reason: '同標的冷卻中' });
     }
-    return { decision: 'surfaced', reason: '' };
+    // 日界節奏（§9b 階段 C）。排在**最後** ＝ 最弱的閘門：
+    // 🔴 不硬靜音。先例是 quiet window 的裁決（「面板仍浮出、加一行脈絡，
+    //    不硬靜音」），而且靜音是不誠實的 —— 那則快訊真的來了。
+    //    收摺 ＝ 摩擦，不是消失：一顆可點的晶片，點了面板照樣開。
+    // 🔴 只收摺方法論**明文的兩個停手點**。`day_complete`（額度用完）
+    //    刻意不收摺 —— domain 自己的註解就說它是「較弱的事實」，
+    //    而階段 B 的事實行已經在講它。
+    if (state.settings.cadenceCollapse) {
+      var cadence = window.TENKI_OUTCOME.resolveDayCadence(loadOutcomes(), nowMs);
+      if (CADENCE_COLLAPSE_STATES.indexOf(cadence.state) !== -1) {
+        matched.push({ decision: 'collapsed', reason: cadence.contextZh });
+      }
+    }
+
+    if (matched.length === 0) return { decision: 'surfaced', reason: '', reasons: [] };
+    return {
+      decision: matched[0].decision,
+      // 保留單數 `reason` ＝ 最強的那一個（既有呼叫端讀它）。
+      reason: matched[0].reason,
+      reasons: matched.map(function (m) { return m.reason; }),
+    };
+  }
+
+  /** 把全部理由串成一句。單一理由時與改寫前逐字相同。 */
+  function reasonText(result) {
+    return (result.reasons && result.reasons.length) ? result.reasons.join('、') : result.reason;
   }
 
   function makeAlert(symbol, condition, timeframe, strategy, note, price) {
@@ -571,15 +691,110 @@
       return;
     }
     if (result.decision === 'silent') {
-      log('silent', alert.symbol + ' — ' + result.reason + '，不打擾');
+      // 🔴 全部理由都講 —— 只講一個，使用者會學到錯的規則。
+      log('silent', alert.symbol + ' — ' + reasonText(result) + '，不打擾');
       silentChip(alert.symbol + ' 快訊（已接收）');
       return;
     }
     if (result.decision === 'suppressed') {
-      log('suppressed', alert.symbol + ' — ' + result.reason);
+      log('suppressed', alert.symbol + ' — ' + reasonText(result));
+      return;
+    }
+    if (result.decision === 'collapsed') {
+      log('collapsed', alert.symbol + ' — ' + reasonText(result));
+      collapsedChip(alert, reasonText(result));
       return;
     }
     surfaceAlert(alert);
+  }
+
+  // ═════════════════════════════════════════════════
+  // 🔴 L1：上一筆還沒填結果，順手帶一下
+  //
+  // founder 2026-10-11 的主意：「之後可能跳快訊可以補記錄」。
+  // 規格 `docs/DECISION-RECORD-LOOP.md` §4 把它列為三層提醒裡**最好**的一層
+  // —— 不只體驗好：它搭的是一個**使用者已經同意被打擾**的時刻，
+  // 所以額外打擾成本是 0；而且**零新基礎設施**（推播、面板、晶片全是現成的，
+  // L2 的盤後推播要排程器）。
+  //
+  // 🔴 補填 ≠ 補記（規格 §2）：這條帶做的是**補填**（紀錄在、只缺結果），
+  //    一下點完。它**不得**把人導去補記那張表單 —— 那是把一下的事變成八下。
+  // ═════════════════════════════════════════════════
+
+  /**
+   * 就地把結果寫回 store 裡的某一筆。
+   *
+   * 🔴 不走 `saveOutcome()`：那支是收束流程用的（它會補 contextTag、
+   * 或在找不到時 **push 一筆新的**）。這條帶只該改一個欄位，
+   * 找不到那一筆就什麼都不做 —— 寧可沒寫進去，也不要生出第二筆紀錄。
+   *
+   * @param {number} ts 那一筆的身分
+   * @param {string} result 新的 tradeResult
+   * @returns {boolean} 有找到並寫進去為 true
+   */
+  function writeTradeResultById(ts, result) {
+    var all = loadOutcomes();
+    for (var i = 0; i < all.length; i += 1) {
+      if (all[i] && all[i].ts === ts) {
+        all[i].tradeResult = result;
+        localStorage.setItem(OUTCOME_STORE_KEY, JSON.stringify(all));
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * 還在等結果的那些（最新的排前面）。
+   *
+   * 🔴 判準走共用模組的 `awaitsResult()` —— Session 列表、Session 詳情、
+   * 這條帶，三個面同一把尺。那支模組的註解早就預留了這件事。
+   *
+   * @returns {Array<Object>}
+   */
+  function awaitingRecords() {
+    return loadOutcomes()
+      .filter(function (r) { return window.TENKI_OUTCOME.awaitsResult(r); })
+      // 「最新」問的是**發生**的時刻，跟 /v3/ 清單同一把尺（occurredAt）。
+      .sort(function (a, b) {
+        var O = window.TENKI_OUTCOME.occurredAt;
+        return (O(b) || 0) - (O(a) || 0);
+      });
+  }
+
+  /** L1 那條帶。沒有在等的就整條不存在。 */
+  function renderPendingBand() {
+    if (!el.pendingBand) return;
+    var list = awaitingRecords();
+    if (!list.length) { el.pendingBand.hidden = true; return; }
+
+    var rec = list[0];
+    el.pendingBand.hidden = false;
+    // 🔴 **一條帶最多講一筆。** 三組晶片疊在一條帶上就是一張表單假裝
+    //    自己是帶子，而這一頁的工作是**新的那個決策**。
+    var name = (typeof rec.symbol === 'string' && rec.symbol) ? rec.symbol : '上一筆';
+    el.pendingBandText.textContent = name + ' 還沒填結果';
+    el.pendingBandMore.hidden = list.length < 2;
+    if (list.length >= 2) {
+      el.pendingBandMore.textContent = '還有 ' + (list.length - 1) + ' 筆 · 到決策紀錄補';
+    }
+
+    el.pendingBandChips.textContent = '';
+    window.TENKI_OUTCOME.TRADE_RESULT_CHIPS.forEach(function (opt) {
+      var chip = document.createElement('button');
+      chip.className = 'result-chip';
+      chip.type = 'button';
+      chip.textContent = opt.label;
+      chip.setAttribute('data-trade-result', opt.value);
+      chip.addEventListener('click', function () {
+        if (!writeTradeResultById(rec.ts, opt.value)) return;
+        // 🔴 **就地收起，不跳頁。** 跳頁會把人從他正要做的那個決策上扯走
+        //    —— 那就從「順手」變成「打斷」，整條帶的理由就沒了。
+        renderPendingBand();
+        log('result', name + ' — 結果補上了');
+      });
+      el.pendingBandChips.appendChild(chip);
+    });
   }
 
   function surfaceAlert(alert) {
@@ -588,6 +803,9 @@
     log('surfaced', alert.symbol + ' — 決策入口開啟');
 
     renderEntryPanel(alert);
+    // 🔴 排在 renderEntryPanel **之後**、openSheet 之前：這條帶是順便，
+    //    不得影響上面那支對新快訊的任何一步。
+    renderPendingBand();
     openSheet(el.entrySheet);
     startEntryAgeTicker(alert);
   }
@@ -613,7 +831,7 @@
     var modeCtx = marketModeContext(alert);
     if (modeCtx) chips.push({ text: modeCtx, warn: false });
     if (state.settings.quietWindow && isWithinQuietWindowET(Date.now())) {
-      chips.push({ text: '盤整迴避時段', warn: true });
+      chips.push({ text: '安靜時段', warn: true });
     }
     chips.forEach(function (c) {
       var node = document.createElement('div');
@@ -704,11 +922,20 @@
       el.entryDiscipline.textContent =
         (scoped ? '這個標的' : '') + '你過去 ' + scope.length + ' 次：' + d + ' 次跟著流程。';
     }
+
+    // ── 日界節奏（§9b 階段 B）──
+    // 🔴 這一行**唯讀**：只陳述今天走到哪，不閘門、不建議。閘門是階段 C。
+    // 🔴 判定走共用模組（`domain/src/policies/day-cadence.ts` 的鏡射），
+    //    這一頁不自己數 —— 自己數就是第二份判定，正是這個 repo 付過三次學費的東西。
+    // ⚠️ 範圍是**全部紀錄**，不跟著上面那塊的 `scope` 走：節奏規則問的是
+    //    「你今天做了幾筆」，那是跨標的的事實；只算這個標的會低報。
+    var cadence = window.TENKI_OUTCOME.resolveDayCadence(all, Date.now());
+    el.entryCadence.textContent = cadence.contextZh;
   }
 
   /** 成本預期（呼應 Fable-5 的 ⏱ chip）。 */
   function renderEntryCost(alert) {
-    var tpl = TEMPLATES[suggestTemplate(alert.strategyHint)];
+    var tpl = TEMPLATES[suggestTemplate(alertOwnWords(alert))];
     if (!tpl) { el.entryCost.textContent = ''; return; }
     // 不再報時長 —— 結構確認沒有時間表（§7 step 3），報一個分鐘數會變成「等這麼久才對」的暗示。
     el.entryCost.textContent = '建議流程 ' + tpl.nameZh + '（可自由更換）';
@@ -779,7 +1006,7 @@
     var first = evaluateDelivery(alerts[0], Date.now());
     if (first.decision !== 'surfaced') {
       alerts.forEach(function (alert) {
-        log('silent', alert.symbol + ' — ' + (first.reason || '靜默接收'));
+        log('silent', alert.symbol + ' — ' + (reasonText(first) || '靜默接收'));
         silentChip(alert.symbol + ' 快訊（已接收）');
       });
       return;
@@ -884,7 +1111,7 @@
    * 「這筆快訊標的是這個結構」是**關於快訊的事實**，不是對使用者的指示。
    */
   function renderTemplatePicker(alert) {
-    var matched = suggestTemplate(alert.strategyHint);
+    var matched = suggestTemplate(alertOwnWords(alert));
 
     // 狀態列：標的 · 快訊標記的結構 · 收到時間。三個都是這筆快訊真的帶著的資料，
     // 沒有一個是為了「看起來像終端機」湊出來的。
@@ -903,14 +1130,30 @@
 
     el.tplList.textContent = '';
 
+    // 🔴 沒有比對到時，**第三欄整欄不出現**，而不是每一列印一個「—」。
+    // founder 2026-09-25：「印『—』這樣看起來會像壞掉」—— 他是對的，
+    // 破折號只是把空白換一個寫法，欄頭仍然在承諾一個它給不出來的值。
+    // 快訊沒有指名結構是**正常情形**（單純的價格穿越快訊本來就沒說），
+    // 不是錯誤 —— 所以把那件事**用一句話說出來**，而不是留一欄標點。
+    // （同 PLAYBOOK 那條：不支援時不要整列隱藏，要留著並就地說出原因；
+    //   這裡是它的另一面 —— 沒有值的欄位不要硬留，但要說出為什麼沒有。）
     var head = document.createElement('div');
     head.className = 'tpl-head';
-    ['CODE', 'STRUCTURE', 'MATCH'].forEach(function (label) {
+    var cols = matched ? ['CODE', 'STRUCTURE', 'MATCH'] : ['CODE', 'STRUCTURE'];
+    cols.forEach(function (label) {
       var cell = document.createElement('span');
       cell.textContent = label;
       head.appendChild(cell);
     });
     el.tplList.appendChild(head);
+
+    if (!matched) {
+      var why = document.createElement('div');
+      why.className = 'tpl-nomatch';
+      // 陳述事實 + 下一步，不下指示。⚠️ 不得寫成「請選擇最適合的」那種建議語氣。
+      why.textContent = '這則快訊沒有指名結構 —— 三個流程都可以選';
+      el.tplList.appendChild(why);
+    }
 
     Object.keys(TEMPLATES).forEach(function (id, index) {
       var tpl = TEMPLATES[id];
@@ -935,14 +1178,17 @@
       main.appendChild(name);
       main.appendChild(sub);
 
-      var flag = document.createElement('div');
-      flag.className = 'tpl-flag';
-      // 陳述事實，不下指示：這筆快訊標的就是這個結構。
-      flag.textContent = id === matched ? 'ALERT' : '';
-
       row.appendChild(code);
       row.appendChild(main);
-      row.appendChild(flag);
+      // 第三欄只在真的有比對到的時候存在 —— 沒有比對到就沒有這一欄，
+      // 不是有一欄但裡面是空的。
+      if (matched) {
+        var flag = document.createElement('div');
+        flag.className = 'tpl-flag';
+        // 陳述事實，不下指示：這筆快訊標的就是這個結構。
+        flag.textContent = id === matched ? 'ALERT' : '';
+        row.appendChild(flag);
+      }
 
       row.addEventListener('click', function () {
         closeSheets();
@@ -998,6 +1244,9 @@
       elapsedSec: rec.durationSec || 0,
       awayCount: typeof rec.awayCount === 'number' ? rec.awayCount : 0,
       awayMs: typeof rec.awayMs === 'number' ? rec.awayMs : 0,
+      // iOS 把 App 清掉之後回來，那段「離開」量到的是「隔多久才開 App」——
+      // /v3/ 的 accrueAway 認出來就不累加，改立這個旗子（見 v6 的註解）。
+      awayUnbounded: !!rec.awayUnbounded,
       // 🔴 `null` ＝「我們沒有這個數」，不是 `0` ＝「沒發生過」。
       // 決策進行中的同標的後續觸發由這一頁記在跨頁標記上、由 /v3/ 收束時寫進紀錄
       // （規格 §8）。**沒有這一欄的舊紀錄仍然是 null** —— renderRecap 會整列不顯示，
@@ -1279,8 +1528,13 @@
             segs: [seg(s.sameSymbolUpdates, true), seg(' 次')] }
         : null,
       // 事實，不是扣分項：在桌機/券商 APP 下單本來就會離開。
+      // 🔴 **次數是真的，時長不一定。** 有一段離開跨過守望上限時（iOS 把
+      //    App 清出記憶體），那段量到的是「隔多久才開 App」—— 次數照說，
+      //    時長就說不知道。夾一個上限值等於宣稱「他離開了剛好 30:00」。
       { cls: '', label: '期間離開', segs: s.awayCount > 0
-        ? [seg(s.awayCount, true), seg(' 次 · '), seg(formatClock(Math.round(s.awayMs / 1000)), true)]
+        ? (s.awayUnbounded
+            ? [seg(s.awayCount, true), seg(' 次 · 時長不可知')]
+            : [seg(s.awayCount, true), seg(' 次 · '), seg(formatClock(Math.round(s.awayMs / 1000)), true)])
         : [seg('沒有離開')] },
       { cls: disp.cls === 'disciplined' ? 'on' : 'off', label: '判定', segs: [seg(disp.text)] },
       // 「等了 NN:NN」原本擠在判定那句的尾巴。它是一個**量**，不是判定的形容詞
@@ -1320,6 +1574,11 @@
       templateId: s.templateId,
       outcomeTag: resolveOutcomeTag(judgment),
       contextTag: null,
+      // 結果軸（§9b）。進場 → pending（算一筆，結果待回填）；判定不成立 →
+      // no_entry（推導）；未判定就離開 → null（不猜）。
+      // 映射走共用模組（`/v3/` 建立紀錄時用的是同一支）——
+      // 兩邊各抄一份的下場這個 repo 付過三次學費。
+      tradeResult: window.TENKI_OUTCOME.defaultTradeResult(resolveOutcomeTag(judgment)),
       // 語意標記：讓統計認得出這筆是新語意，不與舊紀錄混算（見 disciplineRate 註解）。
       judgmentSchema: JUDGMENT_SCHEMA,
       awayCount: s.awayCount,
@@ -1372,7 +1631,36 @@
       el.resultReflect.appendChild(chip);
     });
 
+    // ── 結果三選一（§9b）──
+    // 🔴 只在「判定成立並進場」時問。其餘兩條路的結果是**推導**出來的，
+    // 再問一次只會製造矛盾的紀錄。
+    var asksTrade = judgment === 'entered';
+    el.resultTrade.textContent = '';
+    if (asksTrade) {
+      window.TENKI_OUTCOME.TRADE_RESULT_CHIPS.forEach(function (opt) {
+        var chip = document.createElement('button');
+        chip.className = 'result-chip';
+        chip.type = 'button';
+        chip.textContent = opt.label;
+        chip.setAttribute('data-trade-result', opt.value);
+        chip.addEventListener('click', function () {
+          var picked = state.pendingOutcome && state.pendingOutcome.tradeResult === opt.value;
+          Array.prototype.forEach.call(el.resultTrade.children, function (c) { c.classList.remove('sel'); });
+          if (!picked) {
+            chip.classList.add('sel');
+            if (state.pendingOutcome) state.pendingOutcome.tradeResult = opt.value;
+          } else if (state.pendingOutcome) {
+            // 🔴 取消選取回到 `pending`，**不是 null** —— 這筆交易確實發生了，
+            // 只是結果未知。回到 null 會讓它從當日計數裡消失（契約檔頭）。
+            state.pendingOutcome.tradeResult = 'pending';
+          }
+        });
+        el.resultTrade.appendChild(chip);
+      });
+    }
+
     // 依收束頁設定決定各區塊顯示（記錄一律照常，只影響呈現）。
+    toggleHidden(el.resultTradeWrap, asksTrade);
     toggleHidden(el.resultHistory, state.resultSettings.showHistory);
     toggleHidden(el.resultRecap, state.resultSettings.showRecap);
     toggleHidden(el.resultReflectWrap, state.resultSettings.showReflect);
@@ -1383,7 +1671,7 @@
     var animate = !prefersReducedMotion;
     var spec = resultArcSpec(judgment);
     var rate = disciplineRate(withThis);
-    var revealItems = [el.resultHistory, el.resultRecap, el.resultReflectWrap];
+    var revealItems = [el.resultHistory, el.resultRecap, el.resultReflectWrap, el.resultTradeWrap];
 
     // 重置上一次的編排殘留
     el.resultArcCenter.classList.remove('landed');
@@ -1941,7 +2229,7 @@
     var d = DEFAULT_SETTINGS, s = state.settings;
     return s.cooldownSec === d.cooldownSec && s.aggregationSec === d.aggregationSec &&
       s.strainSilent === d.strainSilent && s.sessionQuietUpdate === d.sessionQuietUpdate &&
-      s.quietWindow === d.quietWindow;
+      s.quietWindow === d.quietWindow && s.cadenceCollapse === d.cadenceCollapse;
   }
   function updateSettingsStatus() {
     el.setStatus.textContent = settingsIsDefault() ? '預設' : '已自訂';
@@ -1952,6 +2240,7 @@
     el.setStrainSilent.checked = state.settings.strainSilent;
     el.setSessionQuiet.checked = state.settings.sessionQuietUpdate;
     el.setQuietWindow.checked = state.settings.quietWindow;
+    el.setCadenceCollapse.checked = state.settings.cadenceCollapse;
     updateSettingsStatus();
   }
   function persistSettings() {
@@ -1976,6 +2265,7 @@
   el.setStrainSilent.addEventListener('change', function () { state.settings.strainSilent = el.setStrainSilent.checked; persistSettings(); });
   el.setSessionQuiet.addEventListener('change', function () { state.settings.sessionQuietUpdate = el.setSessionQuiet.checked; persistSettings(); });
   el.setQuietWindow.addEventListener('change', function () { state.settings.quietWindow = el.setQuietWindow.checked; persistSettings(); });
+  el.setCadenceCollapse.addEventListener('change', function () { state.settings.cadenceCollapse = el.setCadenceCollapse.checked; persistSettings(); });
   el.setReset.addEventListener('click', function () {
     state.settings = Object.assign({}, DEFAULT_SETTINGS);
     persistSettings();
@@ -2005,8 +2295,31 @@
     else { el.resBody.setAttribute('hidden', ''); el.resChevron.textContent = '▾'; }
   });
 
+  // ── 偏移預警入口的副標 ──
+  /**
+   * 這一列自己講出「你累積了多少」。
+   *
+   * 🔴 數字來自共用的 `readiness-history.js`（唯一來源），這裡不自己數 ——
+   *    不然就會變成「同一份資料，兩頁數字對不起來」的第四次（PLAYBOOK §6）。
+   * 🔴 沒有累積就說「尚未累積」，**不給 0 也不留空**：空白會讓人以為壞了，
+   *    0 會讓人以為它量過而結果是零。
+   * ⚠️ 模組沒載到就說沒載到 —— 不編一個看起來正常的數字頂替。
+   */
+  function renderDriftEntry() {
+    var history = window.TENKI_READINESS_HISTORY;
+    if (!history) {
+      el.driftStatus.textContent = '歷史模組沒載到';
+      return;
+    }
+    var summary = history.summary().summary;
+    el.driftStatus.textContent = summary.sampleCount === 0
+      ? '尚未累積'
+      : summary.sampleCount + ' 次掃描 · ' + summary.distinctDays + ' 天';
+  }
+
   renderSettingsInputs();
   renderResultSettingsInputs();
+  renderDriftEntry();
   renderState();
   refreshDiscipline();
   // 開頁就問「有沒有決策還在跑」—— 這一頁是 PWA 的 start_url，

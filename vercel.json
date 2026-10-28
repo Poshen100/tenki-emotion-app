@@ -33,6 +33,11 @@
             "permanent": false
         },
         {
+            "source": "/app",
+            "destination": "/app/",
+            "permanent": false
+        },
+        {
             "source": "/",
             "destination": "/story/",
             "permanent": false
@@ -42,6 +47,14 @@
         {
             "source": "/brand/(.*)",
             "destination": "/brand/$1"
+        },
+        {
+            "source": "/app/",
+            "destination": "/apps/preview/app.html"
+        },
+        {
+            "source": "/app/(.*)",
+            "destination": "/apps/preview/$1"
         },
         {
             "source": "/v3/",

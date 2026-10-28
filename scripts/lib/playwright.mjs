@@ -62,17 +62,51 @@ export async function getChromium() {
 const PAGE_FONT_STACK =
   "-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text',sans-serif";
 
-/** 基準值（容器 sans-serif 實測）。中文容差極小、英文放寬到 ±8px。 */
+/**
+ * 基準值。
+ *
+ * 🔴 **容差是從版面的餘裕推導的，不是憑感覺訂的。**
+ * 2026-10-10 之前英文那一欄是 ±8px，而那比版面能承受的還寬 ——
+ * 容器換 image 之後 `sans-serif` 變成 Inter，「Neutral」從 124 → 127px（+3），
+ * 金絲雀照樣放行，然後 **9 條版面斷言紅**（fdcb 8 條 + strip-color 1 條），
+ * 每一條都長得像產品壞了。那正是這支金絲雀存在要擋的事。
+ *
+ * 推導：環心那條（`OUTSIDE_CIRCLE_TOL`）容差 4px，而通過時最差的一組是 2.9px
+ * —— 只剩 **1.1px 的角落餘裕**。字串變寬 W px，左右各外推約 W/2，
+ * 所以可容忍的字寬偏差約 **2.2px** → 取 **±2**，跟中文那一組同級。
+ *
+ * 佐證（兩邊都實測過，不是推測）：
+ *   CI runner（GitHub Actions）    「Neutral」@36px = **124px** ← 正中基準
+ *   2026-10-10 的開發容器            「Neutral」@36px = **127px** ← 已經會翻掉版面
+ *
+ * ⚠️ 哪天 runner 又飄了，這裡會**先**紅，而且訊息直接說是字型 ——
+ *    那比讓它去翻掉九條「讀數不在環心圓內」好得多。**那時候要修的是環境，
+ *    不是去改產品的版面來迎合它。**
+ */
 const FONT_BASELINE = [
   { text: '尚未量測', px: 30, expect: 120, tol: 2 },
-  { text: 'Neutral', px: 36, expect: 124, tol: 8 },
+  { text: 'Neutral', px: 36, expect: 124, tol: 2 },
 ];
 
 /**
  * 在給定的 page 上量基準字串，回傳不符的項目（空陣列 = 環境對得上）。
  *
+ * 🔴 **一律把量到的數字回報出去，不只回報通過與否。**
+ * 2026-10-10 踩到：容器重啟換了 image，`sans-serif` 從原本的字型變成 **Inter**，
+ * 「Neutral」@36px 從 124px 變成 **127.4px** —— 偏 3.4px，在 ±8 的容差內，
+ * 所以金絲雀放行了。但環心那條版面斷言的容差只有 4px，而通過時本來就只剩
+ * 約 1px 餘裕，於是 **8 條「讀數不在環心圓內」當場紅**。
+ *
+ * 那正是這支函式的註解自己說它存在要擋的事：
+ * 「對不上就以字型不符失敗，而不是讓它去翻掉『讀數不在圓內』那條」。
+ * 它擋不住，因為**容差比版面的餘裕還寬**。
+ *
+ * 要訂一個對的容差得先知道各個環境實際量到多少 —— 所以先讓它每次都把數字
+ * 印出來（CI 的 log 裡就會有 runner 的真值），**不要憑感覺縮容差**。
+ *
  * @param {import('playwright').Page} page
- * @returns {Promise<string[]>} 人看得懂的偏差描述
+ * @returns {Promise<{drift: string[], measured: string[]}>}
+ *   `drift` 空陣列 ＝ 環境對得上；`measured` 一律有值，給人看的實測數字。
  */
 export async function checkFontCanary(page) {
   const measured = await page.evaluate(([stack, samples]) => {
@@ -89,9 +123,13 @@ export async function checkFontCanary(page) {
     return out;
   }, [PAGE_FONT_STACK, FONT_BASELINE]);
 
-  return FONT_BASELINE.flatMap((s, i) => {
-    const got = measured[i];
-    if (Math.abs(got - s.expect) <= s.tol) return [];
-    return [`「${s.text}」@${s.px}px 量到 ${got}px，基準是 ${s.expect}±${s.tol}px`];
-  });
+  return {
+    drift: FONT_BASELINE.flatMap((s, i) => {
+      const got = measured[i];
+      if (Math.abs(got - s.expect) <= s.tol) return [];
+      return [`「${s.text}」@${s.px}px 量到 ${got}px，基準是 ${s.expect}±${s.tol}px`];
+    }),
+    measured: FONT_BASELINE.map((s, i) =>
+      `「${s.text}」@${s.px}px = ${measured[i]}px（基準 ${s.expect}±${s.tol}）`),
+  };
 }

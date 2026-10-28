@@ -248,7 +248,10 @@ const outcomes = (page) => page.evaluate(() => {
 console.log('\n── 字型金絲雀 ──');
 {
   const page = await openV3(700);
-  const drift = await checkFontCanary(page);
+  const { drift, measured } = await checkFontCanary(page);
+  // 🔴 **無論過不過都把數字印出來** —— 容差訂得對不對，要靠各環境的真值來判斷，
+  //    不是靠感覺。CI 的 log 裡從此就有 runner 的實測值。
+  measured.forEach((m) => console.log('   ' + m));
   check('字型與基準一致（不一致就不要相信下面的版面斷言）', drift, []);
   if (drift.length) {
     console.log('   ⚠️ 這台機器的字型跟基準不同 —— 先修環境（CI 應裝 fonts-wqy-zenhei），');
@@ -467,7 +470,14 @@ console.log('\n── Turning Point 節點 ──');
   check('同一秒的節點併成一顆（軌上不得與計數打架）', live.ticks, 1);
 
   // 選一個標籤 → 只補在剛剛那一顆上
-  await page.evaluate(() => document.querySelectorAll('.tp-chip')[0].click());
+  // 🔴 **範圍要對**：這一行原本是 `document.querySelectorAll('.tp-chip')[0]`
+  //    —— 掃整頁拿第一顆。它一直綠著是因為「快選以外的 `.tp-chip` 都是動態生出來的」
+  //    （結果回填那幾顆要先開詳情頁才存在），所以 `[0]` 碰巧總是快選裡的。
+  //    2026-10-12 加了一顆**靜態**的 `.tp-chip`（詳情頁的「後來我進場了」）之後
+  //    `[0]` 變成它 —— 而它是 `hidden`，點了什麼都沒發生，於是**四條完全無關的
+  //    斷言一起紅**，而且紅的訊息長得像轉折點功能壞了。
+  //    這條斷言要說的是「點快選裡的第一顆標籤」，就讓它那樣問。
+  await page.evaluate(() => document.querySelector('#tpPicker .tp-chip').click());
   await page.waitForTimeout(200);
   const afterPick = await dock(page);
   checkTruthy('選完標籤，段標籤回報選了什麼', afterPick.seg.indexOf('已標記 · ') === 0);
@@ -2147,7 +2157,14 @@ console.log('\n── Hero 讀數不得爆版 ──');
       let rules; try { rules = sheet.cssRules; } catch (e) { continue; }
       const walk = (list) => {
         for (const r of list) {
-          if (r.cssRules) { walk(r.cssRules); continue; }
+          // 🔴 `if (r.cssRules)` 是錯的：支援 CSS nesting 的瀏覽器上，**一般的
+          // CSSStyleRule 也有 `cssRules`**（一個空的 CSSRuleList，而空 list 是
+          // truthy）—— 於是每一條普通規則都被當成容器遞迴進去、自己的宣告一行都
+          // 沒被看到。實測 903 條頂層規則只走到 93 個葉節點，而那 93 個是
+          // keyframe/font-face 這類真的沒有 cssRules 的。
+          // 這條掃描因此**從寫下的那天起就幾乎沒在掃東西**，而它的活性檢查
+          // （另外數 `sheet.cssRules.length`）照樣綠 —— 活性檢查量的不是同一個東西。
+          if (r.cssRules && r.cssRules.length) walk(r.cssRules);
           if (!r.style) continue;
           const txt = r.cssText;
           for (const m of txt.matchAll(/#([0-9a-fA-F]{6})\b|rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/g)) {
@@ -2164,8 +2181,22 @@ console.log('\n── Hero 讀數不得爆版 ──');
     }
     return [...new Set(out)];
   });
-  if (hits.length) { console.log('   跟琥珀撞的：'); for (const h of hits.slice(0, 8)) console.log(`     ${h}`); }
-  check('🔴 樣式表裡沒有與 --amber-400 ΔE < 12 的其他顏色', hits, []);
+  // 🔴 具名例外 —— 修好 walk 之後這條第一次真的掃到東西，而它掃出來的三個
+  // **都不是違規**，是這條規則的範圍寫得比它想守的事大：
+  //   · `:root` ＝ `tokens.css` 的 `--warning:#F5A623` **宣告**。它在 v6 上
+  //     消費者為 0（僅 `styles.css` 那個沒有路由的頁面用了 2 處）——
+  //     一個沒人用的宣告不會在畫面上跟誰撞。⚠️ 它是下一輪的退場候選。
+  //   · `.ring-outer-wrap` / `.ring-dot.outer` ＝ **Hero 巨環的 conic 漸層**。
+  //     琥珀那條規則守的是「可以動手」這個語義不被別人借用，而那是**儀器世界**
+  //     的事；巨環是世界 A 的大面積漸層，掃過金色不等於在說「這裡可以按」。
+  //     這跟星塵那條「守的是整顆球的主色，不是每一顆粒子」是同一個判準 ——
+  //     把大面積漸層的每一個停點都擋在語義色外面，可用色域會只剩一小段弧。
+  // ⚠️ 名單要**雙向**：名單外的要紅，名單裡的也要真的還在（不然是空頭支票）。
+  const AMBER_EXEMPT = [':root', '.ring-outer-wrap', '.ring-dot.outer'];
+  const amberStray = hits.filter((h) => !AMBER_EXEMPT.some((x) => h.startsWith(x + ' ')));
+  if (amberStray.length) { console.log('   跟琥珀撞的：'); for (const h of amberStray.slice(0, 8)) console.log(`     ${h}`); }
+  check('🔴 樣式表裡沒有與 --amber-400 ΔE < 12 的其他顏色（具名例外除外）', amberStray, []);
+  checkTruthy(`具名例外都還在（${hits.length} 條命中，0 條＝這條是死斷言）`, hits.length >= 3);
   // 掃得到東西嗎 —— cssRules 讀不到（跨來源）時上面會靜靜回 []，那是死斷言。
   const ruleCount = await page.evaluate(() => {
     let n = 0;
@@ -2330,6 +2361,1257 @@ for (const h of [700, 740, 844, 932]) {
   checkTruthy('畫面說得出「讀數已過期」', foot.includes('1 筆決策當下的讀數已過期'));
   // 🔴 邀請語要對得上：他掃過了、只是太久以前，「先掃一次再進決策」對他是假的
   checkTruthy('有過期紀錄時邀請語改成「進決策前先掃一次」', foot.includes('進決策前先掃一次'));
+  await page.close();
+}
+
+// ═════════════════════════════════════════════════
+// `--good` 綠：不得「單獨承載」一個事實
+//
+// §3.8 量到的決定性事實：`#34C759` 在三種色盲下**同時**撞掉四個主人 ——
+// gold 10.2（紅色盲）/ Clear 12.5（藍黃盲）/ Strain 12.5（綠色盲）/
+// amber 13.5（紅色盲），而 §3.6 ③ 的門檻是 20。
+// → 它可以當表面，不能當宣稱。
+//
+// 🔴 **2026-09-24 founder 把規則改掉了**（不是開例外）。原本寫成
+// 「綠只准出現在 `.baseline-flow`」—— 那是**用位置代替判準**，而位置不是理由。
+// 現在的判準是**資訊由誰承載**，驗法一句話就講得完：
+//
+//     把顏色全部拿掉，這個元件還說得出同一件事嗎？
+//
+//   · 說不出 → 顏色是唯一的訊號（一顆沒有字的點、一個純色塊在宣稱分類／好壞）
+//     → **不准用綠**，因為它在色盲下同時塌向四個主人
+//   · 說得出 → 資訊在位置／數量／旁邊的字上，顏色只是外觀 → **可以用**
+//
+// 兩個實例正好落在兩邊：
+//   · Timeline 的點：洗成灰就什麼都沒說 → 不准（2026-09-21 收掉）
+//   · 壓力條：洗成灰仍然是「5 格亮 3 格」→ 可以（2026-09-24 放行）
+//     ⚠️ 而且它的三階在色盲下本來就會互相塌（seg3×seg5 紅色盲 ΔE 5.5）——
+//        那在這裡不構成問題，**正因為訊息是位置不是顏色**。同一組值換到
+//        「只剩顏色在講話」的地方立刻不可用。
+//
+// 🔴 這條仍然是**名單型**的：「顏色有沒有在單獨承載一件事」機器判斷不出來，
+// 所以不假裝偵測 —— 改成要求把決定寫下來，而**名單的每一列都要說得出
+// 它為什麼過得了上面那個問句**。新增一個用法就會紅，逼下一個人回來回答它。
+// ⚠️ 而且要**雙向**：名單外的要紅，名單本身也要真的還掃得到東西。
+// ═════════════════════════════════════════════════
+{
+  console.log('\n── --good 綠只准留在 onboarding 流程狀態 ──');
+  const page = await openV3(844);
+  const hits = await page.evaluate(() => {
+    const GREEN = [52, 199, 89];
+    const near = (c) => Math.abs(c[0] - GREEN[0]) < 12 && Math.abs(c[1] - GREEN[1]) < 12 && Math.abs(c[2] - GREEN[2]) < 12;
+    // 🔴 掃的是 CSS 規則不是渲染中的節點 —— baseline flow 與 Timeline 有一半
+    // 的東西要走到特定狀態才長出來，只掃當下的 DOM 會漏掉它們（那才是死斷言）。
+    const out = [];
+    const walk = (rules) => {
+      for (const r of rules) {
+        // 🔴 見上面那條註解：不能用 `if (r.cssRules)` 當「這是容器」的判準。
+        if (r.cssRules && r.cssRules.length) walk(r.cssRules);
+        const txt = r.style && r.style.cssText;
+        if (!txt) continue;
+        // `var(--good)` 與寫死的 #34C759 / rgba(52,199,89,…) 都要抓
+        const usesGood = /var\(\s*--good\s*\)/.test(txt)
+          || [...txt.matchAll(/#([0-9a-fA-F]{6})\b|rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/g)]
+            .some((m) => near(m[1] ? m[1].match(/../g).map((h) => parseInt(h, 16)) : [+m[2], +m[3], +m[4]]));
+        if (usesGood) out.push((r.selectorText || '?') + '\u0000' + txt);
+      }
+    };
+    for (const sh of document.styleSheets) { try { walk(sh.cssRules); } catch (e) { /* 跨來源 */ } }
+    return [...new Set(out)];
+  });
+  // `:root` 只放行 `--good` **這一條宣告**。E 組（baseline flow）還在用它，
+  // 所以宣告必須留著；一個宣告不會在畫面上宣稱任何事。
+  // 🔴 但**不能整條 `:root` 規則放行** —— 第一版就是那樣寫的，結果反向驗證
+  // （把綠塞回 `--fdcb-complete`）**沒有紅**：新的綠 token 藏在同一條 `:root` 裡，
+  // 被我自己的例外蓋掉了。例外要精確到「哪一個宣告」，不是「哪一條規則」。
+  // ⚠️ 這條掃的是 **CSS 規則**，掃不到 JS 畫進 canvas 的顏色
+  //    （`drawWave(..., '#34C759', ...)` 的示意波形就在範圍外）——
+  //    範圍講清楚，才不會變成一條宣稱比掃描大的斷言。那三條示意波形是一組
+  //    **分類色**（HR / HRV / 呼吸各一條、各自有標題），不是好壞判斷，
+  //    這一輪刻意沒動：動它等於改 Today 的長相，那要 founder 先看過。
+  const GREEN_RE = /var\(\s*--good\s*\)|#34C759\b|rgba?\(\s*5[0-9]\s*,\s*19[0-9]\s*,\s*8[0-9]/i;
+  // 🔴 `:root` 分開處理：**宣告不是宣稱**，所以綠 token 可以存在；
+  // 會出事的是「又多了一個綠 token」——那正是下一個人繞過這條規則的方式
+  // （反向驗證就是這樣抓到的：把綠塞回 `--fdcb-complete` 時，第一版例外沒紅）。
+  // 所以改成鎖住**綠 token 的名單本身**。
+  const greenTokens = [];
+  const strays = hits.map((h) => {
+    const [sel, txt] = h.split('\u0000');
+    // 名單：每一列都附「拿掉顏色還說得出同一件事嗎」的答案
+    //   · .baseline-flow  → 說得出（每一步都有字：ready / done / 品質）
+    //   · .stress-bar .seg.on → 說得出（5 格亮 3 格，數量就是訊息）
+    if (/\.baseline-flow/.test(sel)) return null;
+    if (/\.stress-bar\s+\.seg\.on/.test(sel)) return null;
+    if (/^:root\b/.test(sel)) {
+      for (const decl of (txt || '').split(';')) {
+        const m = decl.match(/^\s*(--[\w-]+)\s*:(.*)$/);
+        if (m && GREEN_RE.test(m[2])) greenTokens.push(m[1]);
+      }
+      return null;
+    }
+    return sel;
+  }).filter(Boolean);
+  // `--good`（v6 私有）與 `--success`（tokens.css）是同一個綠的兩份宣告。
+  // 兩份本身就是 §3.2 那條「同一個顏色兩個名字」的債，但退場是另一輪的事 ——
+  // 這裡先把名單鎖住：多一個就紅。
+  check('🔴 綠 token 就這兩個（多一個＝有人又開了一條路）',
+    [...new Set(greenTokens)].sort(), ['--good', '--success']);
+  if (strays.length) { console.log('   名單外吃到綠的：'); for (const h of strays.slice(0, 10)) console.log(`     ${h}`); }
+  check('🔴 綠沒有單獨承載事實（名單：baseline flow / 壓力條）', strays, []);
+  // 反向：名單本身要真的掃得到，否則上面那條是「掃不到東西所以全綠」
+  checkTruthy(`掃得到吃綠的規則（${hits.length} 條，0 條＝這條是死斷言）`, hits.length >= 5);
+  await page.close();
+}
+
+// ═════════════════════════════════════════════════
+// 守望模式的軌 = 30 分鐘的經過時間軸：**固定的尺 + 會動的指針**
+//
+// founder 2026-09-24：「希望可以從長條的分段顏色快速看出時間」。
+// 第一版用三段的亮暗切換，founder 2026-09-28 實走之後仍然讀不出來，量出兩個原因：
+//   ① 走過(--n-600) 對 還沒到(--n-800) 的對比只有 **1.87:1** → 看得到指針、看不到尺。
+//   ② 第三段佔 66.7%（30 分鐘裡的 20 分鐘）→ 12:00 與 25:00 長得一模一樣，
+//      而**這一條換什麼顏色都救不了**：三個離散格子表示不了一個連續量。
+// 於是三段退回去只當刻度（同一階），位置交給指針。founder 從四版裡挑的 D。
+//
+// 🔴 段寬仍然照**時間比例**（10% / 23.33% / 66.67%），不是等分。
+// 🔴 `#fdcbFill` 仍然是 0 —— 守望不畫倒數填充那條規則沒有放寬。
+// 🔴 指針是軌上唯一的非中性色（cyan = ACTIVE = 這筆決策正在跑）；
+//    三段刻度仍然由既有那條「三段軌只准用中性階」守著。
+// ═════════════════════════════════════════════════
+{
+  console.log('\n── 守望三段軌 = 經過時間軸 ──');
+  const page = await openV3(844);
+  await page.evaluate(() => {
+    window.toggleDisciplineMode();
+    window.selectTmpl([...document.querySelectorAll('.tmpl-item')].find((x) => x.dataset.id === 'MANCINI_FBD'));
+  });
+  await page.waitForTimeout(450);
+  await page.evaluate(() => window.setState('running'));
+  await page.waitForTimeout(700);
+
+  const read = async (sec) => page.evaluate((s) => {
+    sess.startedAtMs = Date.now() - s * 1000;
+    elapsed = s;
+    tickFdcb();
+    const q = (k) => document.querySelector('.fdcb-prog .' + k);
+    const needle = document.querySelector('.fdcb-prog .wb-needle');
+    return {
+      fill: document.getElementById('fdcbFill').style.width,
+      w: ['seg-obs', 'seg-sweet', 'seg-ext'].map((k) => q(k).style.width),
+      // 刻度的底色：三段必須**完全一樣**，任何一段自己變亮就是回到舊設計
+      segBg: ['seg-obs', 'seg-sweet', 'seg-ext'].map((k) => getComputedStyle(q(k)).backgroundColor),
+      needleLeft: needle ? needle.style.left : null,
+      needleBg: needle ? getComputedStyle(needle).backgroundColor : null,
+    };
+  }, sec);
+
+  // 段寬：3 / 7 / 20 分之於 30 分
+  const at5 = await read(5);
+  // ⚠️ 讀回來的是 CSSOM **正規化過**的值：寫進去 `10.00%`、讀出來是 `10%`
+  //    （`23.33%` / `66.67%` 沒有尾隨零所以原樣）。期待值照它實際回什麼寫。
+  check('🔴 段寬照時間比例（0–3 分 / 3–10 分 / 10–30 分）', at5.w, ['10%', '23.33%', '66.67%']);
+
+  // 🔴 尺是**固定**的：三段同一階。這條就是「不要回到舊設計」的鎖 ——
+  //    舊版靠 wb-past/wb-now 讓某一段變亮，而那正是 founder 讀不出來的東西。
+  check('🔴 三段刻度是同一階（尺不會自己變亮暗）',
+    new Set(at5.segBg).size, 1);
+  // 🔴 指針是軌上唯一的非中性色，而且就是 cyan-400（ACTIVE）。
+  const cyan400 = await page.evaluate(() =>
+    getComputedStyle(document.documentElement).getPropertyValue('--cyan-400').trim());
+  checkTruthy(`指針是 --cyan-400（${at5.needleBg} / token ${cyan400}）`,
+    !!at5.needleBg && at5.needleBg !== at5.segBg[0]);
+
+  // 指針位置：連續，所以 18:00 跟 28:30 必須是**不同的值** ——
+  // 那正是三個離散格子答不出來的那一段（兩者都落在第 3 段裡）。
+  const seen = [];
+  for (const [sec, label] of [[5, '00:05'], [160, '02:40'], [390, '06:30'], [1080, '18:00'], [1710, '28:30']]) {
+    const r = await read(sec);
+    const want = (Math.min(sec / (30 * 60), 1) * 100).toFixed(2).replace(/\.?0+$/, '') + '%';
+    check(`🔴 ${label} 指針落在 ${want}`, r.needleLeft, want);
+    seen.push(r.needleLeft);
+    // 🔴 這條是原本那條規則，換了外觀之後仍然要成立
+    check(`🔴 ${label} 守望仍然不推進填充條`, r.fill === '0' || r.fill === '0px' || r.fill === '', true);
+  }
+  check('🔴 五個時間點的指針位置全都不同（連續量，不是三格）',
+    new Set(seen).size, 5);
+  // 超過上限要夾住，不得跑出軌外
+  const over = await read(30 * 60 + 600);
+  check('🔴 超過 30 分鐘上限時指針夾在 100%', over.needleLeft, '100%');
+
+  // 🔴 **同一條軌上不得有兩把尺。**
+  // `.tp-tick`（標記）原本一律用 `tmpl.durationSec` 定位，而守望的軌是 30 分鐘 ——
+  // 同一個 t=600s，標記會畫在 100%（Mancini FBD 是 10 分鐘），指針在 33.33%。
+  // 兩個東西指著同一個時刻卻站在不同位置，而且兩邊各自看都很正常、沒有東西會報錯。
+  // 這條把兩個分母綁在一起：標記的位置必須等於「指針在同一個 t 的位置」。
+  const marks = await page.evaluate(() => {
+    sess.events = [{ t: 600, band: 'neutral' }];   // 10 分鐘整 → 30 分鐘尺上的 33.33%
+    sess.startedAtMs = Date.now() - 900 * 1000;
+    elapsed = 900;
+    tickFdcb();
+    renderLiveNodes();
+    const tick = document.querySelector('.fdcb-prog .tp-tick');
+    return {
+      tickLeft: tick ? tick.style.left : null,
+      needleLeft: document.querySelector('.fdcb-prog .wb-needle').style.left,
+      tmplDur: TEMPLATES[currentTmpl].durationSec,
+    };
+  });
+  checkTruthy(`守望模板的倒數時長確實不是 30 分（${marks.tmplDur}s，一樣的話這條驗不到東西）`,
+    marks.tmplDur !== 30 * 60);
+  check('🔴 守望模式下標記跟指針用同一把尺（t=600 → 33.33%）',
+    marks.tickLeft, '33.3333%');
+  check('🔴 而 t=900 的指針在 50%（兩者同一個分母 1800）', marks.needleLeft, '50%');
+
+  // 倒數模板不得被誤傷：軌要回到模板的三階段（等分），且填充照常推進
+  await page.evaluate(() => {
+    window.setState('idle');
+    window.toggleDisciplineMode();           // 關掉決策紀律模式 → 走倒數
+  });
+  await page.waitForTimeout(300);
+  await page.evaluate(() => {
+    const el = [...document.querySelectorAll('.tmpl-item')].find((x) => x.dataset.id === 'HEALTH_STRESS');
+    if (el) window.selectTmpl(el);
+  });
+  await page.waitForTimeout(450);
+  await page.evaluate(() => window.setState('running'));
+  await page.waitForTimeout(1200);
+  const cd = await page.evaluate(() => ({
+    axis: document.querySelector('.fdcb-prog').classList.contains('watch-axis'),
+    w: [...document.querySelectorAll('.fdcb-prog .seg-obs, .fdcb-prog .seg-sweet, .fdcb-prog .seg-ext')].map((n) => n.style.width),
+    fill: document.getElementById('fdcbFill').style.width,
+    needle: !!document.querySelector('.fdcb-prog .wb-needle'),
+    watch: !!(window.sess && sess.watch),
+  }));
+  check('倒數模板不是守望（前提成立，否則下面幾條是空的）', cd.watch, false);
+  check('🔴 倒數模板的軌回到模板三階段（等分）', cd.w, ['33%', '33%', '34%']);
+  check('🔴 倒數模板不掛時間軸的 class', cd.axis, false);
+  // 🔴 指針要整個拿掉，不是藏起來 —— 倒數模板有自己的填充條，
+  //    留一根指針在上面等於同一條軌上有兩個位置指示。
+  check('🔴 倒數模板沒有指針', cd.needle, false);
+  checkTruthy(`倒數模板照常推進填充條（${cd.fill}）`, cd.fill !== '0' && cd.fill !== '0px' && cd.fill !== '');
+  await page.close();
+}
+
+// ═════════════════════════════════════════════════
+// 🔴 「結果還沒填」必須在**列表上**看得見
+//
+// founder 2026-10-09 實走：他前一天掃描、等了快一小時、照計劃進場走完，
+// 回來看 Session 是四列長得一模一樣的完成品 —— 其中三列其實是 `pending`。
+// 他的結論是「後面這一段沒有記錄到」。
+// 真相是：§9b 的回填機制早就做好了（#272/#273/#275），但
+//   · 列表一個字都沒講
+//   · insight 行說「N 次跟著流程走完」，讀起來像全部做完了
+//   · 收束頁的三選一**只由一次性回程票打開** —— 判定完直接離開就再也不會被問
+// 也就是：機制存在，但它的**可見範圍**小於它的宣稱（本檔反覆記載的同一個家族）。
+//
+// ⚠️ 這組斷言守的是「看得見」，不是「存得對」—— 存得對由 day-cadence 那組守。
+// ═════════════════════════════════════════════════
+{
+  console.log('\n── 結果還沒填：列表上要看得見 ──');
+  const page = await openV3(844);
+  const now = Date.now();
+  // 三種紀錄各一筆：在等的、不在等的（推導出 no_entry）、已經填過的。
+  await page.evaluate((now) => {
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify([
+      { ts: now - 300e3, symbol: 'ES1!', templateId: 'MANCINI_FBD', source: 'alert',
+        outcomeTag: 'judged_entered', tradeResult: 'pending',
+        durationSec: 17, marks: 0, events: [], reachedReadiness: null },
+      { ts: now - 600e3, symbol: 'ES1!', templateId: 'MANCINI_FBD', source: 'alert',
+        // 🔴 **刻意不給 tradeResult**。給 'no_entry' 的話，就算 awaitsResult 完全
+        // 不看 outcomeTag 也照樣擋得掉 —— 那條主斷言就變成在驗一件它沒在驗的事。
+        // 反向驗證（把 outcomeTag 檢查拿掉）當場證明了這點：主斷言照樣綠，
+        // 只有下面那條舊紀錄的紅。缺欄位才逼得出「判定不成立不該被催」這條規則。
+        outcomeTag: 'judged_stood_down',
+        durationSec: 80, marks: 0, events: [], reachedReadiness: null },
+      { ts: now - 900e3, symbol: 'ES1!', templateId: 'MANCINI_FBD', source: 'alert',
+        outcomeTag: 'judged_entered', tradeResult: 'profit_taken',
+        durationSec: 14, marks: 0, events: [], reachedReadiness: null },
+    ]));
+    window.goTab('session');
+  }, now);
+  await page.waitForTimeout(700);
+
+  const list = await page.evaluate(() => {
+    const rows = [...document.querySelectorAll('#sessionList .session-item')];
+    return {
+      n: rows.length,
+      marks: rows.map((r) => !!r.querySelector('.needs-result')),
+      text: (rows.find((r) => r.querySelector('.needs-result')) || {}).textContent || '',
+      insight: document.getElementById('sessionInsightBody').textContent,
+      overflow: document.getElementById('sessionList').scrollWidth
+        > document.getElementById('sessionList').clientWidth + 1,
+    };
+  });
+  check('三筆都畫出來了（0 筆＝下面全是死斷言）', list.n, 3);
+  // 🔴 只有 judged_entered + pending 那一筆在等。判定不成立是**推導**出來的
+  //    `no_entry`，它沒有在等任何人 —— 對它催填等於問一個不存在的問題。
+  check('🔴 只有「進場了但結果未知」那一筆帶記號', list.marks, [true, false, false]);
+  checkTruthy(`記號說得出要幹嘛（${list.text.replace(/\s+/g, ' ').trim().slice(-14)}）`,
+    /結果還沒填/.test(list.text) && /點進去/.test(list.text));
+  check('🔴 insight 行要把「還有幾次沒填」講出來', /還有\s*1\s*次的結果沒填/.test(list.insight), true);
+  check('列表不得橫向溢出', list.overflow, false);
+
+  // 🔴 結果不得上語意色（§9b 硬規則 2）—— 記號與它的圓點都必須是中性階。
+  // ⚠️ 記號不存在時要回一條**看得懂的紅字**，不是讓 getComputedStyle(null) 把整支
+  //    harness 以 stack trace 炸掉 —— 下一個人看到的會是「TypeError」而不是
+  //    「記號不見了」。反向驗證（拿掉記號）當場踩到這件事，它抓得對。
+  //    本檔早有同一條教訓：裸的 waitForFunction 逾時會讓腳本以 stack trace 死掉。
+  const tone = await page.evaluate(() => {
+    const cs = getComputedStyle(document.documentElement);
+    const ramp = ['--n-950', '--n-900', '--n-850', '--n-800', '--n-700', '--n-600',
+      '--n-550', '--n-500', '--n-450', '--n-400', '--n-300', '--n-200', '--n-100']
+      .map((n) => cs.getPropertyValue(n).trim().toUpperCase());
+    const hex = (v) => {
+      const c = (v.match(/\d+/g) || []).map(Number);
+      return c.length >= 3 ? '#' + c.slice(0, 3)
+        .map((x) => x.toString(16).padStart(2, '0')).join('').toUpperCase() : null;
+    };
+    const el = document.querySelector('#sessionList .needs-result');
+    if (!el) return { missing: true, ramp };
+    const dot = getComputedStyle(el, '::before');
+    return {
+      missing: false,
+      color: hex(getComputedStyle(el).color),
+      border: hex(dot.borderTopColor),
+      // 空心 ＝ 還沒有東西（沿用 .tp-tick.no-reading 的語彙）
+      hollow: dot.backgroundColor === 'rgba(0, 0, 0, 0)' || dot.backgroundColor === 'transparent',
+      ramp,
+    };
+  });
+  check('🔴 待填記號的字是中性階（結果不得上語意色）',
+    tone.missing ? '記號不存在' : tone.ramp.includes(tone.color), true);
+  check('🔴 它的圓點也是中性階',
+    tone.missing ? '記號不存在' : tone.ramp.includes(tone.border), true);
+  check('🔴 圓點是空心的（空心＝還沒有東西，沿用既有語彙）',
+    tone.missing ? '記號不存在' : tone.hollow, true);
+
+  // 🔴 填完之後記號必須消失 —— 一個永遠在的提醒就不是提醒。
+  await page.evaluate((ts) => {
+    const all = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'));
+    all.find((r) => r.ts === ts).tradeResult = 'profit_taken';
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(all));
+    window.goTab('today'); window.goTab('session');
+  }, now - 300e3);
+  await page.waitForTimeout(600);
+  const after = await page.evaluate(() => ({
+    marks: [...document.querySelectorAll('#sessionList .session-item')]
+      .map((r) => !!r.querySelector('.needs-result')),
+    insight: document.getElementById('sessionInsightBody').textContent,
+  }));
+  check('🔴 填完之後記號消失', after.marks, [false, false, false]);
+  check('🔴 而且 insight 行也不再提', /還有/.test(after.insight), false);
+
+  // 🔴 契約之前的舊紀錄（根本沒有 tradeResult 這一欄）不得被催 ——
+  //    那是「我們沒存」，不是「你沒填」。但它如果是 judged_entered，
+  //    就**確實**還不知道結果，該算在等。這一條把那個分界釘住。
+  const legacy = await page.evaluate((now) => {
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify([
+      { ts: now - 100e3, symbol: 'ES1!', templateId: 'MANCINI_FBD', source: 'alert',
+        outcomeTag: 'judged_entered', durationSec: 9, marks: 0, events: [], reachedReadiness: null },
+      { ts: now - 200e3, symbol: 'ES1!', templateId: 'MANCINI_FBD', source: 'alert',
+        outcomeTag: 'abandoned_no_judgment', durationSec: 9, marks: 0, events: [], reachedReadiness: null },
+    ]));
+    window.goTab('today'); window.goTab('session');
+    return null;
+  }, now);
+  await page.waitForTimeout(600);
+  const legacyMarks = await page.evaluate(() =>
+    [...document.querySelectorAll('#sessionList .session-item')]
+      .map((r) => !!r.querySelector('.needs-result')));
+  check('🔴 沒有 tradeResult 欄的舊紀錄：judged_entered 算在等，abandoned 不算',
+    legacyMarks, [true, false]);
+  await page.close();
+}
+
+// ═════════════════════════════════════════════════
+// 🔴 補記一筆 —— 「這件事發生過，但不是在 App 裡跑的」
+//
+// founder 2026-10-09：「我昨天…依照計劃進場完成，但是後面這一段就沒有記錄到。
+// 我今天才補進去看長這樣。」他那四筆全是**今天**的時間戳、用時 5~80 秒，
+// 而真正的交易橫跨一小時 —— 因為在這之前，建檔的唯一方式是**現在跑一次**。
+//
+// 🔴 這一組守的不是「表單能不能填」，是**它不得捏造**：
+//    用時要 null 不是 0、時間要印日期不是假時刻、補記不得被推導成任何統計數字。
+//    （2026-10-11 起「平均用時」整格退場 —— 守的事情沒變，守的對象從
+//     「別把補記算進平均」變成「那個平均不准回來」。）
+// ═════════════════════════════════════════════════
+{
+  console.log('\n── 補記一筆：不得捏造 ──');
+  const page = await openV3(844);
+
+  // ── 寫入端：不知道的欄位一律不寫 ──
+  const rec = await page.evaluate(() => {
+    localStorage.setItem('tenki.alert.outcomes.v1', '[]');
+    window.goTab('session');
+    window.openBackfill();
+    document.getElementById('bfDate').value = '2026-10-08';
+    document.getElementById('bfSymbol').value = 'ES1!';
+    window.bfPickJudge('entered');
+    window.bfSave();
+    return JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'))[0];
+  });
+  check('🔴 用時是 null，不是 0（0 會被讀成「一次 0 秒的決策」）', rec.durationSec, null);
+  check('🔴 時間戳標成只精確到天', rec.tsPrecision, 'day');
+  check('來源標成補記', rec.source, 'backfill');
+  check('🔴 readiness 是 null（守望沒有這個量，不是「未達」）', rec.reachedReadiness, null);
+  check('🔴 當時有沒有讀數不知道 → null，不猜', rec.readingAtDecision, null);
+  check('🔴 離開次數**整個欄位不存在**（不是 0）', 'awayCount' in rec, false);
+  check('判定存成既有語意的 tag', rec.outcomeTag, 'judged_entered');
+  check('結果沒挑 → pending（算一筆，但不是贏也不是輸）', rec.tradeResult, 'pending');
+  // 🔴 補記那一天的時間戳必須落在**所選日期的 ET 交易日**：使用者挑「10/8」
+  //    指的是 10/8 那個盤，不是他當地的 10/8（台北與 ET 差一整個日界）。
+  const dayKey = await page.evaluate((ts) =>
+    window.TENKI_OUTCOME.resolveTradingDayKey(ts), rec.ts);
+  check('🔴 時間戳落在所選日期的 ET 交易日', dayKey, '2026-10-08');
+
+  // ── 讀端：列表三格都不得說謊 ──
+  const row = await page.evaluate(() => {
+    const r = document.querySelector('#sessionList .session-item');
+    return {
+      meta: [...r.querySelectorAll('.meta span:not(.sep)')].map((n) => n.textContent),
+      title: r.querySelector('.nm').textContent,
+      insight: document.getElementById('sessionInsightBody').textContent,
+      statLabels: [...document.querySelectorAll('#sessionStats .lbl')].map((n) => n.textContent.trim()),
+      statText: document.getElementById('sessionStats').textContent,
+      // 🔴 `getElementById(...).textContent` 在那一格被改名／拿掉時會拋，
+      //    而 page.evaluate 一拋就**整支 harness 當場死掉** —— 後面所有斷言
+      //    （含守這件事的那幾條）一條都不會跑，失敗數剛好等於環境基線，
+      //    於是報告看起來像「沒事」。2026-10-11 反向驗證實證：破壞④把這一格
+      //    改名成 `statPace`，harness 在這一行炸掉，而我差點讀成「守門有洞」。
+      //    缺的格子要變成一個**讀得出來的值**，讓標籤那條斷言去紅。
+      filled: (document.getElementById('statResultFilled') || { textContent: '(缺這一格)' })
+        .textContent.trim(),
+    };
+  });
+  check('🔴 用時那一格是「—」，不得是 0:00', row.meta[2], '—');
+  check('🔴 類型那一格說得出自己是補記', row.meta[1], '補記');
+  check('🔴 時間那一格印日期、不印一個不知道的時刻', /^\d+\/\d+$/.test(row.meta[0]), true);
+  check('標的印得出來（補記的 symbol 是使用者打的，不是模板名）',
+    /ES1!/.test(row.title), true);
+  // 🔴 「平均用時」整格已退場（2026-10-11）。先前這裡守的是「補記不得混進
+  //    分子也不得混進分母」；格子沒了之後那條謊**結構上就說不出來**，所以守門
+  //    改成守「它不准回來」—— 而且不是按 id 問（換個 id 就繞過去了），
+  //    是問這一列**有沒有任何一格長成時間**。
+  check('🔴 統計列的三格就是這三個名字（「平均用時」不准回來）',
+    row.statLabels, ['決策次數', '判定不成立', '結果已填']);
+  check('🔴 而且整列沒有任何一格長成 m:ss（任何從用時推導的數字都算）',
+    /\d+:\d\d/.test(row.statText), false);
+  check('🔴 insight 行整句不提平均用時', /平均用時/.test(row.insight), false);
+  check('🔴 insight 行整句不提對齊率（它量不到「照不照計劃走」）',
+    /對齊/.test(row.insight), false);
+  // 只有一筆補記、結果還沒填 → 「0/1」。分母是**進場筆數**，不是總筆數。
+  check('🔴 結果已填：補記那筆算進分母、但沒填就不算進分子', row.filled, '0/1');
+
+  // ── 結果已填的分母只數進場的那些 ──
+  // 加一筆真的跑完、結果也填了的 → 1/2。
+  // （先前這裡放的是「平均 1:00 不是 0:30」，同一組 fixture 改問新的那一格。）
+  const filled2 = await page.evaluate(() => {
+    const all = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'));
+    all.push({ ts: Date.now(), symbol: 'ES1!', templateId: 'MANCINI_FBD', source: 'alert',
+      outcomeTag: 'judged_entered', tradeResult: 'profit_taken', durationSec: 60,
+      marks: 0, events: [], reachedReadiness: null });
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(all));
+    window.goTab('today'); window.goTab('session');
+    // 同上：缺的格子讀成一個值，不要拋。
+    const el = document.getElementById('statResultFilled');
+    return el ? el.textContent.trim() : '(缺這一格)';
+  });
+  check('🔴 一筆已填 + 一筆在等 → 1/2', filled2, '1/2');
+
+  // ── 詳情頁：從 durationSec 推導的東西整個退場 ──
+  const detail = await page.evaluate((ts) => {
+    window.openSessionDetail(ts);
+    return {
+      segHidden: document.getElementById('sdSegCard').hidden,
+      factDur: document.getElementById('sdFactDur').textContent,
+      sub: document.getElementById('sdSubtitle').textContent,
+      awayHidden: document.getElementById('sdFactAwayCell').hidden,
+    };
+  }, rec.ts);
+  check('🔴 節奏卡片整張不出現（它整張都是從用時推導的）', detail.segHidden, true);
+  check('🔴 用時那一格是「—」', detail.factDur, '—');
+  check('🔴 副標不得印「0:00 用時」', /0:00/.test(detail.sub), false);
+  check('副標說得出這是補記', /補記/.test(detail.sub), true);
+  check('離開格整格不顯示（欄位不存在）', detail.awayHidden, true);
+
+  // ── 不成立那條路：不問結果，而且存出來是推導的 no_entry ──
+  const stood = await page.evaluate(() => {
+    localStorage.setItem('tenki.alert.outcomes.v1', '[]');
+    window.openBackfill();
+    window.bfPickJudge('stood_down');
+    const hidden = document.getElementById('bfResultField').hidden;
+    window.bfSave();
+    const r = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'))[0];
+    return { hidden, tag: r.outcomeTag, result: r.tradeResult, hasSymbol: 'symbol' in r };
+  });
+  check('🔴 判定不成立時不問結果（那條路的結果是推導的）', stood.hidden, true);
+  check('存成 judged_stood_down', stood.tag, 'judged_stood_down');
+  check('🔴 結果推導成 no_entry，不是 pending', stood.result, 'no_entry');
+  check('🔴 沒打標的就**不寫這個欄位**（空字串會讓讀端誤判有值）', stood.hasSymbol, false);
+
+  // ── 沒選判定不得存 ──
+  const guard = await page.evaluate(() => {
+    localStorage.setItem('tenki.alert.outcomes.v1', '[]');
+    window.openBackfill();
+    const disabled = document.getElementById('bfSubmit').disabled;
+    window.bfSave();   // 直接呼叫也不該寫進去
+    return { disabled, n: JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1')).length };
+  });
+  check('沒選判定時「記下來」是停用的', guard.disabled, true);
+  check('🔴 而且直接呼叫 bfSave 也寫不進去（不是只靠 UI 擋）', guard.n, 0);
+
+  // ── 不得補記未來 ──
+  const max = await page.evaluate(() => {
+    window.openBackfill();
+    const d = new Date();
+    const today = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')
+      + '-' + String(d.getDate()).padStart(2, '0');
+    return { max: document.getElementById('bfDate').max, today };
+  });
+  check('🔴 日期上限是今天 —— 還沒發生的不是紀錄，是計畫', max.max, max.today);
+
+  // 🔴 決策紀律模式關著時，交易者模板一個 option 都不准進 DOM。
+  //    `display:none` 的文字仍然讀得到（送審截圖工具／輔助技術／我們自己的斷言）
+  //    —— docs/APP_STORE_COMPLIANCE.md 送審檢查表 #18，主模板表走的就是這條。
+  // ⚠️ 掃的是**補記表單這棵子樹**，不是 `document.body` ——
+  //    第一版掃整頁，而同一段前面才塞過一筆 `templateId: MANCINI_FBD` 的紀錄，
+  //    Session 列表那一列的標題當然印著「Mancini FBD」。那是**使用者自己的
+  //    歷史紀錄**，不是這張表單在提供選項，兩件事不能用同一條斷言掃。
+  //    （整頁那條另有既有斷言在守，而它掃的是一個沒有這種紀錄的頁面。）
+  const gated = await page.evaluate(() => {
+    const on = window.disciplineOn();
+    window.openBackfill();
+    const opened = document.getElementById('bfSheet').textContent;
+    // ⚠️ 數量要在**表單還開著**的時候數 —— `closeBackfill()` 會把 option 清空
+    //    （那正是上面那條「關掉之後不得留下殘字」在驗的事）。
+    //    第一版在關閉之後才數，量到 0，活性斷言自己紅了。它抓得對。
+    const n = document.getElementById('bfTemplate').options.length;
+    window.closeBackfill();
+    return {
+      on, n,
+      hasTrader: /Canslim|Mancini|FBD/.test(opened),
+      closed: document.getElementById('bfSheet').textContent,
+    };
+  });
+  check('前提：決策紀律模式是關著的（開著的話下一條驗不到東西）', gated.on, false);
+  check('🔴 模式關著時，補記表單裡不得出現交易者模板', gated.hasTrader, false);
+  check('🔴 關掉表單後 option 也清空（開著時關模式不得留下殘字）',
+    /Canslim|Mancini|FBD/.test(gated.closed), false);
+
+  // 開啟模式之後才拿得到 —— 否則上面那條可以靠「永遠不列任何模板」造假通過。
+  const onList = await page.evaluate(() => {
+    window.toggleDisciplineMode();
+    window.openBackfill();
+    const t = document.getElementById('bfTemplate').textContent;
+    const n = document.getElementById('bfTemplate').options.length;
+    window.closeBackfill();
+    window.toggleDisciplineMode();
+    return { t, n };
+  });
+  check('🔴 開啟模式之後交易者模板要回來（否則上一條是假綠）',
+    /Mancini/.test(onList.t), true);
+  // 🔴 關著時**不是空的**，只是少了交易者那三個 —— 不然「永遠不列任何東西」
+  //    也能讓上面那條綠，而那是一張沒得選的表單。
+  checkTruthy(`關著時仍然列得出日常流程（${gated.n} 個，開著是 ${onList.n} 個）`,
+    gated.n > 0 && onList.n === gated.n + 3);
+  await page.close();
+}
+
+// ═════════════════════════════════════════════════
+// 🔴 統計列換掉的那兩格 —— 「名字比量到的東西大」
+//
+// founder 2026-10-09 的截圖裡那一列是：對齊率 100% · 決策次數 4 · 平均用時 0:29。
+// 而他那天真正做的事是「掃描 → 等了快一個小時 → 依計劃進場 → 完成」。
+//   · 「平均用時 0:29」量的是按鈕之間的秒數，對一個等了一小時的人說 29 秒。
+//   · 「對齊率 100%」對**判定成立並進場**和**判定不成立**都算對齊，
+//     所以只要做出判定就是 100%；而它的名字聽起來涵蓋「照不照計劃走」
+//     —— 進場之後的事（提早砍 runner、沒鎖 75%、加碼攤平）一欄都沒記，
+//     docs/TRADING-METHODOLOGY.md §7 自己寫著這件事。
+//
+// 這一組守的是**換上去的三格各自獨立、而且真的會動**，
+// 以及那兩個舊數字（含任何從用時推導的數字）不准從別的 id 回來。
+// ═════════════════════════════════════════════════
+{
+  console.log('\n── 統計列：三格都要真的會動 ──');
+  const page = await openV3(844);
+
+  const seed = (recs) => page.evaluate((rs) => {
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(rs));
+    window.goTab('today'); window.goTab('session');
+  }, recs);
+  // 🔴 一格都不准直接 `.textContent` —— 見上面那段註解：那一格被改名之後
+  //    這裡會拋，而拋掉的代價是**整支 harness 不再跑**，報告讀起來像全綠。
+  const readStats = () => page.evaluate(() => {
+    const txt = (id) => {
+      const el = document.getElementById(id);
+      return el ? el.textContent.trim() : '(缺這一格)';
+    };
+    return {
+      count: txt('statCount'),
+      stood: txt('statStoodDown'),
+      filled: txt('statResultFilled'),
+      labels: [...document.querySelectorAll('#sessionStats .lbl')].map((n) => n.textContent.trim()),
+      statText: document.getElementById('sessionStats').textContent,
+      insight: document.getElementById('sessionInsightBody').textContent,
+    };
+  });
+
+  const now = Date.now();
+  const mk = (tag, result, durationSec, i) => ({
+    ts: now - i * 3600e3, symbol: 'ES1!', templateId: 'MANCINI_FBD', source: 'alert',
+    outcomeTag: tag, tradeResult: result, durationSec, marks: 0, events: [],
+    reachedReadiness: null,
+  });
+
+  // 四筆：2 進場（1 已填 / 1 在等）、1 判定不成立、1 離開時沒有判定。
+  // ⚠️ 這組 fixture 下舊的對齊率是 75% —— 它會動，但**動的不是這件事**：
+  //    「有一筆是看了沒做」在 75% 裡面完全看不出來（4 筆全進場時它是 100%，
+  //    而 3 進場 + 1 不成立時它**也是** 100%）。
+  await seed([
+    mk('judged_entered', 'profit_taken', 120, 1),
+    mk('judged_entered', 'pending', 90, 2),
+    mk('judged_stood_down', 'no_entry', 30, 3),
+    mk('abandoned_no_judgment', null, 45, 4),
+  ]);
+  await page.waitForTimeout(800);   // countUpEl 跑 550ms
+  const a = await readStats();
+  check('🔴 統計列的三格就是這三個名字', a.labels,
+    ['決策次數', '判定不成立', '結果已填']);
+  check('決策次數數的是全部', a.count, '4');
+  check('🔴 判定不成立自己有一格（舊的 75% 裡看不出有這一筆）', a.stood, '1');
+  check('🔴 結果已填的分母只數進場的那些（1/2，不是 1/4）', a.filled, '1/2');
+  // 🔴 這組 fixture 的每一筆都**有** durationSec（120/90/30/45）——
+  //    所以這條不是「沒資料所以印不出時間」，是「有資料也不准推成統計數字」。
+  check('🔴 四筆都有用時，統計列仍然沒有任何一格長成 m:ss', /\d+:\d\d/.test(a.statText), false);
+  check('🔴 統計列不得再出現「對齊率」或「平均用時」',
+    /對齊|平均用時/.test(a.statText), false);
+  check('insight 行逐類講出來（2 進場 / 1 不成立）',
+    /4<\/b> 次決策|4 次決策/.test(a.insight) && /2 次判定成立並進場/.test(a.insight)
+      && /1 次判定不成立/.test(a.insight), true);
+  check('🔴 離開時沒有判定那一筆用減法推得出來（不是默默消失）',
+    /另有 1 次離開時沒有判定/.test(a.insight), true);
+  check('在等結果的那一筆照舊講得出來', /還有 1 次的結果沒填/.test(a.insight), true);
+
+  // 第二組：全部判定不成立 → 這一格要跟著動，而「結果已填」沒有分母。
+  await seed([
+    mk('judged_stood_down', 'no_entry', 20, 1),
+    mk('judged_stood_down', 'no_entry', 25, 2),
+  ]);
+  await page.waitForTimeout(800);
+  const b = await readStats();
+  check('🔴 判定不成立那一格真的跟著 fixture 動（1 → 2）', b.stood, '2');
+  check('🔴 一筆都沒進場時「結果已填」是「—」，不是「0/0」', b.filled, '—');
+  check('insight 行不印一句沒發生的事（沒有「離開時沒有判定」）',
+    /離開時沒有判定/.test(b.insight), false);
+
+  // 第三組：「在等結果」有**三種寫法** —— `pending` / `null` / 欄位根本不存在。
+  // 🔴 三種都必須算「在等」。自己比 `r.tradeResult !== 'pending'` 的話，
+  //    後兩種會被算成「已填」—— 又一次把「不知道」講成「做完了」。
+  //    （讀端走 `awaitsResult()`，這條就是在驗它真的走了那個判準。）
+  await seed([
+    mk('judged_entered', 'profit_taken', 120, 1),
+    mk('judged_entered', null, 90, 2),
+    (() => { const r = mk('judged_entered', 'pending', 60, 3); delete r.tradeResult; return r; })(),
+  ]);
+  await page.waitForTimeout(800);
+  const c = await readStats();
+  check('🔴 `null` 與「欄位不存在」都算在等結果（1/3，不是 3/3）', c.filled, '1/3');
+  check('insight 行數得出在等的有 2 筆', /還有 2 次的結果沒填/.test(c.insight), true);
+
+  // ── Timeline：同一個百分比在那張卡上也退場了 ──
+  const tl = await page.evaluate(() => {
+    window.goTab('timeline');
+    return {
+      meta: document.getElementById('tlStripMeta').textContent.trim(),
+      legend: document.querySelector('.tl-strip-legend').textContent,
+    };
+  });
+  check('🔴 Timeline meta 不再印百分比對齊', /%|對齊/.test(tl.meta), false);
+  // 承上一組 fixture（3 筆全是進場 → 0 筆未判定）。
+  check('0 筆未判定時不印那一句（只講筆數）', tl.meta, '3 筆');
+  check('🔴 圖例講的是它量得到的那句話（有判定／未判定）',
+    /有判定/.test(tl.legend) && /未判定/.test(tl.legend) && !/對齊/.test(tl.legend), true);
+
+  // 有一筆未判定時才印，而且印的是**計數**不是百分比。
+  const tl2 = await page.evaluate((rs) => {
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(rs));
+    window.goTab('today'); window.goTab('timeline');
+    return document.getElementById('tlStripMeta').textContent.trim();
+  }, [
+    { ts: now - 3600e3, symbol: 'ES1!', templateId: 'MANCINI_FBD', source: 'alert',
+      outcomeTag: 'judged_entered', tradeResult: 'profit_taken', durationSec: 120,
+      marks: 0, events: [], reachedReadiness: null },
+    { ts: now - 7200e3, symbol: 'ES1!', templateId: 'MANCINI_FBD', source: 'alert',
+      outcomeTag: 'abandoned_no_judgment', tradeResult: null, durationSec: 45,
+      marks: 0, events: [], reachedReadiness: null },
+  ]);
+  check('🔴 有未判定的那筆時才印，而且印計數（2 筆 · 1 次未判定）', tl2, '2 筆 · 1 次未判定');
+
+  await page.close();
+}
+
+// ═════════════════════════════════════════════════
+// 🔴 判定後來改了 —— 「先不動，後來還是照計劃進場」
+//
+// founder 2026-10-09 的那一天：掃描 → 標「先不動」→ 等快一小時 → 依計劃進場
+// → 完成。而填結果那一格只在 `judged_entered` 出現，所以**它在他那一筆上是
+// 隱藏的** —— 判定在當時是終局的。founder 2026-10-12 裁決：算一筆，判定可以改。
+//
+// 🔴 這一組守的是**改寫一筆已存在的紀錄而不說謊**：
+//    原始判定留得住、按錯收得回來、翻了之後整頁跟著翻、不捏造進場時間。
+// ═════════════════════════════════════════════════
+{
+  console.log('\n── 判定後來改了：改寫紀錄而不說謊 ──');
+  const page = await openV3(844);
+
+  // 🔴 **把這一段的時鐘釘死在當天 14:00，不要用 `Date.now()`。**
+  //
+  // 2026-10-15 00:28 UTC 的 CI 實際踩到：這裡原本是 `Date.now()`，判定取
+  // 「一小時前」—— 在午夜後的第一個小時，那會落到**前一天**。而
+  // `entryTimeFrom()` 是把 `HH:MM` 解在**判定那一天**的（它的註解寫明刻意
+  // 只認同一天），於是下面那個本來要當「未來」的 `23:59` 探針變成**前一天的
+  // 23:59**，已經過去了 → 合法 → 被寫進去，一口氣翻掉 4 條斷言。
+  // （當時實測 23:59 − 23:36 = 23 分，正好就是紅燈印的「約 23 分」。）
+  //
+  // 🔴 這一段需要同時成立三件事，而**在每天開頭的半小時內它們湊不齊**：
+  //    判定要在同一天、要已經過去 30 分鐘、而且當天的 23:59 還沒到。
+  //    所以不是挑一個更好的探針時刻就能修 —— 得把時鐘本身釘住。
+  //
+  // 只釘 `Date.now`（不動 `Date` 建構子）：`entryTimeFrom` 拿它比「是不是未來」，
+  // 而日期換算走的是 `new Date(rec.ts)`，兩邊因此仍然一致。
+  const pinned = new Date();
+  pinned.setHours(14, 0, 0, 0);
+  const now = pinned.getTime();
+  await page.evaluate((t) => { Date.now = () => t; }, now);
+  const stood = {
+    // 🔴 對齊到整分。使用者答的進場時間只有分鐘精度（秒被歸零），
+    //    所以判定時刻帶著秒的話，相減的結果會差那個零頭 ——
+    //    斷言就只能寫成範圍，而範圍斷言守不住四捨五入的方向。
+    ts: Math.floor((now - 3600e3) / 60000) * 60000,
+    symbol: 'ES1!', templateId: 'MANCINI_FBD', source: 'alert',
+    outcomeTag: 'judged_stood_down', tradeResult: 'no_entry', durationSec: 120,
+    marks: 0, events: [], reachedReadiness: null,
+  };
+  const seed = (recs) => page.evaluate((rs) => {
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(rs));
+    window.goTab('today'); window.goTab('session');
+  }, recs);
+
+  // ── 入口只長在該長的地方 ──
+  const gates = await seed([stood]).then(() => page.evaluate((ts) => {
+    const out = {};
+    window.openSessionDetail(ts);
+    out.onStoodDown = !document.getElementById('sdLaterEntryCell').hidden;
+    out.resultCellBefore = !document.getElementById('sdBackfillCell').hidden;
+    window.closeSessionDetail();
+    // 離開時沒有判定那一條路**刻意不收** —— 連有沒有看過都不確定。
+    const all = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'));
+    all[0].outcomeTag = 'abandoned_no_judgment';
+    all[0].tradeResult = null;
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(all));
+    window.goTab('today'); window.goTab('session');
+    window.openSessionDetail(ts);
+    out.onAbandoned = !document.getElementById('sdLaterEntryCell').hidden;
+    window.closeSessionDetail();
+    return out;
+  }, stood.ts));
+  check('🔴 「後來我進場了」只長在判定不成立那一筆上', gates.onStoodDown, true);
+  check('🔴 而且那時候「這筆的結果」還沒出現（先問進場、再問結果）',
+    gates.resultCellBefore, false);
+  check('🔴 離開時沒有判定那一筆上不得出現（刻意不收這條路）',
+    gates.onAbandoned, false);
+
+  // ── 翻過去：欄位對、而且整頁跟著翻 ──
+  const flipped = await seed([stood]).then(() => page.evaluate((ts) => {
+    window.openSessionDetail(ts);
+    document.getElementById('sdLaterEntryBtn').click();
+    const rec = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'))[0];
+    return {
+      tag: rec.outcomeTag,
+      original: rec.originalOutcomeTag,
+      result: rec.tradeResult,
+      // 🔴 按下按鈕的那一刻**不是他進場的時刻**（可能收盤後才回來按）。
+      hasEnteredAt: 'enteredAt' in rec,
+      badge: document.getElementById('sdResult').textContent.trim(),
+      headline: document.getElementById('sdOutcomeHeadline').textContent.trim(),
+      resultCell: !document.getElementById('sdBackfillCell').hidden,
+      says: document.getElementById('sdLaterEntryQ').textContent.trim(),
+      btn: document.getElementById('sdLaterEntryBtn').textContent.trim(),
+    };
+  }, stood.ts));
+  check('判定翻成 judged_entered', flipped.tag, 'judged_entered');
+  check('🔴 原始判定留在紀錄上（少了它這筆就說不出當時判了什麼）',
+    flipped.original, 'judged_stood_down');
+  check('🔴 結果變 pending，不是 null（null 會讓它從當日計數裡消失）',
+    flipped.result, 'pending');
+  check('🔴 **不捏造進場時間** —— enteredAt 整個欄位不存在',
+    flipped.hasEnteredAt, false);
+  check('🔴 徽章跟著翻（不得一邊說判定不成立、一邊問交易結果）',
+    flipped.badge, '判定成立');
+  check('headline 也跟著翻', /已進場/.test(flipped.headline), true);
+  check('🔴 翻完「這筆的結果」那一格長出來了', flipped.resultCell, true);
+  check('🔴 而且頁面說得出判定改過', flipped.says, '當時判定不成立 · 後來進場');
+  check('還收得回來（按錯不是不可逆的）', flipped.btn, '其實沒進場');
+
+  // ── 收回去：欄位要**消失**，不是留一個空值 ──
+  const undone = await page.evaluate((ts) => {
+    document.getElementById('sdLaterEntryBtn').click();
+    const rec = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'))[0];
+    return {
+      tag: rec.outcomeTag,
+      hasOriginal: 'originalOutcomeTag' in rec,
+      result: rec.tradeResult,
+      says: document.getElementById('sdLaterEntryQ').textContent.trim(),
+      resultCell: !document.getElementById('sdBackfillCell').hidden,
+    };
+  }, stood.ts);
+  check('收回去之後判定回到不成立', undone.tag, 'judged_stood_down');
+  check('🔴 originalOutcomeTag **整個欄位消失**（留空值的話畫面會繼續說改過）',
+    undone.hasOriginal, false);
+  check('結果推導回 no_entry', undone.result, 'no_entry');
+  check('那一格回到問句', undone.says, '後來還是進場了？');
+  check('「這筆的結果」又收起來了', undone.resultCell, false);
+
+  // ── 填了結果之後：收回的路關起來，但**那句話要留著** ──
+  const filled = await page.evaluate((ts) => {
+    document.getElementById('sdLaterEntryBtn').click();          // 再翻過去
+    const chip = document.querySelector('#sdBackfillChips [data-trade-result="profit_taken"]');
+    // 🔴 晶片不在就**回報它不在**，不要拋。反向驗證破壞①（讓結果晶片
+    //    等進場時間）會讓這一格整個不出現 —— 第一版直接 `chip.click()`，
+    //    於是整支 harness 在這裡炸掉，那一輪的失敗數變成不可信，
+    //    而「結果晶片不等這一題」那條守門一條都沒跑。
+    //    ⚠️ 這是本 session **第三次**同一類坑，而且規則是我幾小時前自己
+    //    寫進 PLAYBOOK 的 —— 「記得小心」顯然不是一個有效的控制。
+    if(!chip) return { noChip: true };
+    chip.click();                                                 // 填結果
+    return {
+      noChip: false,
+      result: JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'))[0].tradeResult,
+      cellShown: !document.getElementById('sdLaterEntryCell').hidden,
+      // 🔴 **收起來的那一格裡的字不算「說得出」。** 破壞⑥（填完結果整格
+      //    收起來）讓「仍然顯示」紅了，而這一條**照樣綠** —— 因為
+      //    `renderLaterEntry()` 在 `cell.hidden` 時提早 return，
+      //    `sdLaterEntryQ` 還留著上一次算出來的那句話，`textContent` 讀得到。
+      //    綠得對、理由錯：一個藏起來的元素說不出任何話。
+      //    所以讀之前先問整格看不看得見。
+      says: document.getElementById('sdLaterEntryCell').hidden
+        ? '(整格收起來了)'
+        : document.getElementById('sdLaterEntryQ').textContent.trim(),
+      btnHidden: document.getElementById('sdLaterEntryBtn').hidden,
+    };
+  }, stood.ts);
+  check('🔴 前提：結果晶片在（不在的話下面四條驗不到東西）', filled.noChip, false);
+  check('結果填進去了', filled.result, 'profit_taken');
+  check('🔴 填了結果之後那一格**仍然顯示**（資料裡記著，螢幕上就不准消失）',
+    filled.cellShown, true);
+  check('🔴 而且仍然說得出判定改過', filled.says, '當時判定不成立 · 後來進場');
+  check('🔴 但收回的按鈕收起來了（已經有結果了）', filled.btnHidden, true);
+
+  // ── 統計列要跟著動：幽靈「判定不成立」不得留在那裡 ──
+  // ── 「大概幾點進的」—— 問一句，而且可略過 ──
+  //
+  // founder 2026-10-12：要問。規格 §2 的紅線沒變：**不知道的人仍然是一下
+  // 點完** —— 所以這一組守的是「翻判定那一下不等這一題」＋「略過就沒有
+  // 這個欄位」＋「兩個邊界都擋」＋「這個數字標得出自己是回想來的」。
+  const et = await page.evaluate(() => {
+    // 回到還在等結果的狀態（上面那一段已經填了 profit_taken）
+    const all = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'));
+    all[0].tradeResult = 'pending';
+    delete all[0].enteredAt;
+    delete all[0].enteredAtSource;
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(all));
+    window.openSessionDetail(all[0].ts);
+    const out = { asks: !document.getElementById('sdEntryTimeRow').hidden };
+    // 結果晶片在這一題還沒答的時候就已經在了 —— 一下點完那條路沒被卡住。
+    out.resultCellReady = !document.getElementById('sdBackfillCell').hidden;
+    out.waitedCell = !document.getElementById('sdFactWaitedCell').hidden;
+    return out;
+  });
+  check('🔴 翻完之後會問「大概幾點進的」', et.asks, true);
+  check('🔴 而且結果晶片不等這一題（一下點完那條路沒被卡住）',
+    et.resultCellReady, true);
+  check('🔴 還沒答之前「等待」整格不存在（不印 0:00）', et.waitedCell, false);
+
+  // 兩個邊界：不得早於判定、不得是未來
+  const bounds = await page.evaluate((ts) => {
+    const set = (v) => { document.getElementById('sdEntryTime').value = v; };
+    const click = () => document.getElementById('sdEntryTimeSave').click();
+    const note = () => document.getElementById('sdEntryTimeNote').textContent.trim();
+    const stored = () => 'enteredAt' in JSON.parse(
+      localStorage.getItem('tenki.alert.outcomes.v1'))[0];
+    const d = new Date(ts);
+    const hh = (n) => String(n).padStart(2, '0');
+    const out = {};
+    // 判定時刻的前一分鐘
+    const before = new Date(ts - 60e3);
+    set(hh(before.getHours()) + ':' + hh(before.getMinutes()));
+    click();
+    out.beforeNote = note(); out.beforeWrote = stored();
+    // 23:59 —— 判定釘在當天 13:00（見上方 `pinned`），所以當天的 23:59
+    // **保證**還沒到。⚠️ 這句話以前是靠 `Date.now()` 碰運氣成立的。
+    set('23:59'); click();
+    out.futureNote = note(); out.futureWrote = stored();
+    // 看不懂的
+    set(''); click();
+    out.badNote = note(); out.badWrote = stored();
+    void d;
+    return out;
+  }, stood.ts);
+  check('🔴 比判定還早的時間不收，而且說得出為什麼',
+    bounds.beforeNote, '這比判定的時候還早');
+  check('🔴 而且真的沒寫進去', bounds.beforeWrote, false);
+  // ⚠️ 這兩條是走 UI 的「未來」探針。它們能成立是因為上面把頁面端的
+  //    `Date.now` 釘在當天 14:00（main 的修法）—— 沒有那個釘法，
+  //    這兩條在每天開頭的半小時內會整組翻掉。
+  check('🔴 還沒到的時間不收（還沒發生的不是紀錄）',
+    bounds.futureNote, '這個時間還沒到');
+  check('🔴 而且真的沒寫進去', bounds.futureWrote, false);
+  check('看不懂的時間不收', bounds.badNote, '看不懂這個時間');
+  check('🔴 而且真的沒寫進去', bounds.badWrote, false);
+
+  // 🔴 同一條規則**再用純函式問一次**，把 `now` 當參數注入。
+  //    上面那兩條走 UI、靠頁面端的時鐘釘法成立；這兩條完全不碰時鐘，
+  //    所以就算哪天有人拆了那個釘法，規則本身仍然有人守。
+  const futureRule = await page.evaluate(() => {
+    const OUT = window.TENKI_OUTCOME;
+    const base = Date.UTC(2026, 0, 15, 12, 0, 0);
+    const rec = { ts: base, outcomeTag: 'judged_entered' };
+    const hh = (n) => String(n).padStart(2, '0');
+    const later = new Date(base + 3600e3);
+    const hhmm = hh(later.getHours()) + ':' + hh(later.getMinutes());
+    return {
+      rejected: OUT.entryTimeFrom(rec, hhmm, base),
+      accepted: OUT.entryTimeFrom(rec, hhmm, base + 2 * 3600e3),
+    };
+  });
+  check('🔴 還沒到的時間不收（now 釘死，不吃 harness 幾點跑）',
+    futureRule.rejected.reason, 'future');
+  // 🔴 活性：同一個時間，把 now 往後推就收得進去。
+  //    少了這一條，「永遠拒絕」也能讓上一條綠。
+  check('🔴 而 now 往後推之後同一個時間就收（上一條不是永遠拒絕）',
+    futureRule.accepted.ok, true);
+
+  // 答得出來：欄位 + 來源標記 + 等待那一格
+  const answered = await page.evaluate((ts) => {
+    const d = new Date(ts + 30 * 60e3);   // 判定後 30 分鐘
+    const hh = (n) => String(n).padStart(2, '0');
+    document.getElementById('sdEntryTime').value = hh(d.getHours()) + ':' + hh(d.getMinutes());
+    document.getElementById('sdEntryTimeSave').click();
+    const rec = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'))[0];
+    return {
+      source: rec.enteredAtSource,
+      hasAt: typeof rec.enteredAt === 'number',
+      waited: document.getElementById('sdFactWaited').textContent.trim(),
+      waitedCell: !document.getElementById('sdFactWaitedCell').hidden,
+      asksAgain: !document.getElementById('sdEntryTimeRow').hidden,
+    };
+  }, stood.ts);
+  check('進場時間寫進去了', answered.hasAt, true);
+  check('🔴 標得出這個數字是**使用者回想的**（不是 App 量到的）',
+    answered.source, 'reported');
+  // 🔴 「約 30 分」而不是「30:00」—— 使用者答的是 `HH:MM`，
+  //    印成 m:ss 就是在宣稱一個他從來沒給過的精度。
+  //    這一條原本寫 '30:00'，實際跑出 '29:22'（判定時刻的秒數零頭）——
+  //    錯的不是斷言，是那一格。
+  check('🔴 等待那一格長出來，而且印到**分**不是秒', answered.waited, '約 30 分');
+  check('等待那一格顯示', answered.waitedCell, true);
+  check('答過了就不再問', answered.asksAgain, false);
+
+  // 🔴 收回「後來我進場了」之後，進場時間必須跟著消失 ——
+  //    留著的話這筆紀錄會同時說「我沒進場」跟「我 10:28 進場」。
+  const afterUndo = await page.evaluate((ts) => {
+    document.getElementById('sdLaterEntryBtn').click();   // 其實沒進場
+    const rec = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'))[0];
+    return {
+      tag: rec.outcomeTag,
+      hasAt: 'enteredAt' in rec,
+      hasSource: 'enteredAtSource' in rec,
+      waitedCell: !document.getElementById('sdFactWaitedCell').hidden,
+    };
+  }, stood.ts);
+  check('收回之後判定回到不成立', afterUndo.tag, 'judged_stood_down');
+  check('🔴 進場時間整個欄位跟著消失（不得同時說沒進場又說幾點進場）',
+    afterUndo.hasAt, false);
+  check('🔴 來源標記也跟著消失', afterUndo.hasSource, false);
+  check('等待那一格也收起來', afterUndo.waitedCell, false);
+
+  // 🔴 補記的紀錄**不問** —— 判定時刻本身只知道哪一天，等待算不出來，
+  //    問到了也只是多騷擾一次。
+  const dayPrec = await page.evaluate(() => {
+    const all = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'));
+    all[0].outcomeTag = 'judged_entered';
+    all[0].originalOutcomeTag = 'judged_stood_down';
+    all[0].tradeResult = 'pending';
+    all[0].tsPrecision = 'day';
+    all[0].source = 'backfill';
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(all));
+    window.openSessionDetail(all[0].ts);
+    return {
+      asks: !document.getElementById('sdEntryTimeRow').hidden,
+      laterCell: !document.getElementById('sdLaterEntryCell').hidden,
+    };
+  });
+  check('🔴 只知道哪一天的紀錄不問進場時間（等待的另一端不存在）',
+    dayPrec.asks, false);
+  check('但「當時判定不成立 · 後來進場」那句話照舊留著', dayPrec.laterCell, true);
+
+  // ⚠️ 上面那幾段把這一筆翻來翻去（還加了 tsPrecision/source），
+  //    而下面那三條統計斷言要的是「翻過判定、結果已填」那個狀態。
+  //    **明確地把它放回那個狀態**，不要指望上一段剛好留對 ——
+  //    共用 fixture 被前一段改掉是這支 harness 已經踩過的坑。
+  await page.evaluate(() => {
+    window.closeSessionDetail();
+    const all = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'));
+    all[0].outcomeTag = 'judged_entered';
+    all[0].originalOutcomeTag = 'judged_stood_down';
+    all[0].tradeResult = 'profit_taken';
+    delete all[0].tsPrecision;
+    delete all[0].source;
+    delete all[0].enteredAt;
+    delete all[0].enteredAtSource;
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(all));
+    window.goTab('today'); window.goTab('session');
+  });
+  await page.waitForTimeout(800);   // countUpEl 跑 550ms
+  const stats = await page.evaluate(() => {
+    const txt = (id) => {
+      const el = document.getElementById(id);
+      return el ? el.textContent.trim() : '(缺這一格)';
+    };
+    return { count: txt('statCount'), stood: txt('statStoodDown'), filled: txt('statResultFilled') };
+  });
+  check('🔴 還是一筆決策（算一筆，不是兩筆 —— founder 2026-10-12 裁決）',
+    stats.count, '1');
+  check('🔴 判定不成立那一格回到 0（幽靈不得留在統計上）', stats.stood, '0');
+  check('🔴 結果已填 1/1', stats.filled, '1/1');
+
+  await page.close();
+}
+
+// ═════════════════════════════════════════════════
+// 🔴 founder 2026-10-15 的截圖上兩件「畫面知道、但沒說」
+//
+// ① 一筆「未判定」印著 **41:20**，而旁邊寫著「上限 30:00」。
+//    iOS 凍住背景的 `setInterval` → 回來才收束 → `elapsed` 已經超過上限，
+//    而那個數字量到的是「他隔多久才開 App」，不是「他考慮了多久」。
+// ② 清單時間看起來亂序（19:49 → 09:44 → 21:19 → 21:45 → 11:19）。
+//    排序沒壞（`ts` 降冪），壞的是標籤：非補記的紀錄只印 `HH:MM`，
+//    **日期就在 `ts` 裡，畫面只是沒說。**
+// ═════════════════════════════════════════════════
+{
+  console.log('\n── 畫面知道但沒說：上限用時 + 跨日日期 ──');
+  const page = await openV3(844);
+
+  const CEIL = 30 * 60;
+  const now = Date.now();
+  const mk = (over) => ({
+    ts: now - 2 * 3600e3, symbol: 'ES1!', templateId: 'MANCINI_FBD', source: 'alert',
+    outcomeTag: 'abandoned_no_judgment', tradeResult: null,
+    durationSec: over, marks: 0, events: [], reachedReadiness: null,
+  });
+  const seed = (recs) => page.evaluate((rs) => {
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(rs));
+    window.goTab('today'); window.goTab('session');
+  }, recs);
+
+  // ── ① 舊紀錄（沒有 endedBy）也要被認出來 —— 推導，不改寫 store ──
+  const legacy = await seed([mk(41 * 60 + 20)]).then(() => page.evaluate((ts) => {
+    const cell = (r) => [...r.querySelectorAll('.meta span:not(.sep)')].map((n) => n.textContent);
+    const row = document.querySelector('#sessionList .session-item');
+    window.openSessionDetail(ts);
+    return {
+      listDur: cell(row)[2],
+      factDur: document.getElementById('sdFactDur').textContent.trim(),
+      sub: document.getElementById('sdSubtitle').textContent.trim(),
+      segHidden: document.getElementById('sdSegCard').hidden,
+      // store 一個位元組都不准被改寫
+      stored: JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'))[0].durationSec,
+    };
+  }, now - 2 * 3600e3));
+  check('🔴 超過上限的舊紀錄印「超過 30:00」，不印 41:20', legacy.listDur, '超過 30:00');
+  check('🔴 也不印「—」（那會把我們真的知道的那件事一起丟掉）',
+    legacy.listDur === '—', false);
+  check('詳情那一格同一句話', legacy.factDur, '超過 30:00');
+  check('🔴 副標不得印「補記」（它從來沒被補記過）', /補記/.test(legacy.sub), false);
+  check('副標說得出它是未判定', /超過 30:00 未判定/.test(legacy.sub), true);
+  check('節奏卡片不出現（它整張都是從用時推導的）', legacy.segHidden, true);
+  check('🔴 **推導，不改寫 store** —— 舊紀錄原值原封不動', legacy.stored, 41 * 60 + 20);
+
+  // 🔴 **寫入端產生的那個形狀也要驗。** 上面幾條餵的都是**舊**紀錄
+  //    （`durationSec` 裡有數字、沒有 `endedBy`），而新寫進去的長相相反：
+  //    `durationSec: null` + `endedBy: 'ceiling'`。只驗舊形狀的話，
+  //    寫入端改壞了這裡一聲都不吭。
+  //    ⚠️ 誠實說清楚這條驗的是**讀端對新形狀的處理**；真的跑滿 30 分鐘的
+  //    寫入路徑在 harness 裡跑不動，`endedBy` 那一欄是靠推導以外的保險。
+  const fresh = await seed([{
+    ...mk(null), endedBy: 'ceiling', durationSec: null,
+  }]).then(() => page.evaluate((ts) => {
+    window.openSessionDetail(ts);
+    const row = document.querySelector('#sessionList .session-item');
+    return {
+      listDur: [...row.querySelectorAll('.meta span:not(.sep)')].map((n) => n.textContent)[2],
+      sub: document.getElementById('sdSubtitle').textContent.trim(),
+      segHidden: document.getElementById('sdSegCard').hidden,
+    };
+  }, now - 2 * 3600e3));
+  check('🔴 新形狀（durationSec:null + endedBy）也印「超過 30:00」',
+    fresh.listDur, '超過 30:00');
+  check('新形狀的副標一樣說得出未判定', /超過 30:00 未判定/.test(fresh.sub), true);
+  check('新形狀也不畫節奏卡片', fresh.segHidden, true);
+
+  // ── 剛好等於上限不算超過（邊界）──
+  const atCeil = await seed([mk(CEIL)]).then(() => page.evaluate(() => {
+    const row = document.querySelector('#sessionList .session-item');
+    return [...row.querySelectorAll('.meta span:not(.sep)')].map((n) => n.textContent)[2];
+  }));
+  check('🔴 剛好 30:00 不算超過（印 30:00，不印「超過」）', atCeil, '30:00');
+
+  // ── 判定成立的紀錄就算用時很長也不得被當成上限收的 ──
+  const longEntered = await seed([{
+    ...mk(50 * 60), outcomeTag: 'judged_entered', tradeResult: 'pending',
+  }]).then(() => page.evaluate(() => {
+    const row = document.querySelector('#sessionList .session-item');
+    return [...row.querySelectorAll('.meta span:not(.sep)')].map((n) => n.textContent)[2];
+  }));
+  check('🔴 只認「未判定」那一條路（判定成立的長紀錄照印原值）',
+    longEntered, '50:00');
+
+  // ── ② 跨日：不是今天就把日期印出來 ──
+  const days = await page.evaluate((base) => {
+    const mkAt = (ts, dur) => ({
+      ts, symbol: 'ES1!', templateId: 'MANCINI_FBD', source: 'alert',
+      outcomeTag: 'judged_stood_down', tradeResult: 'no_entry',
+      durationSec: dur, marks: 0, events: [], reachedReadiness: null,
+    });
+    const today = new Date(base);
+    today.setHours(9, 44, 0, 0);
+    const older = new Date(base);
+    older.setDate(older.getDate() - 2);
+    older.setHours(21, 19, 0, 0);
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify([
+      mkAt(today.getTime(), 73), mkAt(older.getTime(), 314),
+    ]));
+    window.goTab('today'); window.goTab('session');
+    const rows = [...document.querySelectorAll('#sessionList .session-item')];
+    const when = (r) => [...r.querySelectorAll('.meta span:not(.sep)')].map((n) => n.textContent)[0];
+    return {
+      today: when(rows[0]),
+      older: when(rows[1]),
+      expectOlder: (older.getMonth() + 1) + '/' + older.getDate() + ' 21:19',
+    };
+  }, now);
+  check('🔴 今天的紀錄只印時刻（不要每一列都掛一個今天的日期）', days.today, '09:44');
+  check('🔴 不是今天的就把日期印出來（清單才不會看起來像排錯）',
+    days.older, days.expectOlder);
+
+  // ── ④ 寫端：離開超過上限就不累加（founder 2026-10-27 的 4922:05）──
+  // 🔴 這一條走的是**真正出事的那條路徑**：App 被 iOS 清出記憶體（`hiddenAtMs`
+  //    留在標記裡沒被結算），三天後重開 → `resumeActiveDecision()` 補記那一段。
+  //    先前這裡無條件 `sess.awayMs += now - m.hiddenAtMs`，於是三天變成「離開時長」。
+  //    ⚠️ 收束頁那幾條（preview-strip-color）只驗**讀端**（fixture 直接給
+  //    `awayUnbounded`）—— 把上限拿掉它們一條都不會紅。寫端要自己有人守。
+  {
+    const ap = await openV3(700);
+    const tid = await ap.evaluate(() => Object.keys(TEMPLATES)[0]);
+    const THREE_DAYS = 3 * 24 * 3600 * 1000;
+    const t0 = Date.now() - THREE_DAYS;
+    await ap.addInitScript((snap) => {
+      localStorage.setItem('tenki.v6.activeDecision.v1', JSON.stringify(snap));
+      localStorage.setItem('tenki.alert.outcomes.v1', '[]');
+    }, {
+      templateId: tid, startedAtMs: t0, expiresAtMs: t0 + 60e3,
+      watch: true, symbol: 'ES1!', events: [],
+      awayCount: 0, awayMs: 0, hiddenAtMs: t0 + 5e3,
+    });
+    await ap.reload({ waitUntil: 'load' });
+    await ap.waitForTimeout(1500);
+    const rec = await ap.evaluate(() => {
+      const all = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1') || '[]');
+      return all[all.length - 1] || null;
+    });
+    checkTruthy('🔴 接回來就被上限收掉，而且真的寫了一筆（不是憑空消失）', !!rec);
+    const r = rec || {};
+    // 次數是真的 —— 他**確實**離開了，那件事不該被抹掉。
+    check('🔴 離開次數照記（上限管的是時長，不是次數）', r.awayCount, 1);
+    check('🔴 超過上限的那段不累加進 awayMs（4922:05 的成因）', r.awayMs, 0);
+    check('🔴 而且明說「時長不可知」，不是沉默地寫 0', r.awayUnbounded, true);
+    // 🔴 不得夾到上限充數 —— 那會變成「他離開了剛好 30:00」的謊。
+    check('🔴 不是夾到 30:00，是根本不寫', r.awayMs >= 30 * 60 * 1000, false);
+    // 順便把既有行為一起釘住：上限收的那一筆不寫 elapsed。
+    check('上限收的那一筆 durationSec 仍是 null', r.durationSec, null);
+    await ap.close();
+  }
+
+  // ── ③ 紀錄要說得出自己**什麼時候發生**，不是什麼時候被寫下來 ──
+  // founder 2026-10-27 的截圖：最上面那筆印 08:47，而那是他重開 App 的時刻。
+  // `ts` 是收掉的那一刻（而且是這筆的 id），`startedAt` 才是起點。
+  const occ = await page.evaluate((base) => {
+    const mkAt = (ts, startedAt) => ({
+      ts, startedAt, symbol: 'ES1!', templateId: 'MANCINI_FBD', source: 'alert',
+      outcomeTag: 'abandoned_no_judgment', tradeResult: 'no_entry',
+      durationSec: null, endedBy: 'ceiling', marks: 0, events: [], reachedReadiness: null,
+    });
+    // 兩天前起跑、剛剛才被收掉 —— 就是被 iOS 清掉記憶體那一筆的形狀。
+    const started = new Date(base);
+    started.setDate(started.getDate() - 2);
+    started.setHours(20, 58, 0, 0);
+    // 另一筆：昨天起跑、昨天收掉（它應該排在上面那筆**下面**）。
+    const y = new Date(base);
+    y.setDate(y.getDate() - 1);
+    y.setHours(14, 23, 0, 0);
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify([
+      mkAt(base, started.getTime()),            // 收掉＝現在，起跑＝兩天前
+      mkAt(y.getTime(), y.getTime()),           // 兩者同一天
+    ]));
+    window.goTab('today'); window.goTab('session');
+    const rows = [...document.querySelectorAll('#sessionList .session-item')];
+    const when = (r) => [...r.querySelectorAll('.meta span:not(.sep)')].map((n) => n.textContent)[0];
+    return {
+      first: when(rows[0]), second: when(rows[1]),
+      expectStarted: (started.getMonth() + 1) + '/' + started.getDate() + ' 20:58',
+      expectY: (y.getMonth() + 1) + '/' + y.getDate() + ' 14:23',
+    };
+  }, now);
+  // ⚠️ **順序**：A 的 `ts` 最新（今天收掉）但 `startedAt` 最舊（兩天前起跑），
+  //    B 兩者都是昨天。依 `ts` 排 → A 在上；依 `occurredAt` 排 → **B 在上**。
+  //    所以「B 在上」正是這支排序有沒有換尺的分水嶺。
+  //    🔴 第一版我把期待值寫反了 —— 那等於**斷言壞掉的行為**，而且會全綠。
+  check('🔴 排序走 occurredAt：ts 最新、但起跑最早的那筆排在下面',
+    occ.first, occ.expectY);
+  // 🔴 這一條要是紅的，畫面就是在宣稱一件它不知道的事：
+  //    A 印的必須是兩天前的起跑時刻，不是今天這個「被寫下來」的時刻。
+  check('🔴 印的是決策**發生**的時刻（startedAt），不是被寫下來的時刻（ts）',
+    occ.second, occ.expectStarted);
+
+  // 舊紀錄沒有 startedAt → 退回 ts，行為必須逐位元組不變。
+  const legacyOcc = await page.evaluate((base) => {
+    const t = new Date(base); t.setDate(t.getDate() - 3); t.setHours(11, 19, 0, 0);
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify([{
+      ts: t.getTime(), symbol: 'ES1!', templateId: 'MANCINI_FBD', source: 'alert',
+      outcomeTag: 'judged_stood_down', tradeResult: 'no_entry',
+      durationSec: 90, marks: 0, events: [], reachedReadiness: null,
+    }]));
+    window.goTab('today'); window.goTab('session');
+    const row = document.querySelector('#sessionList .session-item');
+    return {
+      got: [...row.querySelectorAll('.meta span:not(.sep)')].map((n) => n.textContent)[0],
+      want: (t.getMonth() + 1) + '/' + t.getDate() + ' 11:19',
+    };
+  }, now);
+  check('🔴 沒有 startedAt 的舊紀錄退回 ts（行為不變）', legacyOcc.got, legacyOcc.want);
+
+  // 🔴 補記那一支**不受影響**：它只知道哪一天，印日期、不得印時刻。
+  const bf = await page.evaluate(() => {
+    localStorage.setItem('tenki.alert.outcomes.v1', '[]');
+    window.openBackfill();
+    document.getElementById('bfDate').value = '2026-10-08';
+    window.bfPickJudge('stood_down');
+    window.bfSave();
+    const row = document.querySelector('#sessionList .session-item');
+    return [...row.querySelectorAll('.meta span:not(.sep)')].map((n) => n.textContent)[0];
+  });
+  check('🔴 補記那一支照舊只印日期（它沒有時刻可印）', /^\d+\/\d+$/.test(bf), true);
+
   await page.close();
 }
 

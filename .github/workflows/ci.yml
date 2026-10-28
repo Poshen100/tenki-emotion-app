@@ -144,6 +144,11 @@ jobs:
       - name: FDCB + Turning Point harness
         run: node scripts/preview-fdcb.mjs
 
+      # `/app/` 啟動路由 —— 它錯掉的兩種方式都很安靜（回訪者被丟回 onboarding、
+      # 新用戶被丟進空的 Today），畫面兩邊都完全正常。所以直接驗落點。
+      - name: App launch harness (PWA 啟動路由)
+        run: node scripts/preview-app-launch.mjs
+
       - name: Strip colour / outcome harness
         run: node scripts/preview-strip-color.mjs
 
@@ -166,6 +171,18 @@ jobs:
       - name: Scan blink harness (谷底偵測)
         run: node scripts/preview-scan-blink.mjs
 
+      # 「正對儀器」那條回饋（founder 2026-10-01：「眼睛好像不用看鏡頭或螢幕」）。
+      # ⚠️ 這支的星塵那一段在**開發容器裡會跳過**（連不到 cdnjs → three.js 走 stub），
+      # 但 CI 連得到 → 那幾條在這裡才第一次真的跑。第一次 run 就是它們的驗收。
+      - name: Scan squareness harness (正對回饋)
+        run: node scripts/preview-scan-squareness.mjs
+
+      # 掃描儀器離鏡頭夠近（founder 2026-10-14：「臉跟眼睛還是沒有對正螢幕」）。
+      # 量三種視窗高度 × 兩種 mission 的框心位置，並含一條反向斷言：
+      # 把版面改回置中就必須退回 0.44H —— 沒紅過的閘門不是閘門。
+      - name: Scan lens-offset harness (儀器離鏡頭多近)
+        run: node scripts/preview-scan-lens-offset.mjs
+
       - name: Token scale harness (色階系統守門)
         run: node scripts/preview-token-scale.mjs
 
@@ -182,3 +199,7 @@ jobs:
       # 填數字。
       - name: Finger baseline harness (鏡射同步 + 拒答行為)
         run: node scripts/preview-finger.mjs
+      # Lab 分頁：校準台的誠實規則（樣本不足不印分子、滿格斜紋）、
+      # 帶位色只上在帶位身上、以及那些「講排除了幾筆」的字讀不讀得動。
+      - name: Lab harness
+        run: node scripts/preview-lab.mjs
