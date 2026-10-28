@@ -214,8 +214,24 @@
    *
    * 取 20：H=852 時框心落在 ~0.205H，偏離降到 **約 3.6°**；decision mission 多一行
    * symbol（+33px）落在 ~0.244H ≈ **4.6°**，兩個都在 5° 以內。
-   * ⚠️ 這是**一個數字就能調的旋鈕** —— 實機覺得太高就把它調大，不要去動
-   * `FACE_CENTER_Y_TOL`（容許帶沒錯，錯的是版面；兩個一起改就分不出哪個有效）。
+   *
+   * 🔴 **上面那兩個數字只在沒有瀏海的機器上成立 —— 也就是沒有人擁有的機器。**
+   *    （2026-10-28 查出來。）`--rs-lens-pad` 取的是 `max(inset + 24, 20vh - 151)`，
+   *    而 iPhone 15/16 直式的 inset 是 59px → 下限 83 ＞ vh 項 19.4，**贏的是下限**。
+   *    真機實際值（harness 現在會把這一組印出來）：
+   *
+   *      15/16 daily     0.275H ≈ 5.5°       15/16 decision  0.313H ≈ 6.5°
+   *      Max   daily     0.251H ≈ 5.2°       Max   decision  0.286H ≈ 6.2°
+   *      SE    daily     0.292H ≈ 5.1°       SE    decision  0.342H ≈ 6.0°
+   *
+   *    也就是說**每一台真機的快訊決策掃描都已經在 6–7°**，從來沒有進過 5° 以內。
+   *
+   * ⚠️ 所以原本寫在這裡的那句建議「實機覺得太高就把它調大」**是錯的** ——
+   *    在任何一台有瀏海的 iPhone 上，調 `LENS_TARGET_VH` 一毫米都不會動。
+   *    要往下移得動 `LENS_PAD_FLOOR_PX`（下限）；要往上移則是先把下限降到
+   *    vh 項以下，這個旋鈕才會重新接上。
+   *    不管往哪邊，都**不要去動** `FACE_CENTER_Y_TOL`（容許帶沒錯，錯的是版面；
+   *    兩個一起改就分不出哪個有效）。
    */
   var LENS_TARGET_VH = 20;
   /**
@@ -383,7 +399,19 @@
       'flex-direction:column;align-items:center;justify-content:flex-start;gap:18px;',
       // `max()` 而不是 `clamp()`：這裡只需要下限。算式在矮螢幕會解出負值，
       // 下限同時吃 safe-area，瀏海機不會把 mission 標籤塞進瀏海裡。
-      '--rs-lens-pad:max(calc(env(safe-area-inset-top, 0px) + ' + LENS_PAD_FLOOR_PX + 'px),',
+      //
+      // 🔴 **瀏海機上贏的是下限那一項，不是 `LENS_TARGET_VH`**（2026-10-28 查出來）。
+      //    H=852、瀏海 59px：下限 = 59+24 = 83，而 `20vh-151` 只有 19.4 ——
+      //    於是框心落在 0.275H（約 5.5°），**而不是文件宣稱的 0.205H / 3.7°**。
+      //    也就是說「實機覺得太高就把 LENS_TARGET_VH 調大」這句建議，在任何一台
+      //    有瀏海的 iPhone 上**調了也不會動**。要動得改下限。
+      //
+      // ⚠️ harness 量不到這件事，因為 Playwright 的 `env(safe-area-inset-top)` 是 0
+      //    —— 它一直在驗一台沒有人擁有的機器。所以把 inset 抽成一個變數：
+      //    預設仍然是 `env()`，而 harness 覆寫 `--rs-safe-top` 之後，
+      //    **算這個位置的仍然是產品自己這條算式**，不是 harness 裡的複製品。
+      '--rs-safe-top:env(safe-area-inset-top, 0px);',
+      '--rs-lens-pad:max(calc(var(--rs-safe-top) + ' + LENS_PAD_FLOOR_PX + 'px),',
       ' calc(' + LENS_TARGET_VH + 'vh - ' + STAGE_TOP_TO_FRAME_PX + 'px));}',
       '#' + OVERLAY_ID + '.open{display:flex;}',
       // 🔴 相機影像一幀都不顯示（North Star §4，founder 2026-08-08 拍板）。
@@ -667,7 +695,23 @@
       '#' + OVERLAY_ID + ' .rs-frame.lock-beat .rs-wave,',
       '#' + OVERLAY_ID + ' .rs-frame.lock-beat .rs-flash,',
       '#' + OVERLAY_ID + ' .rs-frame.sync-beat .rs-sync-pulse{animation:none;}}',
+      // 🔴 `margin-top:auto` 從 `.rs-privacy` 搬到這裡（2026-10-28）。
+      //
+      // 上一輪已經知道儀器上移之後底下空出約半個螢幕，選的解法是「把隱私註腳
+      // 釘在底緣，讓版面讀起來刻意而不是沒做完」。**founder 實機走完的結論是
+      // 那個解法沒成功**：「那個頁面掃描位置在畫面上方」。
+      //
+      // 成因是底部那一組**太輕** —— 整個下緣只有一條 11px 的灰字，撐不住上面
+      // 那片空白，於是空白讀成「漏掉的東西」而不是留白。三個閘門跟著下來之後
+      // 變成「上：儀器／下：狀態列」兩組各有重量的區塊，中間才成立為負空間。
+      //
+      // ⚠️ 框心**一毫米都沒動** —— padding-top 走 --rs-lens-pad，與這條無關。
+      //    會動到框心的旋鈕只有 LENS_TARGET_VH，而那個往下調就是直接拿
+      //    「正對臉部」去換（20vh=3.6° / 45vh=10°，門檻 5°）。
+      // ⚠️ `.rs-privacy` 仍然是最後一個元素，所以它照樣吸在底緣，
+      //    `preview-scan-lens-offset` 那條既有斷言不受影響。
       '#' + OVERLAY_ID + ' .rs-dots{display:flex;gap:14px;font-size:10px;color:#5A6178;',
+      'margin-top:auto;',
       'letter-spacing:0.1em;text-transform:uppercase;}',
       '#' + OVERLAY_ID + ' .rs-dot{display:flex;align-items:center;gap:5px;}',
       '#' + OVERLAY_ID + ' .rs-dot i{width:6px;height:6px;border-radius:50%;',
@@ -678,8 +722,11 @@
       // 把它吸到底緣，整個版面才讀得像「刻意的」而不是「沒做完」。
       // ⚠️ `margin-top:auto` 吃掉的是**剩餘空間**，不是固定值 —— 矮螢幕上剩餘
       // 空間接近 0 時它自然退回緊接在指示燈下方，不會把自己推出視窗。
-      '#' + OVERLAY_ID + ' .rs-privacy{font-size:11px;color:#5A6178;margin-top:auto;',
-      'padding-top:18px;}',
+      // margin-top:auto 已經搬到 .rs-dots（見上）。這裡再留一個不會有額外效果
+      // （前面那個已經把剩餘空間吃光），但會讓「誰把底部那組推下去」變成兩個
+      // 地方說了算 —— 只留一個。
+      '#' + OVERLAY_ID + ' .rs-privacy{font-size:11px;color:#5A6178;',
+      'padding-top:10px;}',
       '#' + OVERLAY_ID + ' .rs-cancel{position:absolute;top:calc(env(safe-area-inset-top,0px) + 14px);',
       'right:16px;z-index:2;background:none;border:0;color:#A6ADC8;font-size:15px;',
       'font-family:inherit;padding:10px 14px;cursor:pointer;}',
