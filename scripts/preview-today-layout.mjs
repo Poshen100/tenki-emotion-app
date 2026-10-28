@@ -191,6 +191,60 @@ for (const vp of VIEWPORTS) {
   await page.close();
 }
 
+// ══════════════════════════════════════════════════════════════
+// Scan 分頁：那一組要置中在**看得見的**範圍，不是置中在包含決策條的範圍
+// ══════════════════════════════════════════════════════════════
+// 🔴 2026-10-28 查出來：`.scan-hero` 是全 app 唯一漏掉底部保留區的容器
+//    （`.snap` / session / `.timeline-body` / `.lab-body` 四個都有）。
+//    `justify-content:center` 於是把那 128px（tabbar 74 + gap 10 + fdcb 44）
+//    也算進置中範圍 —— 整組永遠比真正的置中低 128px，而在 SE 上
+//    說明文字**整段壓進決策條 31px**。
+console.log('\n── Scan 分頁：置中範圍 ──');
+for (const vp of VIEWPORTS) {
+  const page = await browser.newPage({
+    viewport: { width: vp.width, height: vp.height },
+    deviceScaleFactor: 2, isMobile: true, hasTouch: true,
+  });
+  await page.addInitScript(() => {
+    localStorage.setItem('tenki.readiness.reading.v1', JSON.stringify({
+      band: 'clear', confidence: 'high', ts: Date.now() - 44 * 60e3,
+      baselineDays: 1, baselineScans: 1,
+    }));
+  });
+  await page.goto(`${url}#scan`, { waitUntil: 'domcontentloaded', timeout: 30_000 }).catch(() => {});
+  await page.waitForTimeout(3600);   // splash AUTO_DISMISS_AT = 2400ms
+  const g = await page.evaluate(() => {
+    const R = (sel) => {
+      const e = document.querySelector(sel);
+      const r = e && e.getBoundingClientRect();
+      return r && r.height > 0 ? r : null;
+    };
+    const hdr = R('#scan-screen .screen-header');
+    const first = R('#scanLast') || R('.scan-button');
+    const last = R('#scanHint') || R('#scanEvidence') || R('.scan-button');
+    const bar = R('.fdcb');
+    if (!hdr || !first || !last || !bar) return null;
+    return { above: first.top - hdr.bottom, below: bar.top - last.bottom };
+  });
+  if (!g) {
+    fail++; console.log(`✗ ${vp.name} 量不到 Scan 分頁的元素（前提就不成立，不是版面問題）`);
+    await page.close(); continue;
+  }
+  // 🔴 成對的兩條。只驗「沒壓到」的話，整組往上飛出畫面也會綠。
+  const overlap = g.below < 0;
+  if (!overlap) { pass++; console.log(`✓ ${vp.name} 沒壓到決策條（下方 ${g.below.toFixed(0)}px）`); }
+  else { fail++; console.log(`✗ ${vp.name} **壓到決策條 ${(-g.below).toFixed(0)}px**（下方 ${g.below.toFixed(0)}px）`); }
+  const balanced = Math.abs(g.above - g.below) <= 2;
+  if (balanced) { pass++; console.log(`✓ ${vp.name} 真正置中（上 ${g.above.toFixed(0)} / 下 ${g.below.toFixed(0)}）`); }
+  else {
+    fail++;
+    console.log(`✗ ${vp.name} 不是置中：上 ${g.above.toFixed(0)} / 下 ${g.below.toFixed(0)}`
+      + ` —— 差 ${(g.above - g.below).toFixed(0)}px`
+      + `${Math.abs(g.above - g.below - 128) < 3 ? '（＝ tabbar+gap+fdcb，保留區又掉了）' : ''}`);
+  }
+  await page.close();
+}
+
 await browser.close();
 server.close();
 console.log(`\n${fail === 0 ? '🟢' : '🔴'} pass=${pass} fail=${fail}`);

@@ -884,9 +884,21 @@ body{
    SCAN SCREEN
    ═══════════════════════════════════════════════════ */
 #scan-screen{padding:0 24px}
+/* 🔴 `padding-bottom` 是補上一個**四個分頁都有、只有這裡漏掉**的慣例
+   （`.snap` / session / `.timeline-body` / `.lab-body` 全都保留了這一段）。
+   少了它，`justify-content:center` 置中的範圍會一路吃到 `.screen` 底部 ——
+   而底部那 128px（tabbar 74 + gap 10 + fdcb 44）被決策條與分頁列蓋著。
+   於是這一組**永遠比真正的置中低 128px**：
+     H=852 上方空白 190px / 下方 62px
+     H=667 上方 97px / 下方 **−31px** ← 說明文字整段壓進決策條
+   兩台差距都剛好 128px，那就是「置中範圍比看得見的範圍多 128px」的指紋。
+   ⚠️ 這裡**不加**其他分頁那個 +16~26px 的額外留白：那是給捲動清單的收尾空間，
+   而這一組是置中的 —— 多加多少，整組就往上偏多少。要的是真正的置中。
+   （founder 2026-10-28 拍板「真正置中」。） */
 .scan-hero{
   flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
   position:relative;gap:24px;
+  padding-bottom:calc(var(--tabbar-h) + var(--fdcb-h) + var(--fdcb-gap));
 }
 .scan-last{
   padding:12px 20px;border-radius:16px;
