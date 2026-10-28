@@ -1024,6 +1024,37 @@ function renderLive() {
   renderGate();
   state.lockEverAchieved = state.lockEverAchieved || state.lock.locked;
   renderLock();
+
+  // 🔴 標籤要在 lock 前進**之後**才寫，否則它講的是上一幀的鎖定狀態。
+  $('liveQualityLabel').textContent = qualityVerdict(reading);
+}
+
+/**
+ * 環心底下那一行 —— 回答「這個分數夠不夠」，而不只是說它叫什麼。
+ *
+ * 🔴 founder 2026-10-28 實走（09:26 那張）：環心是整個畫面最大的元素，而
+ * 「75」沒有刻度、沒有門檻、沒有參照 —— 使用者讀不出它是過還是不過，
+ * 於是那個數字只產生焦慮。分數與它的六個分量留在原地（§25 修的是
+ * 「為什麼這麼低」）；這一行補的是**結論**。
+ *
+ * ⚠️ 不另外長出第二套判準：鎖定讀 `state.lock`，差在哪用
+ * `dimensionGoodness` + `DIM_LOW` —— 跟旁邊那四條 bar 的 `data-low` 同一個
+ * 函式、同一個門檻。畫面不得跟自己的證據打架（§18）。
+ *
+ * ⚠️ `DIMENSIONS` 的順序就是「使用者能動手的順序」（§11），所以第一個低於
+ * 門檻的那一維正是他這次該改的地方 —— 一次只講一個修正。
+ *
+ * @param {object} reading - 這一幀的訊號評估。
+ * @returns {string} 環心底下要印的那一行。
+ */
+function qualityVerdict(reading) {
+  if (reading.score === null) return '訊號品質';
+  if (state.lock.locked) return '脈搏已鎖定';
+  for (const dim of DIMENSIONS) {
+    if (reading[dim.key] === null) continue;
+    if (dimensionGoodness(reading, dim.key) < DIM_LOW) return `還不夠 · ${dim.label}`;
+  }
+  return '正在確認節律';
 }
 
 /**
@@ -1593,6 +1624,8 @@ function startCapture(video, ctx) {
   state.timeline = INITIAL_TIMELINE;
   state.precisionOptIn = false;
   state.lastCandidateAtSec = 0;
+  // 上一次的結論不得留在畫面上 —— 新的一次從「還沒評得出來」開始。
+  $('liveQualityLabel').textContent = '訊號品質';
   renderLock();
   renderTimeline();
   renderProgress(0);
