@@ -1227,6 +1227,27 @@ function renderOutcome(outcome) {
 }
 
 /**
+ * 告訴 Today 這一天已經有指尖校準了。
+ *
+ * 🔴 **只有 anchor 真的立住才寫。** 舊的手指流程（`baseline-onboarding.js`）
+ * 是走完就寫，於是示範模式的亂數、以及 RMSSD 幾百毫秒的垃圾讀數，一樣會
+ * 把 Today 的膠囊翻成「信心高 · 已校準」—— 使用者看到的是一個被假讀數
+ * 點亮的信心。這裡的條件就是 `buildPulseAnchor` 的那一個：**沒立住就不寫**。
+ *
+ * ⚠️ 旗標是**衍生事實**（哪一天校準過），不是生理資料 —— 原始訊號不落地。
+ *
+ * @param {number} at - 這次校準的時間（Unix ms）。
+ */
+function markPrecisionCalibrated(at) {
+  try {
+    localStorage.setItem('tenki.precision.boosted', '1');
+    localStorage.setItem('tenki.precision.lastTs', String(at));
+  } catch (_e) {
+    // 無痕模式／封鎖儲存：讀數照常顯示，只是 Today 這次不會記得。
+  }
+}
+
+/**
  * 把這次校準記成一個 anchor（如果它真的立住了），然後說現在算到哪一階。
  *
  * 🔴 階段的判斷整個在引擎裡（`resolvePulseBaselineProgress`）—— 頁面不重算
@@ -1244,6 +1265,7 @@ function renderStage(analysis) {
   if (anchor !== null) {
     anchors.push(anchor);
     saveAnchors(anchors);
+    markPrecisionCalibrated(at);
   }
 
   const progress = resolvePulseBaselineProgress(anchors);
@@ -1625,6 +1647,17 @@ $('skipGate').addEventListener('click', () => {
 });
 $('againBtn').addEventListener('click', () => {
   $('stage').dataset.phase = 'intro';
+});
+
+/**
+ * 回到 Today。
+ *
+ * 🔴 這一頁是從 Today 的信心膠囊走進來的，所以回程必須回到**同一個地方** ——
+ * 走進來的人要看的是「校準完之後我的讀數變成什麼樣」，不是這一頁的結果卡。
+ * ⚠️ `file:` 是本機／harness 的開法，正式站走 `/v3/`（同 v6 的 openPrecisionBaseline）。
+ */
+$('todayBtn').addEventListener('click', () => {
+  location.href = location.protocol === 'file:' ? './v6/index.html' : '/v3/';
 });
 
 $('minSec').textContent = String(MIN_SEC);

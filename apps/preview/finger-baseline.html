@@ -305,7 +305,12 @@
       font-size: 16px; font-weight: 600; font-family: inherit; cursor: pointer;
       background: var(--amber-400); color: var(--n-950);
     }
-    button.ghost { background: transparent; color: var(--n-400); border: 1px solid var(--n-700); }
+    /* 結果頁的兩個動作誰是主要的，由「這次立住了沒」決定 ——
+       立住了就該回去看讀數，沒立住就該再試一次。`data-secured` 已經是
+       這一頁的真相來源，不另外開一個狀態。 */
+    button.ghost,
+    [data-secured="yes"] #againBtn,
+    [data-secured="no"] #todayBtn { background: transparent; color: var(--n-400); border: 1px solid var(--n-700); }
     .err { font-size: 13px; color: var(--amber-400); line-height: 1.5; }
     .fine { font-size: 12px; line-height: 1.6; color: var(--n-550); }
     .note { font-size: 12px; line-height: 1.6; color: var(--n-450); }
@@ -542,7 +547,10 @@
       <p class="fine" style="margin-top:8px">這是相機指尖 PPG，不是心電圖，也不等於胸帶。拍點是從光的波形推回去的 —— 所以「脈搏節律」跟手錶的心律變異是兩個量，不能直接比。</p>
     </details>
 
-    <button class="only-result" id="againBtn">再做一次</button>
+    <!-- 🔴 回程。在這之前這一頁是個孤島：從 Today 走進來的人做完沒有路回去，
+         而裝起來的 PWA 常常連上一頁的按鈕都沒有。 -->
+    <button class="only-result" id="todayBtn">回到 Today</button>
+    <button class="only-result" id="againBtn" style="margin-top:8px">再做一次</button>
   </main>
 
   <script type="module" src="finger-baseline.js"></script>

@@ -7560,13 +7560,15 @@ function closeSessionDetail(){
   // keep the mock finger flow out of the FACE scan path; the optional precision
   // layer enters here instead. Contract: docs/FINGER-PRECISION-WIRING.md §6.
   window.openPrecisionBaseline = function(){
-    // Founder call (2026-07-07): open the flagship finger ceremony
-    // (apps/preview/index.html — real camera, golden climax, iOS-OOM-hardened)
-    // instead of the local mock flow. It hands back to v6 via ?from=baseline
-    // (stardust reveal) and writes tenki.precision.* on completion.
-    // file: protocol = headless/local checkout; production serves /preview/*.
-    const base = location.protocol === 'file:' ? '../index.html' : '/preview/index.html';
-    location.href = base + '?from=precision';
+    // 🔴 2026-10-28：改指到 /finger/（PULSE ANCHOR）。
+    // 舊的 `index.html?from=precision` 跑的是 camera-scan.js —— 紅通道平均 +
+    // 局部極大值找峰，正是 docs/PHONE-PPG.md §1 點名的「另一個錯的答案」。
+    // 合成指尖實測（真值 66 bpm、拍間幾乎無抖動）：它報 73-87 bpm、
+    // RMSSD 277-421 ms，而畫面同時掛著 EXCELLENT。/finger/ 走的是
+    // packages/engine 編出來的那條鏈，同一段訊號給 66 bpm / 0.9 ms，
+    // 而且量不到時**拒答**。
+    // file: protocol = headless/local checkout；正式站走 /finger/。
+    location.href = location.protocol === 'file:' ? '../finger-baseline.html' : '/finger/';
   };
   // Derived flags only (privacy: raw signal never stored). Real HR baseline
   // lands with finger-ppg.js (PR #148) in the Antigravity real-signal pass.
