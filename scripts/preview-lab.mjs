@@ -272,6 +272,33 @@ checkTruthy('入口副標由 JS 算出來（不是 HTML 預設字）', (entry.su
 checkTruthy('導覽 › 是中性色，不是可動層琥珀',
   !/255,\s*160,\s*40/.test(entry.chevronColor), entry.chevronColor);
 
+// 🔴 決策快訊那一列 —— 它是 **Web Push 的唯一入口**，而 iOS 的推播只給
+//    「已加入主畫面」的 web app。少了這一列，使用者只能另外開 Safari 貼網址，
+//    而在 Safari 分頁裡 `PushManager` 根本不存在 → 推播在產品裡沒有一條路走得到。
+//    （founder 2026-10-28 截圖實證：他正是在 Safari 裡開那一頁。）
+const alertEntry = await empty.evaluate(() => {
+  const a = document.getElementById('labAlertRow');
+  return { href: a?.getAttribute('href'), sub: document.getElementById('labAlertSub')?.textContent };
+});
+check('🔴 Lab 有連到 /decision-alert/ 的入口（推播的唯一入口）',
+  alertEntry.href, '/decision-alert/');
+// 乾淨的瀏覽器＝沒配對過，所以這句必須是「尚未接上」而不是留空、也不是
+// 一句聽起來已經接好的話（同 drift 那條：空白讓人以為壞了）。
+check('🔴 沒配對時副標說「尚未接上」，不留空也不假裝已接上',
+  alertEntry.sub, '尚未接上 TradingView');
+
+// 成對的另一半：配對過就要講出標的 —— 只驗「尚未接上」的話，
+// 把 renderAlertRow() 整個寫死成那句也會綠，而那時它什麼都沒讀。
+const alertPaired = await empty.evaluate(() => {
+  localStorage.setItem('tenki.alert.channel', 'abc123');
+  localStorage.setItem('tenki.alert.fields.v1', JSON.stringify({ symbol: 'NQ1!' }));
+  localStorage.setItem('tenki.alert.push.on', '1');
+  window.renderLab();
+  return document.getElementById('labAlertSub')?.textContent;
+});
+check('🔴 配對後副標講出真的標的與推播狀態（證明它真的在讀 store）',
+  alertPaired, '已接上 · NQ1! · 推播已開');
+
 const overflow = await empty.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 checkTruthy(`390px 下沒有橫向溢出（多出 ${overflow}px）`, overflow <= 1);
 await empty.close();
