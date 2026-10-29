@@ -27,6 +27,35 @@ export function getRequestHost(req: VercelRequestLike): string | null {
   return typeof forwarded === 'string' && forwarded.length > 0 ? forwarded : null;
 }
 
+/**
+ * Bucket a caller is counted under for rate limiting.
+ *
+ * Vercel sets `x-vercel-forwarded-for` itself at the edge, so it is preferred
+ * over `x-forwarded-for`, which a client can append to.
+ *
+ * 🔴 When no address can be read, this returns a **shared** bucket rather
+ * than null. A null would make the caller unlimited, and "I could not measure"
+ * must never become "no limit" (CLAUDE.md). Everything unidentifiable shares
+ * one budget instead.
+ *
+ * @param req - Incoming request.
+ * @returns A stable key for this caller, never empty.
+ */
+export function getClientKey(req: VercelRequestLike): string {
+  const candidates = [
+    req.headers?.['x-vercel-forwarded-for'],
+    req.headers?.['x-forwarded-for'],
+    req.headers?.['x-real-ip'],
+  ];
+  for (const value of candidates) {
+    const raw = Array.isArray(value) ? value[0] : value;
+    if (typeof raw !== 'string') continue;
+    const first = raw.split(',')[0]?.trim() ?? '';
+    if (first.length > 0) return first;
+  }
+  return 'unknown';
+}
+
 /** Query parameter Vercel accepts in place of the bypass header. */
 export const PROTECTION_BYPASS_QUERY_KEY = 'x-vercel-protection-bypass';
 

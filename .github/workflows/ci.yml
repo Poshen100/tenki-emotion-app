@@ -106,7 +106,17 @@ jobs:
   # ═══════════════════════════════════════════════════════════
   preview:
     name: preview harness (playwright)
-    runs-on: ubuntu-latest
+    # 🔴 **釘住 image，不用 ubuntu-latest。** 2026-10-29 16:13 這個 job 紅了，
+    # 而同一天 03:47 同一份 workflow 是綠的 —— 中間變的是 runner：
+    #   ERROR: Playwright does not support chromium on ubuntu26.04-x64
+    # `ubuntu-latest` 滾到 26.04，而 package.json 釘的 playwright 1.56.1 不認得它，
+    # `playwright install --with-deps` 直接失敗（連一條斷言都還沒跑到）。
+    #
+    # 升 Playwright 也能解，但那會換掉瀏覽器版本 —— 而**這個 job 的基準是綁在
+    # image 上的**：上面那段字型註解就是為此存在（DejaVu vs WenQuanYi 會讓
+    # 版面斷言假紅）。換 image 等於同時換字型與渲染基準，是另一刀，要自己的驗證。
+    # 這裡只做一件事：把環境釘回那個被驗證過的版本。
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 

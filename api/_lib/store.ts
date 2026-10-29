@@ -11,6 +11,10 @@
 
 import { randomUUID } from 'node:crypto';
 import type { AlertContract } from '../../domain/src/contracts/alert-contract';
+import {
+  CHANNEL_CREATE_WINDOW_SEC,
+  channelRateKey,
+} from '../../domain/src/policies/channel-rate-limit';
 
 /** Prefix for per-channel alert lists (newest first). */
 export const ALERTS_KEY_PREFIX = 'tenki:alerts:v1:';
@@ -84,6 +88,40 @@ async function command(config: UpstashConfig, parts: string[]): Promise<unknown>
  * @param config - Upstash credentials.
  * @returns The new channel ID.
  */
+/**
+ * Counts one channel-creation attempt for `clientKey` and returns the running
+ * total for the current window.
+ *
+ * 🔴 Counted **before** the channel is registered, so a caller spends budget
+ * even when registration then fails. Counting after would let a caller that
+ * reliably trips the failure path create unlimited load for free.
+ *
+ * The `EXPIRE` is best effort: the window index is already part of the key
+ * (`channelRateKey`), so a failed expiry leaks one key that nothing reads
+ * again rather than locking the client out.
+ *
+ * @param config - Upstash connection.
+ * @param clientKey - Caller bucket from `getClientKey`.
+ * @param nowMs - Current time in epoch milliseconds.
+ * @returns Attempts counted in this window, including this one.
+ */
+export async function countChannelCreation(
+  config: UpstashConfig,
+  clientKey: string,
+  nowMs: number,
+): Promise<number> {
+  const key = channelRateKey(clientKey, nowMs);
+  const counted = await command(config, ['incr', key]);
+  if (counted === 1) {
+    try {
+      await command(config, ['expire', key, String(CHANNEL_CREATE_WINDOW_SEC)]);
+    } catch {
+      // Key still rolls with the window — see channelRateKey.
+    }
+  }
+  return typeof counted === 'number' ? counted : 0;
+}
+
 export async function registerChannel(config: UpstashConfig): Promise<string> {
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const channelId = (randomUUID() + randomUUID()).replace(/-/g, '');
