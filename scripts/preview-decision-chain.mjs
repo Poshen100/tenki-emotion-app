@@ -89,6 +89,17 @@ await page.waitForTimeout(700);
 // 直接抓 children[0] 會點到表頭、什麼都不會發生（寫這支時實際踩到）。
 const rows = await page.evaluate(() => document.querySelectorAll('#tplList .tpl-row').length);
 checkTruthy(`模板清單有列可選（${rows}）`, rows > 0);
+// 🔴 交棒**之前**把快訊到達時刻從畫面上抄下來 —— `#tplStatus` 最後那段印的是
+// `new Date(alert.receivedAt).toTimeString()`。這是一個**跟交棒信物無關的來源**：
+// 下面那條等式才問得出「信物帶的是快訊到達時刻，不是交棒時刻」。
+// 拿 `Date.now()` 去比只能問出「是個時間」，而那是 `Date.now()` 也會過的斷言。
+const alertClock = await page.evaluate(() => {
+  const el = document.getElementById('tplStatus');
+  const spans = el ? el.querySelectorAll('span') : [];
+  return spans.length ? spans[spans.length - 1].textContent : null;
+});
+checkTruthy(`交棒前畫面上有快訊到達時刻（${alertClock}）`, /^\d{2}:\d{2}:\d{2}$/.test(alertClock || ''));
+
 await page.evaluate(() => document.querySelector('#tplList .tpl-row').click());
 await page.waitForTimeout(1500);
 
@@ -129,6 +140,32 @@ check('守望不顯示總長', /\//.test(run.time), false);
 checkTruthy(`底座顯示標的而不是模板名（${run.name}）`, run.name === run.symbol && !!run.symbol);
 checkTruthy(`帶著來源快訊 id（${run.origin}）`, !!run.origin);
 checkTruthy(`帶著關鍵價位（${run.anchor}）`, typeof run.anchor === 'number');
+
+// ── alertAt：規格 §1.2 的第一個時間戳 ──
+// 🔴 這兩條**故意問不同的事**，不是同一條寫兩次：
+//   1. 等式：帶過來的是不是「快訊到達」那個數字（對照畫面上的獨立來源）。
+//   2. 間隔：它有沒有比交棒時刻**明顯早**。等式單獨成立還不夠 —— 若 makeAlert
+//      哪天改成在交棒當下才蓋 receivedAt，等式照樣綠，而「審視」會恆等於 0。
+const hop = await page.evaluate(() => ({
+  alertAt: sess ? sess.alertAt : null,
+  started: sess ? sess.startedAtMs : null,
+  clock: (sess && typeof sess.alertAt === 'number')
+    ? new Date(sess.alertAt).toTimeString().slice(0, 8) : null,
+  snapAlertAt: (JSON.parse(localStorage.getItem('tenki.v6.activeDecision.v1')) || {}).alertAt,
+}));
+check('🔴 交棒帶過來的是快訊到達時刻，不是交棒時刻（對照畫面上的時間）',
+  hop.clock, alertClock);
+// 🔴 門檻要從**保證的下限**訂，不是從實測值往下湊。我第一版寫「900+700+1500」
+// 並放 2000 —— 那個算式是錯的：1500 那段等在交棒**之後**。真正夾在
+// 「快訊產生」與「交棒」之間的固定等待只有 900+700 ＝ 1600 ms（加上兩次
+// evaluate 來回，實測 2474）。所以 2000 只有不到 500 ms 的餘裕，機器快一點
+// 就會無辜變紅。1200 在保證下限之下，而反向驗證實測那個 bug（交棒蓋成
+// `Date.now()`）給的是 **623 ms** —— 不是 0，因為交棒到起跑本身要幾百毫秒。
+// 1200 夾在 623 與 1600 中間，兩側都有餘裕，鑑別力一點沒少。
+checkTruthy(`🔴 到達時刻比交棒時刻早（相隔 ${hop.started - hop.alertAt} ms）`,
+  typeof hop.alertAt === 'number' && hop.started - hop.alertAt >= 1200);
+// 下單要離開 App，iOS 會把整頁清掉 —— 只活在 `sess` 裡的話回來就沒有了。
+check('🔴 alertAt 落地當下就寫進快照（不是只活在記憶體）', hop.snapAlertAt, hop.alertAt);
 
 // ═══════════════════════════════════════════════
 // 下完單回來，決策還在（founder 2026-08-21 的實體動線）
@@ -173,6 +210,7 @@ const post = await page.evaluate(() => ({
   symbol: sess ? sess.symbol : null,
   origin: sess ? sess.originAlertId : null,
   anchor: sess ? sess.anchorPrice : null,
+  alertAt: sess ? sess.alertAt : null,
   elapsed,
 }));
 check('計時器接著跑，不是回到 idle', post.running, true);
@@ -192,6 +230,8 @@ checkTruthy(`🔴 接回來的底座左欄印的是守望上限，不是模板�
 check('標的跟著回來', post.symbol, 'ES1!');
 checkTruthy('來源快訊 id 跟著回來（join key 不能斷）', !!post.origin);
 checkTruthy('關鍵價位跟著回來', typeof post.anchor === 'number');
+check('🔴 快訊到達時刻活過重載（這條斷了，下完單回來那一筆的「審視」永遠是空的）',
+  post.alertAt, hop.alertAt);
 
 // ═══════════════════════════════════════════════
 // §8：決策進行中收到新快訊 → 一律靜默接收
@@ -1200,6 +1240,115 @@ console.log('\n── 真快訊（沒有指名結構）── ');
   check('比對到就不再說「沒有指名結構」', matched.why, false);
   check('對照組沒有 page error', errs3, []);
   await ctx3.close();
+}
+
+// ═══════════════════════════════════════════════
+// 「審視」那一段（規格 §1.2：審視 = judgedAt − alertAt）
+//
+// 🔴 這一段守的是**那個不給數字的分支**。有 alertAt 就相減很容易寫對，
+//    難的是：`abandoned_no_judgment` 的 `ts` 不是判定時刻 —— 它是守望撞上限、
+//    或使用者終於把 App 打開的那一刻。同一個機制已經把一筆「未判定」印成
+//    41:20（decision-outcome.js 的 WATCH_CEILING_SEC 註解）。那筆若也去減
+//    alertAt，畫面會印「審視 3:12:40」，而那量的是他隔多久才開 App。
+// ═══════════════════════════════════════════════
+console.log('\n── 審視（快訊到達 → 判定）──');
+{
+  // 🔴 先補**紀錄寫入那一跳**。上面驗到 sess 帶著 alertAt、也活過重載，但
+  //    「收束的時候有沒有寫進紀錄」沒有任何斷言守著 —— 把 saveV6Outcome 裡那一行
+  //    刪掉，整支 harness 依然全綠（反向驗證當場抓到）。下面的畫面斷言是餵
+  //    seed 的，繞過了寫入端，所以它們補不了這個洞。
+  async function recordWith(alertAt) {
+    await page.goto(`${base}/v3/#decision`, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(3600);                 // v6 的 splash 是 2400ms
+    await page.evaluate((at) => {
+      localStorage.removeItem('tenki.alert.outcomes.v1');
+      setState('running');
+      sess.watch = true;                             // 守望才走 judged_* 那套語意
+      sess.symbol = 'ES1!';
+      if (at !== null) sess.alertAt = at;
+    }, alertAt);
+    await page.evaluate(() => endDecision('entered'));
+    await page.waitForTimeout(900);
+    return page.evaluate(() => {
+      const all = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1')) || [];
+      const r = all[all.length - 1] || null;
+      return {
+        n: all.length,
+        tag: r ? r.outcomeTag : null,
+        alertAt: r ? r.alertAt : null,
+        hasKey: r ? Object.prototype.hasOwnProperty.call(r, 'alertAt') : null,
+      };
+    });
+  }
+
+  const AT = Date.now() - 95000;
+  const withAt = await recordWith(AT);
+  checkTruthy(`收束真的寫了一筆（${withAt.n} 筆，${withAt.tag}）`,
+    withAt.n === 1 && withAt.tag === 'judged_entered');
+  check('🔴 收束時把快訊到達時刻寫進紀錄（整條鏈的終點）', withAt.alertAt, AT);
+
+  const withoutAt = await recordWith(null);
+  check('🔴 沒有快訊到達時刻 → **整個欄位不存在**（不是 alertAt: null）',
+    withoutAt.hasKey, false);
+
+  await page.goto(`${base}/v3/#session`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1500);
+
+  // 純邏輯：判準住在共用模組，先在那裡逐條問清楚。
+  const judge = await page.evaluate(() => {
+    const O = window.TENKI_OUTCOME;
+    const base = { ts: 1000000, judgmentSchema: 'structure_watch_v1' };
+    return {
+      entered: O.reviewedSec({ ...base, alertAt: 1000000 - 185000, outcomeTag: 'judged_entered' }),
+      stood: O.reviewedSec({ ...base, alertAt: 1000000 - 185000, outcomeTag: 'judged_stood_down' }),
+      noJudgment: O.reviewedSec({ ...base, alertAt: 1000000 - 185000, outcomeTag: 'abandoned_no_judgment' }),
+      manual: O.reviewedSec({ ...base, outcomeTag: 'judged_entered' }),
+      negative: O.reviewedSec({ ...base, alertAt: 1000000 + 5000, outcomeTag: 'judged_entered' }),
+    };
+  });
+  check('判定成立並進場 → 算得出來（185 秒）', judge.entered, 185);
+  check('判定不成立也算得出來（他看了，只是決定不動）', judge.stood, 185);
+  check('🔴 未判定那一筆回 null —— 它的 ts 不是判定時刻，是他終於把 App 打開',
+    judge.noJudgment, null);
+  check('🔴 手動開的決策沒有 alertAt → null，不是 0 秒', judge.manual, null);
+  check('alertAt 晚於判定（時鐘歪了）→ null，不印負數', judge.negative, null);
+
+  // 畫面：Session 詳情那一格。算不出來就**整格不存在**，不印 0:00。
+  const ALERT_AT = Date.now() - 3000 - 185000;
+  const seed = (extra) => [Object.assign({
+    symbol: 'NVDA', templateId: 'MANCINI_FBD', outcomeTag: 'judged_entered',
+    judgmentSchema: 'structure_watch_v1', reachedReadiness: null,
+    durationSec: 540, marks: 0, events: [], originAlertId: 'demo-1',
+    ts: Date.now() - 3000, source: 'alert', tradeResult: 'pending',
+  }, extra)];
+
+  async function cellFor(store) {
+    await page.evaluate((v) => {
+      localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(v));
+    }, store);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(1800);
+    await page.evaluate((ts) => window.openSessionDetail(ts), store[0].ts);
+    await page.waitForTimeout(400);
+    return page.evaluate(() => ({
+      hidden: document.getElementById('sdFactReviewedCell').hasAttribute('hidden'),
+      text: document.getElementById('sdFactReviewed').textContent,
+      label: document.getElementById('sdFactReviewedCell').querySelector('.k').textContent,
+    }));
+  }
+
+  const withAlert = await cellFor(seed({ alertAt: ALERT_AT }));
+  check('🔴 有快訊到達時刻、而且判定過 → 那一格在', withAlert.hidden, false);
+  check('標籤就叫「審視」（規格 §1.2 的詞）', withAlert.label, '審視');
+  // 🔴 兩端都是觀測到的毫秒 → 印到秒。這跟「等待」刻意不同（那一端是回想的分鐘）。
+  check('🔴 印到秒（3:05），不是「約 3 分」', withAlert.text, '3:05');
+
+  const noJudgment = await cellFor(seed({ alertAt: ALERT_AT, outcomeTag: 'abandoned_no_judgment' }));
+  check('🔴 未判定那一筆整格不存在（不是印 0:00，也不是印他隔多久才開 App）',
+    noJudgment.hidden, true);
+
+  const manual = await cellFor(seed({ originAlertId: null, source: 'v6' }));
+  check('🔴 手動開的決策整格不存在', manual.hidden, true);
 }
 
 check('整條鏈走完沒有任何 page error', pageErrors, []);
