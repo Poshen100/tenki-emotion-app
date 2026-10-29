@@ -49,8 +49,40 @@ export const PROHIBITED_VOCABULARY_ZH = [
 ] as const;
 
 /**
+ * Imaging claims a phone camera cannot support, in either language.
+ *
+ * 🔴 Added 2026-09-15 with the Pulse Lens work. The capture screen borrows the
+ * *visual grammar* of a thermal instrument — a continuous false-colour field
+ * that reveals a difference the eye cannot see — and that grammar makes the
+ * claim on its own unless the words rule it out. The phone measures light
+ * through a fingertip. It does not measure temperature, and there is no
+ * infrared sensor involved.
+ *
+ * ⚠️ **Claim-shaped phrases only, never bare nouns** — because a denial
+ * contains the word. The page's own honest line is 「這不是相機畫面，也不是
+ * 溫度」, and a blunt ban on 「溫度」 would forbid the one sentence that keeps
+ * the screen truthful. Same reasoning as `PROHIBITED_VOCABULARY_ZH`'s
+ * multi-character rule, for a different failure mode.
+ */
+export const PROHIBITED_IMAGING_CLAIMS = [
+  'thermal imaging', 'thermal image', 'thermal camera', 'thermal scan',
+  'infrared imaging', 'infrared camera', 'infrared scan',
+  'blood flow imaging', 'blood-flow imaging', 'vascular imaging',
+  'measure temperature', 'measures temperature', 'skin temperature',
+  'detect blood flow', 'see blood flow', 'flir',
+] as const;
+
+/** The same claims in Traditional Chinese. Claim-shaped, never bare nouns. */
+export const PROHIBITED_IMAGING_CLAIMS_ZH = [
+  '熱成像', '熱像圖', '紅外線成像', '紅外線熱像', '紅外線掃描',
+  '血流影像', '血管影像', '微循環影像',
+  '偵測體溫', '測量體溫', '量測體溫', '偵測溫度', '測量溫度',
+  '偵測血流', '看見血流', '看見微循環',
+] as const;
+
+/**
  * Checks whether a string contains any prohibited vocabulary
- * (English list matched case-insensitively, Chinese list matched as-is).
+ * (English lists matched case-insensitively, Chinese lists matched as-is).
  *
  * @param text - The text to check.
  * @returns Array of found prohibited terms, empty if clean.
@@ -65,7 +97,13 @@ export function findProhibitedTerms(text: string): string[] {
     }
   }
 
-  for (const term of PROHIBITED_VOCABULARY_ZH) {
+  for (const term of PROHIBITED_IMAGING_CLAIMS) {
+    if (lowerText.includes(term)) {
+      found.push(term);
+    }
+  }
+
+  for (const term of [...PROHIBITED_VOCABULARY_ZH, ...PROHIBITED_IMAGING_CLAIMS_ZH]) {
     if (text.includes(term)) {
       found.push(term);
     }

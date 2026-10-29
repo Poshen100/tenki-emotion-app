@@ -18,6 +18,11 @@
             "permanent": false
         },
         {
+            "source": "/finger",
+            "destination": "/finger/",
+            "permanent": false
+        },
+        {
             "source": "/v3",
             "destination": "/v3/",
             "permanent": false
@@ -81,6 +86,14 @@
         },
         {
             "source": "/decision-alert/(.*)",
+            "destination": "/apps/preview/$1"
+        },
+        {
+            "source": "/finger/",
+            "destination": "/apps/preview/finger-baseline.html"
+        },
+        {
+            "source": "/finger/(.*)",
             "destination": "/apps/preview/$1"
         },
         {

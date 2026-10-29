@@ -34,7 +34,10 @@ function scanAndScore(
   recentScores: number[] = [],
 ) {
   const scan = synthesizePpg({ ...overrides, startedAtMs: at });
-  const outcome = analyzePpgScan(scan.frames, 'full_scan');
+  // See analyze.test.ts — camera HRV is off by default. These cases are about
+  // the missing-data path in the ENGINE, so they enable it explicitly to get a
+  // complete reading to contrast against.
+  const outcome = analyzePpgScan(scan.frames, 'full_scan', { cameraPrvEstimates: true, cameraBreathLock: true });
   if (outcome.status !== 'analysed') throw new Error(`rejected: ${outcome.reason}`);
 
   const input = toEngineInput(outcome.analysis, at);
@@ -73,8 +76,15 @@ describe('a user with nothing but a phone', () => {
     // required at any point.
     expect(baseline.totalScanCount).toBe(6);
     expect(baseline.hr.morning.sampleCount).toBeGreaterThan(0);
-    expect(baseline.hrv.morning.sampleCount).toBeGreaterThan(0);
     expect(baseline.maturity).not.toBe('new');
+
+    // 🔴 But the HRV track stays empty, and that is the point. A camera
+    // produces pulse-rate variability, and PRV is not HRV — letting it
+    // accumulate into this track would make a phone-only user's baseline
+    // indistinguishable from a chest-strap user's a month later, when nobody
+    // remembers where the numbers came from (founder rule, 2026-09-11).
+    // A phone-only user has a pulse baseline and no HRV baseline.
+    expect(baseline.hrv.morning.sampleCount).toBe(0);
   });
 
   it('still produces a score when the camera could only establish a heart rate', () => {
@@ -88,7 +98,7 @@ describe('a user with nothing but a phone', () => {
     );
 
     expect(analysis.heartRateBpm).not.toBeNull();
-    expect(analysis.hrvRmssdMs).toBeNull();
+    expect(analysis.prvRmssdMs).toBeNull();
     expect(input.availability.hrv).toBe(false);
 
     // A score exists — this user is not told to buy a watch.
@@ -150,7 +160,7 @@ describe('a user with nothing but a phone', () => {
 
   it('produces no score at all when the scan established nothing', () => {
     const scan = synthesizePpg(PPG_FIXTURES.lowPerfusion);
-    const outcome = analyzePpgScan(scan.frames, 'full_scan');
+    const outcome = analyzePpgScan(scan.frames, 'full_scan', { cameraPrvEstimates: true, cameraBreathLock: true });
     if (outcome.status !== 'analysed') throw new Error('expected an analysis');
 
     const input = toEngineInput(outcome.analysis, START);

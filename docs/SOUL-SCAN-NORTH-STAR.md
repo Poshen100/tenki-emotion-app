@@ -8,6 +8,37 @@
 
 - **日常使用者的主掃描入口 = Soul Scan（星塵靈魂臉部掃描）。**
 - **手指 PPG 退為補強層 / 校準層**，不是日常第一入口。
+- 🔴 **例外（founder 2026-09-11 拍板）：偵測到使用者沒有任何穿戴裝置時，
+  手指校準進入 onboarding 主線。** 日常入口**仍然是臉**，這條只改 onboarding。
+
+  ⚠️ **這一條的理由在同一天被改小了，而且要照實記著。** 原本寫的是：
+  「HRV 佔 Edge Score 25 分，stress proxy 另外 15 分也吃 HRV —— 40% 的權重，
+  而手指 PPG 是沒有 wearable 的人取得 HRV 的唯一來源」。**那個理由現在不成立**
+  —— 相機 HRV 已退到 `camera_hrv_estimates`（預設關）後面，相機根本不是 HRV
+  來源（`docs/PHONE-PPG.md` §10）。phone-only 使用者做不做手指校準，那 40%
+  都會被 `excludedDrivers` 排除、權重重新正規化。
+
+  手指校準現在真正買到的是 **`hrStability` 那 15 分**的參考基準：指尖脈搏
+  比臉掃的心率乾淨得多（repo 自己的來源優先序也把 `camera` 45 排在
+  `finger_scan` 60 之下）。宣稱變小了，但它是真的。
+
+  🔴 **而且一次擷取不叫基線** —— 叫 Pulse Anchor（脈搏錨點）。基線要
+  1 → 3 次跨 2 天 → 7 次跨 3 天 → 20 次跨 5 天才成形
+  （`packages/engine/src/biometric/pulse-anchor.ts`）。`BASELINE_STEPS` 的
+  `finger_pulse_baseline` 是那一**步**的 id，不是它產出的東西。
+
+  ⚠️ 這一條**不推翻**上面兩條，也**不改**「不要把臉部流程塞進
+  `(tabs)/scan.tsx`」那條鐵律。手指走自己的流程，臉部走自己的。
+
+  **接線位置（2026-09-11 落地）**：手指那一步在**臉部基線之後**，
+  出口在 `features/face-baseline/screens/routes.ts` 的 `establishedExitRoute()`。
+  決策是純函式 `planOnboardingBaselines()`（`domain/policies/onboarding-sensor-plan.ts`），
+  有一條測試對所有連接組合斷言 `steps[0] === 'face_baseline'` ——
+  **手指永遠不取代臉部**。`establishedExitRoute` 不帶 plan 時行為與從前相同。
+
+  ⚠️ 「已連接」＝ 連線成立**且拿到 `scan` scope**。連了但沒給掃描權限的
+  來源在掃描當下什麼都不給，把它算進去會讓 phone-only 使用者被錯誤地
+  導離手指基線（`features/devices/connectedPlatforms.ts`，有測試守著）。
 - 第一次使用的任務不是「做一次掃描」，而是「**建立 Personal Face Baseline**」。
 - 體驗基準 = iPhone 設定 Face ID：安靜、精準、可信、系統級。
 - 要的是 **Apple 式精密感**，不是醫療儀器感：少字、強回饋、不堆 AI 術語，

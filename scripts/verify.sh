@@ -126,6 +126,7 @@ if node -e "import('playwright')" >/dev/null 2>&1 \
   run_step "preview harness (lens-offset)" node scripts/preview-scan-lens-offset.mjs
   run_step "preview harness (token-scale)" node scripts/preview-token-scale.mjs
   run_step "preview harness (drift)" node scripts/preview-drift.mjs
+  run_step "preview harness (finger)" node scripts/preview-finger.mjs
   run_step "preview harness (lab)" node scripts/preview-lab.mjs
 else
   RESULTS+=("– preview harness（未裝 Playwright，略過；CI 會跑）")

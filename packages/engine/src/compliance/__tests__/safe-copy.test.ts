@@ -208,3 +208,29 @@ describe('vocabulary lists', () => {
     expect(PROHIBITED_VOCABULARY.length).toBeGreaterThanOrEqual(10);
   });
 });
+
+describe('imaging claims a phone camera cannot support', () => {
+  it('flags thermal, infrared and blood-flow claims in both languages', () => {
+    // 🔴 The capture screen borrows a thermal instrument's visual grammar. That
+    // grammar makes the claim on its own unless the words rule it out.
+    for (const claim of [
+      'Thermal imaging of your fingertip',
+      'This uses an INFRARED camera',
+      'We measure temperature through the lens',
+      '紅外線成像確認覆蓋',
+      '偵測血流狀態',
+      '測量體溫',
+    ]) {
+      expect(findProhibitedTerms(claim).length).toBeGreaterThan(0);
+    }
+  });
+
+  it('🔴 does NOT flag a denial — the honest sentence contains the word', () => {
+    // ⚠️ This is why the lists are claim-shaped phrases and never bare nouns.
+    // A blunt ban on 「溫度」 or "thermal" would forbid the one line on the
+    // screen whose whole job is to stop the picture from making the claim.
+    expect(findProhibitedTerms('這不是相機畫面，也不是溫度 —— 手機量不到溫度。')).toEqual([]);
+    expect(findProhibitedTerms('Not infrared. Not a temperature map.')).toEqual([]);
+    expect(findProhibitedTerms('這裡畫的是每一小塊被指腹蓋住多少。')).toEqual([]);
+  });
+});

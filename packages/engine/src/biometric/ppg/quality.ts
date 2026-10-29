@@ -14,7 +14,7 @@
  */
 
 import { mean, standardDeviation } from './filtering';
-import type { PpgFrame, PpgQuality, PpgQualityReason } from './types';
+import type { PpgFrame, PpgQuality, PpgQualityComponents, PpgQualityReason } from './types';
 
 /**
  * Perfusion below which there is no usable pulse in the light.
@@ -44,6 +44,11 @@ export const MAX_CLIPPING = 0.05;
 /** Frame-drop fraction above which the timebase itself is unreliable. */
 export const MAX_FRAME_DROPS = 0.25;
 
+/** Periodicity that scores 0 on the rhythm component. */
+export const PERIODICITY_AT_ZERO = 0.2;
+/** Periodicity at which the rhythm component saturates. */
+export const PERIODICITY_AT_ONE = 0.7;
+
 /** How much each component can contribute to the 0-100 score. */
 export const QUALITY_WEIGHTS = {
   perfusion: 25,
@@ -67,12 +72,137 @@ export interface QualityInput {
   durationSec: number;
   /** Shortest capture this scan mode accepts. */
   minDurationSec: number;
+  /**
+   * Whether the capture layer had a torch. `undefined` means it was not
+   * reported — which is different from "there was none".
+   *
+   * ⚠️ Recorded, never scored. A missing torch is a fact about the device, not
+   * a fault in the capture, and its real consequence (a weak signal) is
+   * already measured by perfusion.
+   */
+  torchAvailable?: boolean;
 }
 
 /** Maps a value onto 0..1 by where it falls between two bounds. */
 function ramp(value: number, atZero: number, atOne: number): number {
   if (atOne === atZero) return value >= atOne ? 1 : 0;
   return Math.max(0, Math.min(1, (value - atZero) / (atOne - atZero)));
+}
+
+/**
+ * What the frames alone say about contact, light and stillness.
+ *
+ * Separated from the score because these three need NO minimum duration and no
+ * rhythm: a tenth of a second of frames already says whether the finger is on
+ * the lens. The live capture surface shows them from the first moment, long
+ * before there is enough signal to look for a pulse — and it must read them
+ * from here rather than compute its own, or the guidance during a capture would
+ * be able to disagree with the verdict after it.
+ */
+export interface FrameComponents {
+  /** Mean coverage across the window, 0..1. */
+  coverage: number;
+  /** Frame-to-frame coverage wobble, 0..1. */
+  coverageWobble: number;
+  /** Mean motion, 0..1. */
+  motion: number;
+  /** Mean clipped-pixel fraction, 0..1. */
+  clipping: number;
+  /** Stillness, 0..1 — 1 = still. */
+  stability: number;
+  /** Normalised contact component: mean coverage, penalised by wobble. */
+  contactComponent: number;
+  /** Normalised exposure component: 1 = nothing at the sensor ceiling. */
+  lightComponent: number;
+  /** Frames that individually met the contact, exposure and motion limits. */
+  usableFrameCount: number;
+}
+
+/**
+ * Reduces frames to what they say about the capture conditions.
+ *
+ * @param frames - The window's frames, already reduced to scalars.
+ * @returns Contact, light and motion measures plus their normalised components.
+ */
+export function assessFrameComponents(frames: readonly PpgFrame[]): FrameComponents {
+  const coverage = mean(frames.map((f) => f.coverage));
+  const coverageWobble = standardDeviation(frames.map((f) => f.coverage));
+  const motion = mean(frames.map((f) => f.motion));
+  const clipping = mean(frames.map((f) => f.clippedFraction));
+  const stability = Math.max(0, Math.min(1, 1 - motion / MAX_MOTION));
+
+  return {
+    coverage,
+    coverageWobble,
+    motion,
+    clipping,
+    stability,
+    contactComponent: ramp(coverage, MIN_COVERAGE, 0.95) * (1 - Math.min(1, coverageWobble * 4)),
+    lightComponent: 1 - Math.min(1, clipping / MAX_CLIPPING),
+    // Per-frame limits, not window means — a capture can average acceptable
+    // coverage while half its frames had the finger off the lens.
+    usableFrameCount: frames.filter(
+      (f) =>
+        f.coverage >= MIN_COVERAGE && f.clippedFraction <= MAX_CLIPPING && f.motion <= MAX_MOTION,
+    ).length,
+  };
+}
+
+/** One component's contribution to the quality score. */
+export interface QualityContribution {
+  /** Which component. */
+  key: keyof typeof QUALITY_WEIGHTS;
+  /** Its normalised value, 0..1. */
+  component: number;
+  /** The most it could have contributed. */
+  weight: number;
+  /** What it actually contributed. */
+  points: number;
+}
+
+/**
+ * Sums the weighted components into the 0-100 score.
+ *
+ * ⚠️ The single place the arithmetic lives, so `explainQualityScore` cannot
+ * drift from it into a second, plausible-looking story.
+ *
+ * @param components - The normalised components.
+ * @returns The unrounded score.
+ */
+function scoreFromComponents(components: PpgQualityComponents): number {
+  let score = 0;
+  for (const key of Object.keys(QUALITY_WEIGHTS) as (keyof typeof QUALITY_WEIGHTS)[]) {
+    score += components[key] * QUALITY_WEIGHTS[key];
+  }
+  return score;
+}
+
+/**
+ * Where the score's points went, component by component.
+ *
+ * 🔴 Exists because the screen could not answer "why is this number so low".
+ * It shows four bars — contact, light, motion, rhythm — and the score has
+ * **six** components. Perfusion is worth 25, the joint-largest weight, and has
+ * no bar at all; frame drops are worth 7 and appear only as a sentence. So a
+ * third of the score is invisible, and the number reads as arbitrary.
+ *
+ * ⚠️ Measured on the device, 2026-09-24: a capture showing 100% / 100% / 92% /
+ * 0% scored **54**. Those four bars account for 41.4 points and frame drops for
+ * 7 — the missing 5.6 was perfusion at 0.22, which the user could see only as
+ * the words 「脈搏訊號偏弱」.
+ *
+ * @param quality - A completed quality assessment.
+ * @returns One row per component, heaviest weight first.
+ */
+export function explainQualityScore(quality: PpgQuality): QualityContribution[] {
+  return (Object.keys(QUALITY_WEIGHTS) as (keyof typeof QUALITY_WEIGHTS)[])
+    .map((key) => ({
+      key,
+      component: quality.components[key],
+      weight: QUALITY_WEIGHTS[key],
+      points: Math.round(quality.components[key] * QUALITY_WEIGHTS[key] * 10) / 10,
+    }))
+    .sort((a, b) => b.weight - a.weight || a.key.localeCompare(b.key));
 }
 
 /**
@@ -84,25 +214,19 @@ function ramp(value: number, atZero: number, atOne: number): number {
 export function assessPpgQuality(input: QualityInput): PpgQuality {
   const { frames } = input;
 
-  const coverage = mean(frames.map((f) => f.coverage));
-  const coverageWobble = standardDeviation(frames.map((f) => f.coverage));
-  const motion = mean(frames.map((f) => f.motion));
-  const clipping = mean(frames.map((f) => f.clippedFraction));
-  const stability = Math.max(0, Math.min(1, 1 - motion / MAX_MOTION));
+  const frameParts = assessFrameComponents(frames);
+  const { coverage, coverageWobble, motion, clipping, stability } = frameParts;
 
-  const components = {
+  const components: PpgQualityComponents = {
     perfusion: ramp(input.perfusion, MIN_PERFUSION, GOOD_PERFUSION),
-    periodicity: ramp(input.periodicity, 0.2, 0.7),
+    periodicity: ramp(input.periodicity, PERIODICITY_AT_ZERO, PERIODICITY_AT_ONE),
     motion: stability,
-    coverage: ramp(coverage, MIN_COVERAGE, 0.95) * (1 - Math.min(1, coverageWobble * 4)),
-    clipping: 1 - Math.min(1, clipping / MAX_CLIPPING),
+    coverage: frameParts.contactComponent,
+    clipping: frameParts.lightComponent,
     frameDrops: 1 - Math.min(1, input.frameDropFraction / MAX_FRAME_DROPS),
   };
 
-  let score = 0;
-  for (const key of Object.keys(QUALITY_WEIGHTS) as (keyof typeof QUALITY_WEIGHTS)[]) {
-    score += components[key] * QUALITY_WEIGHTS[key];
-  }
+  const score = scoreFromComponents(components);
 
   // A capture shorter than its mode accepts is not a low-quality scan, it is an
   // incomplete one. Nothing downstream should read a rate out of it, so the
@@ -131,6 +255,9 @@ export function assessPpgQuality(input: QualityInput): PpgQuality {
 
   if (finalScore >= 75 && !reasons.includes('motion_detected')) reasons.push('stable_signal');
 
+  // Advisory, appended after the score is final so it cannot influence it.
+  if (input.torchAvailable === false) reasons.push('torch_unavailable');
+
   return {
     score: Math.max(0, Math.min(100, finalScore)),
     confidence: deriveConfidence(finalScore, input.periodicity, input.durationSec, input.minDurationSec),
@@ -140,7 +267,22 @@ export function assessPpgQuality(input: QualityInput): PpgQuality {
     coverage: Math.round(coverage * 100) / 100,
     stability: Math.round(stability * 100) / 100,
     frameDropFraction: Math.round(input.frameDropFraction * 100) / 100,
+    components: {
+      perfusion: round2(components.perfusion),
+      periodicity: round2(components.periodicity),
+      motion: round2(components.motion),
+      coverage: round2(components.coverage),
+      clipping: round2(components.clipping),
+      frameDrops: round2(components.frameDrops),
+    },
+    frameCount: frames.length,
+    usableFrameCount: frameParts.usableFrameCount,
   };
+}
+
+/** Two decimals — an instrument bar has no use for more. */
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
 }
 
 /**
