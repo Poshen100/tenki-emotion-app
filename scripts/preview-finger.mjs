@@ -594,11 +594,14 @@ async function replayLive(options) {
         locked: stage.dataset.locked,
         lockText: document.getElementById('lock').textContent.trim(),
         quality: document.getElementById('liveQuality').textContent.trim(),
+        qualityLabel: document.getElementById('liveQualityLabel').textContent.trim(),
         reasons: [...document.querySelectorAll('#liveReasons .reason')].map((n) => n.textContent),
         dims: [...document.querySelectorAll('#liveDims .dim')].map((row) => ({
           key: row.dataset.key,
+          label: row.querySelector('.dimLabel').textContent.trim(),
           value: row.querySelector('.dimValue').textContent.trim(),
           pending: row.dataset.pending,
+          low: row.dataset.low,
         })),
         elapsed: document.getElementById('elapsed').textContent.trim(),
         arcPercent: Number(
@@ -1523,6 +1526,126 @@ if (shotCover) {
   await page.screenshot({ path: shotCover, fullPage: true });
   console.log(`  📸 ${shotCover}`);
 }
+// ── 接進 app：入口、回程、而且只有立住才算校準 ──────────────────────────────
+// 🔴 在這之前 /finger/ 是一座孤島：產品裡沒有路走得到它，做完也沒有路回去。
+// 這一段守的是接線本身，而最危險的是第三條 —— 舊的手指流程是**走完就寫**
+// `tenki.precision.*`，於是示範模式的亂數跟幾百毫秒的垃圾 RMSSD 一樣會把
+// Today 翻成「信心高 · 已校準」。那是一個被假讀數點亮的信心，而且螢幕上
+// 什麼都不像出錯。
+console.log('\n── 接進 app ──');
+
+const clearPrecision = () =>
+  page.evaluate(() => {
+    window.__tenkiFingerHarness.resetAnchors();
+    localStorage.removeItem('tenki.precision.boosted');
+    localStorage.removeItem('tenki.precision.lastTs');
+  });
+const precisionFlags = () =>
+  page.evaluate(() => ({
+    boosted: localStorage.getItem('tenki.precision.boosted'),
+    lastTs: localStorage.getItem('tenki.precision.lastTs'),
+    todayShown: document.getElementById('todayBtn').offsetParent !== null,
+    todayText: document.getElementById('todayBtn').textContent.trim(),
+    againShown: document.getElementById('againBtn').offsetParent !== null,
+    // 主要動作由 data-secured 決定：立住了回去看讀數，沒立住再試一次。
+    todayGhost: getComputedStyle(document.getElementById('todayBtn')).backgroundColor,
+    againGhost: getComputedStyle(document.getElementById('againBtn')).backgroundColor,
+  }));
+const TRANSPARENT = 'rgba(0, 0, 0, 0)';
+
+await clearPrecision();
+const okScan = await runScan({});
+const okFlags = await precisionFlags();
+check('前置：這一次真的立住了（不然下面兩條驗不到東西）', okScan.secured === 'yes', okScan.verdict);
+check(
+  '立住 → Today 記得今天校準過',
+  okFlags.boosted === '1' && Number(okFlags.lastTs) > 0,
+  JSON.stringify(okFlags),
+);
+check(
+  '結果頁有一條回 Today 的路（裝起來的 PWA 常常連上一頁都按不到）',
+  okFlags.todayShown && okFlags.todayText.includes('Today'),
+  JSON.stringify(okFlags),
+);
+check(
+  '立住了，主要動作是回去看讀數（再做一次退成 ghost）',
+  okFlags.todayGhost !== TRANSPARENT && okFlags.againGhost === TRANSPARENT,
+  JSON.stringify(okFlags),
+);
+
+await clearPrecision();
+const noScan = await runScan(PPG_FIXTURES.lowPerfusion);
+const noFlags = await precisionFlags();
+check('前置：這一次沒立住', noScan.secured === 'no', noScan.verdict);
+check(
+  '🔴 沒立住 → 一個字都不准寫（假讀數不得點亮 Today 的信心）',
+  noFlags.boosted === null && noFlags.lastTs === null,
+  JSON.stringify(noFlags),
+);
+check(
+  '沒立住，主要動作是再試一次',
+  noFlags.againGhost !== TRANSPARENT && noFlags.todayGhost === TRANSPARENT,
+  JSON.stringify(noFlags),
+);
+check('沒立住也走得掉 —— 回程不綁在成功上', noFlags.todayShown, JSON.stringify(noFlags));
+
+// ── 環心說的是「夠不夠」，而且跟四條 bar 講同一件事 ────────────────────────
+// 🔴 founder 2026-10-28 實走：環心最大的那個數字沒有刻度也沒有門檻，
+// 讀不出過或不過。分數留著，底下那一行改成講結論。
+console.log('\n── 環心的結論 ──');
+// ⚠️ 乾淨訊號四條 bar 全部 100% —— 只用它的話，所有「還不夠」的斷言都是
+// **空集合上成立**，而空集合上的綠燈不是綠燈。所以再跑一次會晃的訊號，
+// 並且先驗「真的有步驟說過還不夠」。
+const liveVerdict = [...(await replayLive({})), ...(await replayLive(PPG_FIXTURES.motion))];
+const scored = liveVerdict.filter((s) => s.quality !== '累積中');
+const shortOf = scored.filter((s) => s.qualityLabel.startsWith('還不夠'));
+check('前置：有評得出分數的步驟', scored.length > 0, `steps=${liveVerdict.length}`);
+check(
+  '🔴 前置：真的有步驟說過「還不夠」（不然下面三條是在空集合上綠的）',
+  shortOf.length > 0,
+  JSON.stringify(scored.map((s) => s.qualityLabel).slice(0, 8)),
+);
+check(
+  '🔴 評不出分數時不假裝有結論（還是「訊號品質」）',
+  liveVerdict
+    .filter((s) => s.quality === '累積中')
+    .every((s) => s.qualityLabel === '訊號品質'),
+  JSON.stringify(liveVerdict.find((s) => s.quality === '累積中' && s.qualityLabel !== '訊號品質')),
+);
+check(
+  '🔴 有分數之後那一行要講結論，不是重複一次標題',
+  scored.every((s) => s.qualityLabel !== '訊號品質'),
+  JSON.stringify(scored.find((s) => s.qualityLabel === '訊號品質')),
+);
+check(
+  '🔴 說「還不夠」的時候，旁邊一定真的有一條 bar 是低的（畫面不得跟自己的證據打架）',
+  shortOf.every((s) => s.dims.some((d) => d.low === 'yes')),
+  JSON.stringify(shortOf.find((s) => !s.dims.some((d) => d.low === 'yes'))),
+);
+check(
+  '🔴 而且指名的就是那一條（一次只講一個修正）',
+  shortOf.every((s) => {
+    const named = s.qualityLabel.split('·')[1].trim();
+    const firstLow = s.dims.find((d) => d.pending === 'no' && d.low === 'yes');
+    return firstLow !== undefined && firstLow.label === named;
+  }),
+  JSON.stringify(shortOf.slice(0, 2)),
+);
+check(
+  '四條 bar 都過線時不說「還不夠」',
+  scored
+    .filter((s) => s.dims.every((d) => d.pending === 'no' && d.low === 'no'))
+    .every((s) => !s.qualityLabel.startsWith('還不夠')),
+  JSON.stringify(
+    scored.find((s) => s.dims.every((d) => d.pending === 'no' && d.low === 'no') && s.qualityLabel.startsWith('還不夠')),
+  ),
+);
+check(
+  '鎖定了就說鎖定了',
+  liveVerdict.filter((s) => s.locked === 'yes').every((s) => s.qualityLabel === '脈搏已鎖定'),
+  JSON.stringify(liveVerdict.find((s) => s.locked === 'yes' && s.qualityLabel !== '脈搏已鎖定')),
+);
+
 const shotWeak = process.env.FINGER_SHOT_WEAK;
 if (shotWeak) {
   await runScan(PPG_FIXTURES.lowPerfusion);
