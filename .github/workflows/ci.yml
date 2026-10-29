@@ -149,6 +149,11 @@ jobs:
       - name: App launch harness (PWA 啟動路由)
         run: node scripts/preview-app-launch.mjs
 
+      # service worker 的兩個 handler。它掌管的兩件事都會**靜默**出錯：
+      # 共用 tag → 第二則通知蓋掉第一則；target 沒被用到 → 點通知去錯的畫面。
+      - name: SW push harness (通知 tag 與點擊落點)
+        run: node scripts/preview-sw-push.mjs
+
       - name: Strip colour / outcome harness
         run: node scripts/preview-strip-color.mjs
 

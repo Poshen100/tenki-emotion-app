@@ -9,6 +9,7 @@ import {
   evaluateAlertDelivery,
   groupSimultaneousAlerts,
   isWithinQuietWindowET,
+  pushNotificationTag,
   recordAlertSurfaced,
   resolveAlertDayKey,
 } from '../policies/alert-policy';
@@ -299,5 +300,29 @@ describe('isWithinQuietWindowET', () => {
 
   it('is false at the exclusive end (14:00 ET)', () => {
     expect(isWithinQuietWindowET(Date.UTC(2026, 6, 15, 18, 0, 0))).toBe(false);
+  });
+});
+
+describe('pushNotificationTag', () => {
+  // 🔴 這一條守的是「ES1! 的通知不會被 NQ1! 的靜默蓋掉」。
+  //    先前每一則都用同一個常數 tag，後到的直接取代先到的。
+  it('gives different symbols different tags (one never replaces the other)', () => {
+    expect(pushNotificationTag('ES1!')).not.toBe(pushNotificationTag('NQ1!'));
+  });
+
+  // 成對的另一半：只驗「不一樣」的話，回一個隨機值也會綠 ——
+  // 而那會讓同一標的的重複快訊在鎖屏上疊成一排。
+  it('gives the same symbol the same tag (repeat alerts collapse)', () => {
+    expect(pushNotificationTag('ES1!')).toBe(pushNotificationTag('ES1!'));
+  });
+
+  // 判準要跟 contract 的正規化一致 —— 不然同一個標的會因為大小寫／空白
+  // 變成兩則通知，而 cooldown 那邊卻當它是同一個。
+  it('normalizes the same way the contract does (trim + upper)', () => {
+    expect(pushNotificationTag('  es1!  ')).toBe(pushNotificationTag('ES1!'));
+  });
+
+  it('is namespaced so it cannot collide with another app on the device', () => {
+    expect(pushNotificationTag('ES1!').startsWith('tenki-alert:')).toBe(true);
   });
 });

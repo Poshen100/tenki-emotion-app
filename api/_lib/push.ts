@@ -10,6 +10,7 @@
 
 import webpush from 'web-push';
 import type { AlertContract } from '../../domain/src/contracts/alert-contract';
+import { pushNotificationTag } from '../../domain/src/policies/alert-policy';
 import type { StoredPushSubscription } from './store';
 
 /** VAPID credentials, resolved from the environment. */
@@ -62,7 +63,12 @@ const BODY_MAX = 120;
  * @param alert - Canonical alert record.
  * @returns Notification content.
  */
-export function buildPushPayload(alert: AlertContract): { title: string; body: string; url: string } {
+export function buildPushPayload(alert: AlertContract): {
+  title: string;
+  body: string;
+  url: string;
+  tag: string;
+} {
   const parts = [alert.symbol];
   if (alert.condition !== null) {
     parts.push(alert.condition);
@@ -74,7 +80,14 @@ export function buildPushPayload(alert: AlertContract): { title: string; body: s
   if (body.length > BODY_MAX) {
     body = `${body.slice(0, BODY_MAX - 1)}…`;
   }
-  return { title: 'TENKI 決策快訊', body, url: '/decision-alert/' };
+  // 🔴 `tag` 決定裝置上哪兩則會互相取代 —— 判準走 domain 的 policy，
+  //    不在這裡自己定義「什麼算同一則」（見 pushNotificationTag 的註解）。
+  return {
+    title: 'TENKI 決策快訊',
+    body,
+    url: '/decision-alert/',
+    tag: pushNotificationTag(alert.symbol),
+  };
 }
 
 /**

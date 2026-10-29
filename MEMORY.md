@@ -28,6 +28,39 @@
      勿刪、勿移動、勿複製第二份：`scripts/verify.sh` 驗它恰好出現一次、
      而且排在所有條目之前。它的存在理由見協議第 1 條。 -->
 
+# 2026-10-29 Session Update（推播的兩個靜默洞：通知互相蓋掉、點擊落點沒人用）
+
+## What was done
+- 🔴 `sw.js` 的 `tag` 從寫死的 `'tenki-alert'` 改成走 payload 的 tag；
+  server（`buildPushPayload`）帶上 `pushNotificationTag(symbol)`，
+  判準放在 `domain/src/policies/alert-policy.ts`（跟冷卻／節流同一把尺）。
+  沒帶 tag 時退回**唯一值**，不是常數。
+- 🔴 `notificationclick` 真的用 `target` 了：已在目的地→focus；
+  在別的網址→focus **並導航**；沒有視窗→開新的。
+- 新 harness `scripts/preview-sw-push.mjs`（12 條）＋ domain 測試 +4。
+- ✅ **查證並關掉一條 MEMORY 待辦**：捲動分頁（Session/Timeline/Lab）的最後一列
+  在捲到底時**有 20px 淨空，沒有被決策條蓋住**（6 組全驗）。
+  founder 截圖看到的被切是捲動中途的正常狀態 —— 虛驚，不要去修。
+
+## 教訓 / 注意
+- 🔴 **共用一個 tag ＝ 宣稱「這兩則是同一件事」。** 不知道的時候退回常數
+  就是在宣稱；要退就退唯一值。→ PLAYBOOK「一個欄位被用來宣稱這兩個是同一個」。
+- 🔴 **算出來卻沒人讀的變數**（`target`）今天沒症狀，但它長得像有在用。
+  → PLAYBOOK 一條。
+- 🔴 service worker 可以把真檔案載進頁面 + stub `self.*` 來驗 handler。
+  → PLAYBOOK 一條。
+- ⚠️ 我反向驗證腳本的計數器只認 `✗`，而 Jest 用 `●` —— 第 4 組印「0 條紅」
+  但其實有兩個具名失敗。**印出來的數字跟量到的不是同一件事**，又一次。
+
+## 下次接手點
+- 規格 §7 還沒做：`alertAt` / `closedAt` 時間戳、收束頁「我下單了」、
+  L2 收盤後推播。
+- founder 未答：收束頁要不要主動問結果（我的建議仍是不要彈 modal）。
+- 掃描框 `LENS_TARGET_VH = 35`（9° 預算，離已知會壞的 10° 只剩 1°）——
+  founder 尚未回報實機。症狀是「向上對齊」開始亂跳。
+
+---
+
 # 2026-10-28 Session Update（Scan 分頁置中是壞的；掃描框預算放寬到 9°）
 
 ## What was done

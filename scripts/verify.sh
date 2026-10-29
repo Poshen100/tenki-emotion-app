@@ -117,6 +117,7 @@ if node -e "import('playwright')" >/dev/null 2>&1 \
    || [ -d /opt/node22/lib/node_modules/playwright ]; then
   run_step "preview harness (fdcb)" node scripts/preview-fdcb.mjs
   run_step "preview harness (app-launch)" node scripts/preview-app-launch.mjs
+  run_step "preview harness (sw-push)" node scripts/preview-sw-push.mjs
   run_step "preview harness (strip-color)" node scripts/preview-strip-color.mjs
   run_step "preview harness (decision-chain)" node scripts/preview-decision-chain.mjs
   run_step "preview harness (today-layout)" node scripts/preview-today-layout.mjs
