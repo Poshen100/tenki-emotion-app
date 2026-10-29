@@ -650,6 +650,33 @@ console.log('\n── 結果三選一（進場路徑）──');
   // 而捏造的資料比沒有更糟（CLAUDE.md：量不到就回 null，不要填合理的預設值）。
   check('🔴 預設一顆都不選（「還沒有結果」是正常狀態）', shown.selected, 0);
 
+  // ── ✅ founder 2026-10-29「不要 modal」那條裁決的形狀守門 ──
+  // 🔴 問**形狀**不問 id（PLAYBOOK：按 id 問的守門，換個 id 就繞過去）。
+  //    這一組不驗任何新行為 —— 它驗的是「這張頁沒有變成一個必須先答的層」，
+  //    而那是上面「預設不選 → pending」那條之所以有意義的前提。
+  const noModal = await page.evaluate(() => {
+    const sheet = document.getElementById('resultSheet');
+    const close = document.getElementById('btnResultSave');
+    const cs = getComputedStyle(close);
+    return {
+      // 自己是不是 modal，以及裡面有沒有長出一個 modal
+      dialogish: (sheet.matches('[aria-modal], [role="dialog"], [role="alertdialog"]') ? 1 : 0)
+        + sheet.querySelectorAll('[aria-modal], [role="dialog"], [role="alertdialog"]').length,
+      // 「可以不答就走」—— 關閉鍵在一顆都沒選的狀態下必須真的按得到。
+      // 三個都要問：disabled 屬性、aria-disabled、以及被 CSS 擋掉點擊。
+      closeBlocked: close.disabled
+        || close.getAttribute('aria-disabled') === 'true'
+        || cs.pointerEvents === 'none',
+      // 沒有這句註記，三顆晶片讀起來就是必填 —— 量的是**使用者讀到的字**，
+      // 不是某個節點存在（同 PLAYBOOK 對文案守門的規則）。
+      saysOptional: /還沒有結果也可以/.test(
+        document.getElementById('resultTradeWrap').textContent),
+    };
+  });
+  check('🔴 收束頁不是、也不含任何 modal（aria-modal / role=dialog）', noModal.dialogish, 0);
+  check('🔴 一顆都沒選時「關閉」真的按得到（可以不答就走）', noModal.closeBlocked, false);
+  check('🔴 文案自己說得出「還沒有結果也可以」', noModal.saysOptional, true);
+
   // 🔴 一顆都不選就收尾 → 值必須是 `pending`，**不是 null**。
   // null 會讓這筆交易從當日計數裡整個消失：額度永遠用不完、面板照樣彈，
   // 而畫面上完全看不出異狀。這是整個階段 A 最重要的一條。
