@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-10-27",
+  "lastUpdated": "2026-10-28",
   "canonicalHost": "https://tenki-emotion-app.vercel.app",
   "deployments": [
     {
@@ -80,9 +80,9 @@
       "route": "/finger/",
       "url": "https://tenki-emotion-app.vercel.app/finger/",
       "source": "apps/preview/finger-baseline.html + finger-baseline.js + engine/",
-      "purpose": "手指 PPG 90 秒基線校準實走頁。真的取後鏡頭、跑 packages/engine 編出來的 PPG pipeline，顯示品質 reasons、拒答理由與雜訊底線。",
+      "purpose": "手指 PPG 90 秒基線校準實走頁。真的取後鏡頭、跑 packages/engine 編出來的 PPG pipeline，顯示品質 reasons、拒答理由與雜訊底線。入口是 /v3/ Today 的信心膠囊，結果頁有「回到 Today」。",
       "status": "active-dev",
-      "note": "🔴 頁面跑的是 apps/preview/engine/（由 scripts/build-preview-ppg.mjs 從 packages/engine/src 編出），不是手抄鏡射。改 TS 沒重建 → scripts/preview-finger.mjs 會紅。⚠️ iOS Safari 沒有 torch API，無補光時訊號較弱 —— 品質門檻不因此放寬。",
+      "note": "🔴 頁面跑的是 apps/preview/engine/（由 scripts/build-preview-ppg.mjs 從 packages/engine/src 編出），不是手抄鏡射。改 TS 沒重建 → scripts/preview-finger.mjs 會紅。⚠️ iOS Safari 沒有 torch API，無補光時訊號較弱 —— 品質門檻不因此放寬。🔗 2026-10-28 接進 app：/v3/ 的信心膠囊改指這裡（舊的 /preview/index.html?from=precision 跑的是 camera-scan.js，PHONE-PPG §1 點名的錯答案），結果頁補回程；tenki.precision.* 只有 anchor 真的立住才寫。",
       "editable": true
     },
     {
