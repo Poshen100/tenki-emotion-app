@@ -28,6 +28,50 @@
      勿刪、勿移動、勿複製第二份：`scripts/verify.sh` 驗它恰好出現一次、
      而且排在所有條目之前。它的存在理由見協議第 1 條。 -->
 
+# 2026-10-28 Session Update（Pulse Anchor 接進 app —— 這條鏈一直是座孤島）
+
+⚠️ 依協議 2b：**不編號**。分支 `pulse-anchor-integration`（PR #256 併 main 之後的續作）。
+
+## 起點是 founder 一句「我要用手機桌面的 Tenki Core 實機檢視」
+
+查下去才發現問題不在畫面：**產品裡沒有一條路走得到 `/finger/`**。
+桌面 icon → `/app/` → `/v3/`，而 Today 的信心膠囊指的還是舊的
+`/preview/index.html?from=precision`。量測鏈做到第五次實機迭代、69 個 commit、
+21k 行、25 條驗收清單，而使用者打開 app 看不到它。
+
+## What was done
+
+1. **把 main 併進 #256**（落後 73 個 commit，6 個衝突全是累加型檔案：
+   ci.yml／MEMORY／DEPLOYMENT_MAP.json／domain barrel／verify.sh／vercel.json，
+   兩邊都留）。⚠️ MEMORY 的 `MEMORY-INSERT-HERE` 標記只在 main 那半（#277 加的），
+   解的時候要把它搬到最前面，否則 verify 的守門會紅。
+2. **接線三件事一個 commit**：入口（信心膠囊改指 /finger/）、回程（結果頁
+   「回到 Today」）、旗標（`tenki.precision.*` **只有 anchor 立住才寫**）。
+   拆開任何一件都留下一個看起來做了但沒作用的狀態。
+3. **環心說的是「夠不夠」**，不是一個沒有參照的分數（founder 09:26 那張）。
+4. **15 條斷言 + 四刀反向驗證**，全部確認會紅。
+5. docs：PHONE-PPG §28、DEPLOYMENT_MAP 的入口與回程。
+
+## 教訓
+
+1. 🔴 **量測鏈做得再深，產品裡沒有路走得到就等於沒上線。** 我前一輪還在
+   分析這一頁的使用者體驗，而真正的問題是沒有人走得到它。
+2. 🔴 **空集合上的綠燈不是綠燈。** 乾淨 fixture 四條 bar 全部 100%，所有
+   「還不夠」的斷言在它身上都**空集合成立**。改成乾淨 + motion 兩次 replay，
+   再加一條前置「真的有步驟說過還不夠」把空集合釘死。
+3. ⚠️ **JSON 文件用字串替換，不要 `json.dump` 重寫整個檔** —— 重 dump 把
+   DEPLOYMENT_MAP.json 的 380 行全部改掉（縮排與逸出都不同），diff 失去意義。
+4. ⚠️ 我在這一輪之前跟 founder 說過「整個 repo 只有一條活的手指流程」——
+   錯的，我只看了 main。**看分支之前不要講 repo 的全稱命題。**
+
+## 下次接手點
+
+- founder 手機實走 `/finger/`：環心底下那一行讀不讀得動、「回到 Today」按得到嗎
+- 驗收清單第 23 條（補光燈開／關對照）仍未收 —— 它決定 §19–§24 那條線還要不要挖
+- 舊的 `/preview/index.html?from=precision` 仍在，而且仍然**走完就寫**旗標。
+  現在從 app 走不到它了，但它還在。要不要拆是下一個決定。
+
+
 # 2026-10-07 Session Update #2 (「節律 0」是我自己把拒答印成了數字)
 
 ⚠️ 依協議 2b：**不編號**。分支 `claude/tenki-biometric-v2-ubzosn`，PR #256。
