@@ -2945,7 +2945,7 @@ a.lab-wide{text-decoration:none}
     <!-- 決策收束判定的唯一來源。⚠️ 必須排在下面那個 inline script 之前 ——
          那支在**頂層**就讀 window.TENKI_OUTCOME（OUTCOME_STORE_KEY_V6 / isDisciplinedV6），
          放到頁尾跟其他 script 一起載會來不及。絕對路徑：本頁同時掛在 /v3/ 與 /preview/v6/。 -->
-    <script src="/preview/decision-outcome.js?v=do13"></script>
+    <script src="/preview/decision-outcome.js?v=do14"></script>
     <!-- Stardust Scan Takeover Styles -->
     <link rel="stylesheet" href="stardust-scan-takeover.css?v=gyro_v6">
 </head>
@@ -3458,6 +3458,10 @@ a.lab-wide{text-decoration:none}
         <!-- 離開：交易者在桌機或券商 APP 下單，離開是常態不是失誤 —— 這裡只陳述事實，
              不寫成扣分。舊紀錄沒有這個欄位 → 整格 hidden，不顯示「0 次」。 -->
         <div class="sd-fact" id="sdFactAwayCell" hidden><div class="k">離開</div><div class="v" id="sdFactAway">—</div></div>
+        <!-- 審視：快訊到達 → 判定（規格 §1.2）。只有快訊決策、而且真的做過判定
+             才有這一段。手動開的決策沒有 `alertAt`，未判定那一筆的 `ts` 不是判定
+             時刻 —— 兩種都整格不存在，不印「0:00」。 -->
+        <div class="sd-fact" id="sdFactReviewedCell" hidden><div class="k">審視</div><div class="v" id="sdFactReviewed">—</div></div>
         <!-- 等待：判定 → 進場。只有在使用者**真的答過**進場時間時才出現。
              沒答過整格不存在 —— 不印「0:00」，那是把「不知道」講成「沒等」。 -->
         <div class="sd-fact" id="sdFactWaitedCell" hidden><div class="k">等待</div><div class="v" id="sdFactWaited">—</div></div>
@@ -5072,6 +5076,11 @@ function saveV6Outcome(session, outcomeTag){
     originAlertId: session.originAlertId || null,
     ts, source: session.originAlertId ? 'alert' : 'v6'
   });
+  // 🔴 快訊到達時刻（規格 §1.2 的 `alertAt`）。**沒有就整個欄位不存在** ——
+  //    同 `endedBy` 那條既有紀律。規格原文：「手動開的決策沒有這一欄」。
+  //    寫 `alertAt: null` 看起來一樣，但它宣稱「這一筆有這個概念而我量不到」，
+  //    而手動開的決策根本沒有快訊可到達。
+  if(typeof session.alertAt === 'number') all[all.length - 1].alertAt = session.alertAt;
   // 🔴 只在真的是上限收的時候才寫這一欄 —— **沒發生就整個欄位不存在**，
   //    不是寫 `endedBy: null`。同 `symbol` / `awayCount` 那條既有紀律：
   //    讀端分得出「沒有這一欄」跟「這一欄是空的」。
@@ -5281,6 +5290,10 @@ function activeDecisionSnapshot(){
     name: sess.name || null,
     originAlertId: sess.originAlertId || null,
     anchorPrice: (typeof sess.anchorPrice === 'number') ? sess.anchorPrice : null,
+    // 🔴 iOS 把 standalone web app 清出記憶體之後，整頁重載走 resumeActiveDecision()
+    // —— 快訊到達時刻只活在 `sess` 裡的話，**下完單回來那一筆的「審視」就永遠是空的**，
+    // 而那正是這條動線最常發生的事（下單要離開 App）。
+    alertAt: (typeof sess.alertAt === 'number') ? sess.alertAt : null,
     watch: !!sess.watch,
     marks: sess.marks || 0,
     events: Array.isArray(sess.events) ? sess.events : [],
@@ -5365,6 +5378,11 @@ function acceptHandoff(){
     sess.symbol = h.symbol || null;
     sess.originAlertId = h.originAlertId || null;
     sess.anchorPrice = (typeof h.price === 'number') ? h.price : null;
+    // 🔴 快訊**到達**的那一刻，不是現在。使用者可以收到推播三分鐘後才點進來，
+    // 而「審視」那一段（規格 §1.2）量的正是那三分鐘＋他在這裡想的時間。
+    // 交棒信物沒帶就是 null —— 不得退回 `Date.now()` 或 `h.ts`，那會把
+    // 「我不知道他何時收到」講成「他一收到就點了」。
+    sess.alertAt = (typeof h.alertAt === 'number' && isFinite(h.alertAt)) ? h.alertAt : null;
     // 🔴 從快訊交棒過來的決策**一律走守望**，不看 Lab 那個開關。
     // 理由不是圖方便：快訊流程的收束語意本來就是「有沒有做出判定」
     // （docs/TRADINGVIEW-ALERT-SPEC.md §9、decision-outcome.js 的語意斷點）。
@@ -5436,6 +5454,7 @@ function resumeActiveDecision(){
   sess.symbol = m.symbol || null;
   sess.originAlertId = m.originAlertId || null;
   sess.anchorPrice = (typeof m.anchorPrice === 'number') ? m.anchorPrice : null;
+  sess.alertAt = (typeof m.alertAt === 'number') ? m.alertAt : null;
   sess.watch = !!m.watch;
   // 🔴 跟 acceptHandoff() 完全同一個順序陷阱：setState('running') 已經跑過
   // renderTmplChip() 了，而那時 sess.watch 還沒接回來 —— 一筆守望決策接回來
@@ -7219,6 +7238,14 @@ function openSessionDetail(ts){
   } else {
     awayCell.hidden = true;
   }
+  // 審視（快訊到達 → 判定）。手動開的決策沒有 alertAt、未判定那一筆的 ts
+  // 不是判定時刻 → 兩種都整格不存在。判準在共用模組，這裡不自己挑欄位。
+  const reviewed = window.TENKI_OUTCOME.reviewedSec(rec);
+  const reviewedCell = document.getElementById('sdFactReviewedCell');
+  reviewedCell.hidden = reviewed === null;
+  // 🔴 兩端都是觀測到的毫秒（快訊到達、按下判定）→ 印到秒是誠實的。
+  //    這跟「等待」不同：那一端是使用者回想的分鐘。
+  if(reviewed !== null) document.getElementById('sdFactReviewed').textContent = fmtDur(reviewed);
   // 等待（判定 → 進場）。算不出來（沒答進場時間、或判定只知道哪一天）
   // → 整格不存在。**不印 0:00** —— 那是把「不知道」講成「沒等」。
   const waited = window.TENKI_OUTCOME.waitedSec(rec);

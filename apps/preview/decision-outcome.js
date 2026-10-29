@@ -750,6 +750,31 @@
     return sec >= 0 ? sec : null;
   }
 
+  /**
+   * 審視了多久（快訊到達 → 判定），秒。算不出來回 `null`。
+   *
+   * 規格 `docs/DECISION-RECORD-LOOP.md` §1.2：`審視 = judgedAt − alertAt`，
+   * 而 `judgedAt` 就是既有的收束時刻（`rec.ts`）。
+   *
+   * 🔴 **要通過一個正向測試才給數字**：`outcomeTag` 必須是真的做過判定的那兩個。
+   *    `abandoned_no_judgment` 的 `ts` 不是判定時刻 —— 它是**守望撞上限、或
+   *    使用者終於把 App 打開**的那一刻（見下面那整段 WATCH_CEILING_SEC 的註解：
+   *    同一個機制已經把一筆「未判定」印成 41:20）。拿它去減 alertAt，印出來的
+   *    「審視 3:12:40」量的是他隔多久才開 App，不是他看了多久。
+   *
+   * 🔴 回 `null` 不是 `0`。手動開的決策沒有 `alertAt`（整個欄位不存在），
+   *    那不是「審視了 0 秒」。
+   *
+   * @param {Object} rec 統一 store 裡的一筆
+   * @returns {number|null}
+   */
+  function reviewedSec(rec) {
+    if (!rec || typeof rec.ts !== 'number' || typeof rec.alertAt !== 'number') return null;
+    if (DISCIPLINED_TAGS.indexOf(rec.outcomeTag) === -1) return null;
+    var sec = Math.round((rec.ts - rec.alertAt) / 1000);
+    return sec >= 0 ? sec : null;
+  }
+
   // ═════════════════════════════════════════════════
   // 🔴 守望的牆鐘上限 —— 以及「超過上限」那一筆的用時是什麼
   //
@@ -845,6 +870,7 @@
     entryTimePatch: entryTimePatch,
     waitedSec: waitedSec,
     waitedPrecision: waitedPrecision,
+    reviewedSec: reviewedSec,
     WATCH_CEILING_SEC: WATCH_CEILING_SEC,
     occurredAt: occurredAt,
     endedByCeiling: endedByCeiling,
