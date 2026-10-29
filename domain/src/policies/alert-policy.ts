@@ -243,6 +243,33 @@ export function recordAlertSurfaced(
  * @param windowSec - Aggregation window (defaults to ALERT_AGGREGATION_WINDOW_SEC).
  * @returns Groups ordered by first receive time.
  */
+/** Namespace prefix for push notification tags. */
+const PUSH_TAG_PREFIX = 'tenki-alert:';
+
+/**
+ * The collapse identity for a push notification.
+ *
+ * 🔴 Two notifications replace each other on the device **iff they share a
+ * tag** — that is a claim that they are the same thing. So it has to use the
+ * same ruler the rest of this policy already uses, and that ruler is the
+ * symbol: the cooldown is per symbol (`ALERT_COOLDOWN_SEC`), the throttle
+ * state is keyed `lastSurfacedAtMsBySymbol`, and a same-symbol alert during
+ * an active session becomes a quiet update. Inventing a second notion of
+ * "the same alert" here would let the lock screen and the page disagree.
+ *
+ * ⚠️ Why this exists: every notification used to carry one constant tag
+ * (`'tenki-alert'`), so an alert on a second symbol **silently replaced** the
+ * first one on the lock screen and the user never saw it. Collapsing by
+ * symbol keeps the intended behaviour (repeat alerts on one symbol do not
+ * stack up) without losing a different symbol.
+ *
+ * @param symbol - Alert symbol; normalized the same way the contract does.
+ * @returns Device-side notification tag.
+ */
+export function pushNotificationTag(symbol: string): string {
+  return `${PUSH_TAG_PREFIX}${symbol.trim().toUpperCase()}`;
+}
+
 export function groupSimultaneousAlerts(
   alerts: readonly AlertContract[],
   windowSec: number = ALERT_AGGREGATION_WINDOW_SEC,
