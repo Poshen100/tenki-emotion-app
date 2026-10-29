@@ -1293,6 +1293,12 @@
       originAlertId: alert.id,
       price: typeof alert.price === 'number' && isFinite(alert.price) ? alert.price : null,
       condition: alert.condition || null,
+      // 🔴 快訊到達的那一刻（規格 `docs/DECISION-RECORD-LOOP.md` §1.2 的 `alertAt`）。
+      // 跟下面的 `ts` 不是同一件事：`ts` 是**交棒的那一刻**（保鮮期用它），
+      // 而使用者可以收到推播三分鐘後才點進來 —— 「審視」那一段要的是前者。
+      // 沒帶就是沒帶（null），不得拿 `Date.now()` 蓋掉它。
+      alertAt: typeof alert.receivedAt === 'number' && isFinite(alert.receivedAt)
+        ? alert.receivedAt : null,
       ts: Date.now(),
     };
     try { localStorage.setItem(HANDOFF_KEY, JSON.stringify(payload)); }
