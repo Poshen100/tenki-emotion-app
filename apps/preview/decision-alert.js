@@ -391,6 +391,7 @@
     'watchAnchor', 'timerBack', 'timerUpdate',
     'liveToggle', 'liveDot', 'liveStatus', 'liveChevron', 'liveBody',
     'liveSetup', 'liveReady', 'liveGenerate', 'liveUrl', 'liveUrlWarn', 'liveCopy', 'liveReset',
+    'liveResetWarn',
     'liveSymbol', 'liveTimeframe', 'liveStrategy',
     'livePushRow', 'livePushBtn', 'livePushStatus',
     'liveSelfTest', 'liveSelfTestResult',
@@ -2002,14 +2003,32 @@
   // 把（瀏覽器已有的）推播訂閱重新綁到「當前頻道」的 server 端。頻道可能因重設連結 /
   // 新 PWA session 而更換，而 getSubscription() 只反映本機訂閱 → 若不重綁，webhook 打到
   // 新頻道、訂閱還掛在舊頻道 → server subscriptions=0、關掉網頁就收不到。冪等（endpoint 去重）。
+  /**
+   * 把這支瀏覽器既有的訂閱重綁到**當前**頻道，並回報有沒有成功。
+   *
+   * 🔴 舊版是 fire-and-forget（`.catch(() => {})`、而且連 `r.ok` 都沒看），
+   *    而呼叫端在它送出之前就已經印了「關掉網頁也會收到快訊」——
+   *    那句話的全部依據只是「本機有一個 subscription 物件」。
+   *    重設連結之後，訂閱能不能跟到新連結**完全由這次重綁決定**，
+   *    也就是畫面唯一宣告的那件事，正好是它唯一不檢查的那一步。
+   *    （CLAUDE.md：樂觀的結論要靠通過一個正向測試拿到，不得是 fallthrough。）
+   *
+   * ⚠️ `fetch` 的 reject 只涵蓋網路層。400/404/500 是**成功的 fetch**，
+   *    所以 `r.ok` 要自己看 —— 少了它，伺服器說「這個頻道不存在」也會被讀成成功。
+   *
+   * @param {PushSubscription} sub 瀏覽器既有的訂閱
+   * @returns {Promise<boolean>} server 真的收下了才是 true
+   */
   function rebindPush(sub) {
     var ch = getChannel();
-    if (!ch || !sub) return;
-    fetch('/api/subscribe?ch=' + ch, {
+    if (!ch || !sub) return Promise.resolve(false);
+    return fetch('/api/subscribe?ch=' + ch, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(sub),
-    }).catch(function () { /* best-effort */ });
+    })
+      .then(function (r) { return r.ok; })
+      .catch(function () { return false; });
   }
 
   function refreshPushRow() {
@@ -2038,9 +2057,19 @@
       if (!reg || !reg.pushManager) return;
       reg.pushManager.getSubscription().then(function (sub) {
         if (sub) {
+          // 🔴 按鈕講的是**瀏覽器**的狀態（這支瀏覽器訂閱了嗎），
+          //    底下那行講的是**頻道**的狀態（這條連結推得到你嗎）。
+          //    兩件不同的事，所以兩句話 —— 合成一句的話，其中一條路一定被講錯。
           el.livePushBtn.textContent = '🔔 手機推播已開啟';
-          setPushStatus('關掉網頁也會收到快訊。', true);
-          rebindPush(sub); // 開頁即把訂閱重綁到當前頻道（治「換頻道後訂閱沒跟上」）
+          setPushStatus('正在把推播接到這條連結…', true);
+          rebindPush(sub).then(function (ok) {
+            setPushStatus(
+              ok
+                ? '關掉網頁也會收到快訊。'
+                : '這支瀏覽器的推播是開的，但還沒接到這條連結 —— 按一次上面的按鈕重接。',
+              ok,
+            );
+          });
         }
       });
     }).catch(function () {});
@@ -2097,6 +2126,12 @@
         localStorage.setItem(CHANNEL_KEY, payload.channelId);
         live.seenIds = {};
         renderLive();
+        // 🔴 提醒**留著**，不是閃一下。使用者按完重設通常會先去別的地方，
+        //    回來時那句話還要在 —— 它要活到他真的去複製連結為止。
+        if (pendingRepaste) {
+          setResetNote('⚠️ 新連結已產生 —— TradingView 裡每一則 alert 都要重貼。'
+            + '沒改到的那幾則會安靜地失效（顯示「已送達」但收不到）。');
+        }
       })
       .catch(function (error) {
         setLiveStatus(String(error.message || error), 'err');
@@ -2105,13 +2140,65 @@
 
   el.liveGenerate.addEventListener('click', generateChannel);
 
+  // ═══════════════════════════════════════════════
+  // 重設連結 —— 一個**安靜地**破壞性的動作
+  //
+  // 🔴 founder 2026-10-30 實走踩到：按了重設、TradingView 沒有逐則重貼，
+  //    於是舊 alert 繼續 POST 到舊頻道 —— 那條頻道在 Redis 裡還活著
+  //    （30 天 TTL），所以 **TradingView 顯示「已送達」**，而 App 不再輪詢它，
+  //    快訊人間蒸發。**兩邊都不報錯**，畫面上看不出任何異狀。
+  //
+  // 所以這裡要講兩次：按下去之前（它會做什麼），按下去之後（還要去做什麼）。
+  // ⚠️ 刻意**不是 modal**：一條就地的帶子，不奪取焦點、不擋任何操作。
+  //    （founder 2026-10-29「不要 modal」那條裁決管的是收束頁的結果詢問，
+  //     跟破壞性動作的二次確認不是同一件事 —— 但形狀仍然照那條走。）
+  // ═══════════════════════════════════════════════
+
+  /** 二次確認自動解除的時間，毫秒。 */
+  var RESET_ARM_MS = 8000;
+  var resetArmed = false;
+  var resetArmTimer = null;
+  /** 重設完成之後還欠一句「去重貼」—— 直到他按下複製連結為止。 */
+  var pendingRepaste = false;
+
+  /** 顯示／清掉重設那條帶子。text 為空就收起來。 */
+  function setResetNote(text) {
+    if (!el.liveResetWarn) return;
+    el.liveResetWarn.textContent = text || '';
+    el.liveResetWarn.hidden = !text;
+  }
+
+  /** 回到「還沒按過」的狀態。 */
+  function disarmReset() {
+    resetArmed = false;
+    if (resetArmTimer) { clearTimeout(resetArmTimer); resetArmTimer = null; }
+    el.liveReset.textContent = '重設連結';
+    setResetNote('');
+  }
+
   el.liveReset.addEventListener('click', function () {
+    if (!resetArmed) {
+      resetArmed = true;
+      el.liveReset.textContent = '確定重設';
+      // 🔴 這段文案的重點是「不會報錯」—— 使用者預期的失敗是看得見的失敗，
+      //    而這個失敗的全部危險就在於它看起來像成功。
+      setResetNote('⚠️ 重設會換一條新連結。舊的那條不會報錯 —— 它會安靜地失效：'
+        + 'TradingView 照樣顯示「已送達」，而快訊不會再出現在這裡。'
+        + '所以 TradingView 裡每一則用到舊連結的 alert 都要重貼。再按一次「確定重設」繼續。');
+      resetArmTimer = setTimeout(disarmReset, RESET_ARM_MS);
+      return;
+    }
+    disarmReset();
     localStorage.removeItem(CHANNEL_KEY);
     live.seenIds = {};
-    generateChannel(); // 直接換一條新頻道（舊頻道 30 天自然過期）
+    pendingRepaste = true;
+    generateChannel(); // 舊頻道 30 天自然過期；在那之前它只是沒人讀
   });
 
   el.liveCopy.addEventListener('click', function () {
+    // 按了複製 ＝ 他正要去重貼。提醒的任務到此結束。
+    pendingRepaste = false;
+    setResetNote('');
     var url = el.liveUrl.textContent;
     var done = function () {
       el.liveCopy.textContent = '已複製 ✓';

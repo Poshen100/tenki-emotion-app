@@ -1378,6 +1378,178 @@ console.log('\n── 審視（快訊到達 → 判定）──');
   check('🔴 手動開的決策整格不存在', manual.hidden, true);
 }
 
+// ═══════════════════════════════════════════════
+// 重設連結：一個**安靜地**破壞性的動作要先講，講完還要留著
+//
+// 🔴 founder 2026-10-30 實走：按了重設、TradingView 沒有逐則重貼，於是舊 alert
+//    繼續 POST 到舊頻道 —— 那條頻道在 Redis 裡還活著（30 天 TTL），所以
+//    TradingView 顯示「已送達」而 App 不再輪詢它。**兩邊都不報錯。**
+//    這組守的是「按下去之前講了、而且第一下真的沒有換掉頻道」。
+// ═══════════════════════════════════════════════
+console.log('\n── 重設連結：先講，而且講完要留著 ──');
+{
+  const ctx4 = await browser.newContext({
+    viewport: { width: 390, height: 800 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true,
+  });
+  const p4 = await ctx4.newPage();
+  const errs4 = [];
+  p4.on('pageerror', (e) => errs4.push(e.message));
+  await ctx4.addInitScript(() => { localStorage.setItem('tenki.alert.channel', 'old-channel'); });
+  await p4.route('**/api/channel*', (route) => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ ok: true, channelId: 'new-channel', bypassQuery: null }),
+  }));
+  await p4.route('**/api/alerts*', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ alerts: [] }),
+  }));
+  await p4.goto(`${base}/decision-alert/`, { waitUntil: 'domcontentloaded' });
+  await p4.waitForTimeout(2500);
+  await p4.evaluate(() => {
+    if (document.getElementById('liveBody').hasAttribute('hidden')) {
+      document.getElementById('liveToggle').click();
+    }
+  });
+  await p4.waitForTimeout(400);
+
+  // 🔴 讀 DOM 一律容錯 —— 節點不在時要給一條**看得懂的紅字**，不是讓
+  //    `getElementById(...).hasAttribute` 以 TypeError 把整支腳本炸掉。
+  //    反向驗證 #20（把帶子節點整個拿掉）當場踩到：沒有收尾行、失敗數不可信，
+  //    下一個人看到的是「Cannot read properties of null」而不是「帶子不見了」。
+  //    PLAYBOOK 早有這條（`getComputedStyle(null)` 那次），我這一刀又犯一次。
+  const readReset = () => {
+    const warn = document.getElementById('liveResetWarn');
+    const btn = document.getElementById('liveReset');
+    return {
+      ready: !document.getElementById('liveReady')?.hasAttribute('hidden'),
+      // null ＝ 這一格根本不存在，跟 true/false 分得開
+      noteHidden: warn ? warn.hasAttribute('hidden') : null,
+      note: warn ? warn.textContent : '(缺帶子這一格)',
+      btn: btn ? btn.textContent : '(缺重設鍵)',
+      ch: localStorage.getItem('tenki.alert.channel'),
+    };
+  };
+  const armed0 = await p4.evaluate(readReset);
+  checkTruthy('前提：設定面板展開、重設鍵在（0 的話下面全是死斷言）', armed0.ready);
+  check('還沒按：帶子不在', armed0.noteHidden, true);
+  check('還沒按：鍵還是「重設連結」', armed0.btn, '重設連結');
+
+  // 第一下 —— 只能講話，不准換頻道
+  await p4.evaluate(() => document.getElementById('liveReset').click());
+  await p4.waitForTimeout(400);
+  const armed1 = await p4.evaluate(readReset);
+  check('🔴 第一下**不換頻道**（這就是二次確認的全部意義）', armed1.ch, 'old-channel');
+  check('第一下把鍵換成「確定重設」', armed1.btn, '確定重設');
+  check('第一下就把帶子打開', armed1.noteHidden, false);
+  // 🔴 文案的重點是「不會報錯」—— 使用者預期的失敗是看得見的失敗，
+  //    而這個失敗的全部危險在於它看起來像成功。少了這句，帶子就只是裝飾。
+  checkTruthy('🔴 帶子說得出「不會報錯／安靜地失效」這件事',
+    /不會報錯/.test(armed1.note) && /安靜/.test(armed1.note));
+  checkTruthy('🔴 帶子說得出要去 TradingView 逐則重貼',
+    /TradingView/.test(armed1.note) && /每一則/.test(armed1.note));
+
+  // 第二下 —— 真的換，而且提醒留著
+  await p4.evaluate(() => document.getElementById('liveReset').click());
+  await p4.waitForTimeout(900);
+  const done = await p4.evaluate(readReset);
+  check('第二下真的換了頻道', done.ch, 'new-channel');
+  check('換完鍵回到「重設連結」（不會卡在確定態）', done.btn, '重設連結');
+  // 🔴 提醒**留著**，不是閃一下 —— 使用者按完通常會先去別的地方。
+  check('🔴 換完之後提醒還在', done.noteHidden, false);
+  checkTruthy('🔴 換完的提醒仍然講得出「每一則都要重貼」',
+    /每一則/.test(done.note) && /重貼/.test(done.note));
+
+  // 按複製 ＝ 他正要去重貼 → 提醒收工
+  await p4.evaluate(() => document.getElementById('liveCopy')?.click());
+  await p4.waitForTimeout(300);
+  check('按了複製連結，提醒才收起來', (await p4.evaluate(readReset)).noteHidden, true);
+
+  check('這一段沒有 page error', errs4, []);
+  await ctx4.close();
+}
+
+// ═══════════════════════════════════════════════
+// 推播重綁：樂觀的結論不得靠 fallthrough 拿到
+//
+// 🔴 舊版在請求**送出之前**就印了「關掉網頁也會收到快訊」，而 rebindPush() 是
+//    fire-and-forget（`.catch(() => {})`，連 `r.ok` 都沒看）。重設連結之後，
+//    訂閱能不能跟到新連結完全由這次重綁決定 —— 畫面唯一宣告的那件事，
+//    正好是它唯一不檢查的那一步。
+//
+// ⚠️ 這裡餵的是 **500**，不是網路錯誤。那是刻意的：`fetch` 的 reject 只涵蓋
+//    網路層，400/404/500 都是「成功的 fetch」—— 舊的 catch 連伺服器說
+//    「這個頻道不存在」都接不到。用網路錯誤測的話，這條守不到真正的洞。
+// ═══════════════════════════════════════════════
+console.log('\n── 推播重綁：沒接上就不准說接上了 ──');
+for (const [label, subscribeStatus, mustSay, mustNotSay] of [
+  ['重綁失敗（500）', 500, /還沒接到這條連結/, /關掉網頁也會收到快訊/],
+  ['重綁成功（200）', 200, /關掉網頁也會收到快訊/, /還沒接到這條連結/],
+]) {
+  const ctx5 = await browser.newContext({
+    viewport: { width: 390, height: 800 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true,
+  });
+  const p5 = await ctx5.newPage();
+  const errs5 = [];
+  p5.on('pageerror', (e) => errs5.push(e.message));
+  // 真的 push 訂閱在 headless 裡拿不到（要 VAPID + 推播服務），所以把
+  // **產品碼唯一碰到的那兩個介面**換掉：getRegistration / getSubscription。
+  // 測到的仍然是真的產品邏輯（誰先宣告、看不看 r.ok），不是加 class 演戲。
+  await ctx5.addInitScript(() => {
+    localStorage.setItem('tenki.alert.channel', 'push-channel');
+    const fakeSub = {
+      endpoint: 'https://example.invalid/p/abc',
+      keys: { p256dh: 'x', auth: 'y' },
+      toJSON() { return { endpoint: this.endpoint, keys: this.keys }; },
+    };
+    Object.defineProperty(navigator, 'serviceWorker', {
+      configurable: true,
+      value: {
+        register: () => Promise.resolve({}),
+        getRegistration: () => Promise.resolve({
+          pushManager: { getSubscription: () => Promise.resolve(fakeSub) },
+        }),
+      },
+    });
+  });
+  await p5.route('**/api/channel*', (route) => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ ok: true, channelId: 'push-channel', bypassQuery: null }),
+  }));
+  await p5.route('**/api/alerts*', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ alerts: [] }),
+  }));
+  await p5.route('**/api/subscribe*', (route) => route.fulfill({
+    status: subscribeStatus, contentType: 'application/json',
+    body: JSON.stringify({ ok: subscribeStatus === 200 }),
+  }));
+  await p5.goto(`${base}/decision-alert/`, { waitUntil: 'domcontentloaded' });
+  await p5.waitForTimeout(2500);
+  await p5.evaluate(() => {
+    if (document.getElementById('liveBody').hasAttribute('hidden')) {
+      document.getElementById('liveToggle').click();
+    }
+  });
+  await p5.waitForTimeout(900);
+
+  const push = await p5.evaluate(() => {
+    const row = document.getElementById('livePushRow');
+    const btn = document.getElementById('livePushBtn');
+    const st = document.getElementById('livePushStatus');
+    return {
+      rowHidden: row ? row.hasAttribute('hidden') : null,
+      btn: btn ? btn.textContent : '(缺推播鍵)',
+      status: st ? st.textContent : '(缺推播狀態這一行)',
+    };
+  });
+  checkTruthy(`${label}｜前提：推播列在、而且認得既有訂閱（${push.btn}）`,
+    !push.rowHidden && /已開啟/.test(push.btn));
+  checkTruthy(`${label}｜說得出該說的（實際：${push.status.slice(0, 24)}…）`,
+    mustSay.test(push.status));
+  // 🔴 這一條才是守舊 bug 的那條：舊版無論如何都會印那句話。
+  check(`🔴 ${label}｜不准說不該說的`, mustNotSay.test(push.status), false);
+  check(`${label}｜沒有 page error`, errs5, []);
+  await ctx5.close();
+}
+
 check('整條鏈走完沒有任何 page error', pageErrors, []);
 
 await browser.close();
