@@ -795,6 +795,22 @@ console.log('\n── 結果三選一（進場路徑）──');
       return wrap ? wrap.hasAttribute('hidden') : null;
     });
     check('🔴 判定不成立 → 不問下單（沒有要下的單）', stood, true);
+
+    // 🔴 那個閘是**兩行**，上面那條只釘住其中一半：
+    //      renderEnteredNow(asksTrade);                   ← listener
+    //      toggleHidden(el.resultEnteredWrap, asksTrade); ← 可見性（上面那條守的）
+    //    反向驗證實測：把第一行改成 `renderEnteredNow(true)` 弄紅 0 條，
+    //    因為 wrap 仍然被第二行藏著。所以這裡強制點那顆藏起來的鈕 ——
+    //    問的是「就算它被看見了，這條路也寫不進去」。兩條成對存在。
+    await page.evaluate(() => document.getElementById('resultEnteredBtn').click());
+    await page.waitForTimeout(150);
+    await page.evaluate(() => document.getElementById('btnResultSave').click());
+    await page.waitForTimeout(400);
+    const stoodAfter = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'))[0]);
+    check('🔴 強制點那顆藏起來的鈕，判定不成立那筆也寫不進下單時刻',
+      stoodAfter.enteredAt, undefined);
+    check('而且判定沒有被改掉', stoodAfter.outcomeTag, 'judged_stood_down');
   }
 
   // 🔴 把頁面還原回 /v3/ —— 下一段吃 v6 的全域（window.nextState）。
