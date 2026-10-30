@@ -724,6 +724,11 @@
             <button class="btn btn-primary live-copy" id="liveCopy" type="button">複製連結</button>
             <button class="btn btn-ghost live-reset" id="liveReset" type="button">重設連結</button>
           </div>
+          <!-- 重設是**安靜地**破壞性的：舊連結不會報錯，它只是沒人再讀。
+               所以要在按下去之前講，以及按下去之後留著提醒（founder 2026-10-30 實走：
+               按了重設、TradingView 沒重貼，快訊就此人間蒸發而兩邊都顯示正常）。
+               ⚠️ 刻意不是 modal —— 這是一條就地的帶子，不奪取焦點、不擋任何操作。 -->
+          <div class="live-warn" id="liveResetWarn" hidden></div>
           <div class="live-selftest-block">
             <button class="btn btn-ghost live-selftest-btn" id="liveSelfTest" type="button">測試這條連結</button>
             <div class="live-push-hint" id="liveSelfTestResult">用 TradingView 的身分（不帶登入 cookie）打一次這條連結，當場知道通不通。</div>
