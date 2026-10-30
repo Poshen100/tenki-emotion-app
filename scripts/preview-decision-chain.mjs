@@ -718,6 +718,101 @@ console.log('\n── 結果三選一（進場路徑）──');
   check('🔴 取消選取回到 pending，不是 null（交易發生過，只是結果未知）',
     cleared.tradeResult, 'pending');
 
+  // ── 「我剛下單了」（規格 §7 第 3 項）──
+  //
+  // 🔴 在此之前，一筆**從一開始就判定成立並進場**的紀錄沒有任何路徑拿得到
+  //    進場時刻（Session 詳情那題只問「後來才改判定」那條路）。這組守那個洞。
+  // 🔴 最要緊的一條是「它真的寫進 store」—— `saveOutcome` 的就地更新分支
+  //    已經靜默丟掉過一個欄位（tradeResult，註解自己記著），而丟掉的時候
+  //    畫面完全正常：按鈕亮著、存檔成功、沒有任何錯誤。
+  await openEnteredResult([SEED]);
+  const enteredUi = await page.evaluate(() => {
+    const wrap = document.getElementById('resultEnteredWrap');
+    const btn = document.getElementById('resultEnteredBtn');
+    return {
+      wrapHidden: wrap ? wrap.hasAttribute('hidden') : null,
+      label: btn ? btn.textContent : '(缺下單鍵)',
+      marked: btn ? btn.classList.contains('sel') : null,
+    };
+  });
+  check('🔴 判定成立並進場 → 「我剛下單了」在', enteredUi.wrapHidden, false);
+  check('預設沒有標記（略過是正常狀態）', enteredUi.marked, false);
+  checkTruthy(`按鈕講的是「現在」（${enteredUi.label}）`, /剛下單/.test(enteredUi.label));
+
+  const beforePress = Date.now();
+  await page.evaluate(() => document.getElementById('resultEnteredBtn').click());
+  await page.waitForTimeout(150);
+  await page.evaluate(() => document.getElementById('btnResultSave').click());
+  await page.waitForTimeout(400);
+  const pressed = await page.evaluate(() => JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'))[0]);
+  // 🔴 這一條守的是 RECAP_OWNED_FIELDS：少了 'enteredAt' 這一項，使用者按了
+  //    按鈕、看到打勾、存檔成功，而欄位從來沒有落地。
+  checkTruthy(`🔴 下單時刻真的寫進那一筆（${pressed.enteredAt}）`,
+    typeof pressed.enteredAt === 'number'
+      && pressed.enteredAt >= beforePress && pressed.enteredAt <= Date.now());
+  // 🔴 來源標記不得漏：這一條跟 Session 詳情那題的 'reported' **不可混算**。
+  check('🔴 來源標記成 observed（跟補填的 reported 不可混算）', pressed.enteredAtSource, 'observed');
+  check('一筆決策仍然只留一筆紀錄', 
+    await page.evaluate(() => JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1')).length), 1);
+  check('沒有動到結果', pressed.tradeResult, 'pending');
+
+  // 按鈕的樣子要反映**紀錄現在的狀態**，不是「這次開頁按過沒」。
+  await openEnteredResult();
+  const reopened = await page.evaluate(() => {
+    const btn = document.getElementById('resultEnteredBtn');
+    return { marked: btn ? btn.classList.contains('sel') : null, label: btn ? btn.textContent : '' };
+  });
+  check('🔴 重開收束頁，已標過的那一筆顯示成已標過', reopened.marked, true);
+  checkTruthy(`而且字也跟著（${reopened.label}）`, /已記下/.test(reopened.label));
+
+  // 再按一次 ＝ 收回去，時間與來源都要消失。
+  await page.evaluate(() => document.getElementById('resultEnteredBtn').click());
+  await page.waitForTimeout(150);
+  await page.evaluate(() => document.getElementById('btnResultSave').click());
+  await page.waitForTimeout(400);
+  const undone = await page.evaluate(() => JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'))[0]);
+  // 🔴 留著來源的話，紀錄會同時說「我沒說我下單了」跟「那是量到的」。
+  check('🔴 收回去時間消失', undone.enteredAt, null);
+  check('🔴 收回去來源也消失（不是留著一個孤兒標記）', undone.enteredAtSource, null);
+
+  // 判定不成立那條路不問下單 —— 沒有要下的單。
+  {
+    const STOOD = Date.now() - 4000;
+    await page.goto(`${base}/v3/#session`, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(600);
+    await page.evaluate((ts) => {
+      localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify([{
+        symbol: 'NVDA', templateId: 'MANCINI_FBD', outcomeTag: 'judged_stood_down',
+        judgmentSchema: 'structure_watch_v1', durationSec: 60, marks: 0, events: [],
+        ts, source: 'alert', tradeResult: 'no_entry',
+      }]));
+      localStorage.setItem('tenki.alert.return.v1', JSON.stringify({ ts, at: Date.now() }));
+    }, STOOD);
+    await page.goto(`${base}/decision-alert/#result`, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(2200);
+    const stood = await page.evaluate(() => {
+      const wrap = document.getElementById('resultEnteredWrap');
+      return wrap ? wrap.hasAttribute('hidden') : null;
+    });
+    check('🔴 判定不成立 → 不問下單（沒有要下的單）', stood, true);
+
+    // 🔴 那個閘是**兩行**，上面那條只釘住其中一半：
+    //      renderEnteredNow(asksTrade);                   ← listener
+    //      toggleHidden(el.resultEnteredWrap, asksTrade); ← 可見性（上面那條守的）
+    //    反向驗證實測：把第一行改成 `renderEnteredNow(true)` 弄紅 0 條，
+    //    因為 wrap 仍然被第二行藏著。所以這裡強制點那顆藏起來的鈕 ——
+    //    問的是「就算它被看見了，這條路也寫不進去」。兩條成對存在。
+    await page.evaluate(() => document.getElementById('resultEnteredBtn').click());
+    await page.waitForTimeout(150);
+    await page.evaluate(() => document.getElementById('btnResultSave').click());
+    await page.waitForTimeout(400);
+    const stoodAfter = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'))[0]);
+    check('🔴 強制點那顆藏起來的鈕，判定不成立那筆也寫不進下單時刻',
+      stoodAfter.enteredAt, undefined);
+    check('而且判定沒有被改掉', stoodAfter.outcomeTag, 'judged_stood_down');
+  }
+
   // 🔴 把頁面還原回 /v3/ —— 下一段吃 v6 的全域（window.nextState）。
   // 不還原的話那一段會以 `window.nextState is not a function` 整支崩掉，
   // 而錯誤訊息完全看不出是「上一段把頁面開走了」。
@@ -1489,6 +1584,20 @@ console.log('\n── 出場時間與持有 ──');
   const asked = await openWith(seed({}));
   check('🔴 結果填完、有進場時間 → 問句列在', asked.askHidden, false);
   check('還沒答之前，持有那一格不存在', asked.heldHidden, true);
+
+  // 🔴 founder 2026-10-30 實走：iOS 對**空的** time / datetime-local 不畫
+  //    `--:--`，那個欄位在他機器上就是一個看不懂的空方框。修法只能放在框
+  //    **外面**（預填一個「合理的時間」是 CLAUDE.md 禁止的事）。
+  //    ⚠️ 這條守的是**那句話在不在、而且說得出要選日期**，不是某個節點存在 ——
+  //    容器只有 Chromium（它會畫 `--:--`），所以 iOS 那個渲染差異我在這裡
+  //    **驗不到**；能驗的是「畫面自己有沒有把它講清楚」。
+  const exitHint = await page.evaluate(() => {
+    const row = document.getElementById('sdExitTimeRow');
+    const hint = row ? row.querySelector('.bf-input-hint') : null;
+    return hint ? hint.textContent : '(缺提示這一行)';
+  });
+  checkTruthy(`🔴 出場那格旁邊說得出要選日期和時間（${exitHint}）`,
+    /日期/.test(exitHint) && /時間/.test(exitHint));
 
   const noEntry = await openWith(seed({ enteredAt: undefined, enteredAtSource: undefined }));
   check('🔴 沒有進場時間 → 問句列整列不出現', noEntry.askHidden, true);

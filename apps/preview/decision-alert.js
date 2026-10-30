@@ -198,6 +198,41 @@
       showReflect: s.showReflect !== false,
     };
   }
+  /**
+   * 收束頁要**一屏放得下**（in-app 瀏覽器上下工具列都在時 ≈660px）——
+   * 放不下就先收起「紀律近況」。
+   *
+   * 🔴 **量出來才收，不訂 px 門檻。** 門檻會是一個魔術常數，而且字級、
+   * 語言、瀏覽器 chrome 一變就失準。這裡直接問這一頁「你現在放得下嗎」。
+   *
+   * 🔴 收起來的為什麼是「紀律近況」：那一塊是**狀態顯示**，不是一個要使用者
+   * 回答的問題；而軌跡／反思／下單／結果全是關於**這一筆**的。founder
+   * 2026-10-30 裁決。實測它值 56px，而新增的「下單了嗎」那一列值 33px ——
+   * 這張頁在 660px 下的餘裕本來是 **0**（579 / 579），所以不是排版技巧的問題。
+   *
+   * ⚠️ **不動使用者的設定**：他在「收束頁設定」關掉的仍然是關掉的；
+   * 這裡只在「開著但放不下」時為了這一次呈現而收起來。設定卡的說明有講。
+   */
+  function fitRecapToOneScreen() {
+    if (!el.resultSheet || !el.resultHistory) return;
+    // 先回到設定該有的樣子，再決定要不要為了放得下而收。
+    toggleHidden(el.resultHistory, state.resultSettings.showHistory);
+    if (!state.resultSettings.showHistory) return;
+    if (el.resultSheet.scrollHeight <= el.resultSheet.clientHeight) return;
+    toggleHidden(el.resultHistory, false);
+  }
+
+  // 🔴 視窗高度**會變**：實機捲動時瀏覽器上下工具列收起來，視窗就長高了
+  //    （這一頁的 660px 約束講的正是「工具列都在」那個狀態）。只在開頁量一次
+  //    的話，那一塊會卡在收起狀態回不來 —— 收起來是為了**這一次放得下**，
+  //    不是一個被記住的決定。harness 那條「畫面夠高時要回來」當場抓到這件事。
+  var recapFitTimer = null;
+  window.addEventListener('resize', function () {
+    if (!el.resultSheet || !el.resultSheet.classList.contains('show')) return;
+    if (recapFitTimer) clearTimeout(recapFitTimer);
+    recapFitTimer = setTimeout(fitRecapToOneScreen, 120);
+  });
+
   function toggleHidden(node, show) {
     if (!node) return;
     if (show) node.removeAttribute('hidden');
@@ -244,6 +279,25 @@
    * 否則同一筆決策存兩份，紀律統計立刻失真。
    * @param {Object} record 這次收束的紀錄
    */
+  /**
+   * 收束頁**自己產生**的欄位。就地更新時只補這些，其餘沿用計時器寫的事實。
+   *
+   * 🔴 **新增欄位一定要加進這份清單**，否則它會被靜默丟掉 —— 而且畫面上
+   * 完全看不出來（晶片亮著、存檔成功、沒有任何錯誤）。`tradeResult` 就是
+   * 這樣掉過一次的（2026-09-28 那輪），當時的修法是再加一行；
+   * 2026-10-30 加第三個欄位時改成這份清單，因為「記得再加一行」不是一個控制。
+   *
+   * ⚠️ 只有這一頁真的會寫的欄位才放進來。放一個這頁不產生的欄位進去，
+   * 它會在每次收束時把計時器寫的事實蓋成 undefined 檢查擋不住的東西。
+   */
+  var RECAP_OWNED_FIELDS = [
+    'contextTag',
+    'tradeResult',
+    // 「我下單了」那顆（規格 §7 第 3 項）—— `enteredAt` 的 `'observed'` 來源。
+    'enteredAt',
+    'enteredAtSource',
+  ];
+
   function saveOutcome(record) {
     var all = loadOutcomes();
     var idx = -1;
@@ -254,10 +308,13 @@
     }
     if (idx >= 0) {
       // 只補這一頁真的產生的欄位，其餘沿用計時器那邊寫的事實。
-      all[idx].contextTag = record.contextTag;
-      // 🔴 結果也是這一頁產生的 —— 漏掉這一行，使用者選的結果會被靜默丟掉，
-      // 而畫面上看起來完全正常（晶片亮著、存檔成功）。
-      all[idx].tradeResult = record.tradeResult;
+      // 🔴 走 `RECAP_OWNED_FIELDS` 那份具名清單，**不要在這裡一行一行列** ——
+      //    理由就寫在那個常數上面：這個分支已經靜默丟掉過一個欄位。
+      RECAP_OWNED_FIELDS.forEach(function (field) {
+        // `undefined` ＝ 這一頁這次沒有產生它 → 不要去動既有的值。
+        // （`null` 不一樣：那是「使用者把它取消掉了」，要寫進去。）
+        if (record[field] !== undefined) all[idx][field] = record[field];
+      });
     } else {
       all.push(record);
     }
@@ -387,6 +444,7 @@
     'resultHistory', 'resultMeterFill', 'resultRate', 'resultStrip',
     'resultRecap', 'resultRecapList', 'resultReflectWrap', 'resultReflect', 'btnResultSave', 'btnResultRecord',
     'resultTradeWrap', 'resultTrade',
+    'resultEnteredWrap', 'resultEnteredBtn',
     'timerBar', 'timerLabel', 'timerClock',
     'watchAnchor', 'timerBack', 'timerUpdate',
     'liveToggle', 'liveDot', 'liveStatus', 'liveChevron', 'liveBody',
@@ -1574,6 +1632,71 @@
     return d / records.length;
   }
 
+  /**
+   * 「我剛下單了」那顆。
+   *
+   * 🔴 它是一句關於**現在**的陳述 —— 按下去蓋的是 `Date.now()`
+   * （`enteredAtSource: 'observed'`，誤差幾秒）。還沒下單的人**略過**，
+   * 之後在 Session 詳情用「大概幾點進的」補，那條走 `'reported'`。
+   * 規格 §3 硬規則 2：兩種來源**不可混算**，所以標記不得漏。
+   *
+   * 🔴 **可略過**（規格 §2 紅線：不知道的人仍然是一下點完）、
+   * **可取消**（再按一次）—— 一個不可逆的誤觸會讓這筆紀錄從此說錯話，
+   * 而這一下就只是一個按鈕。同「後來我進場了」那顆的既有紀律。
+   *
+   * ⚠️ 不在這裡放任何「要不要幫你開交易 App」—— 已立的規則（規格 §3）。
+   *
+   * ⚠️ 按鈕的樣子必須反映**紀錄現在的狀態**，不是「這次開頁有沒有按過」——
+   * 否則一筆已經有下單時刻的紀錄會顯示成沒按過，再按一次就蓋上一個比較晚的
+   * 時刻。今天到不了這條路（收束頁只由一次性回程票開），但畫面不該說假話。
+   *
+   * @param {boolean} asks 這一筆問不問得出下單時刻（＝判定成立並進場）
+   */
+  function renderEnteredNow(asks) {
+    if (!el.resultEnteredBtn) return;
+    // 每次開頁都換掉整顆，否則 listener 會疊上去（同反思晶片那條既有做法）。
+    var fresh = el.resultEnteredBtn.cloneNode(true);
+    el.resultEnteredBtn.parentNode.replaceChild(fresh, el.resultEnteredBtn);
+    el.resultEnteredBtn = fresh;
+    var marked = !!(state.pendingOutcome && typeof state.pendingOutcome.enteredAt === 'number');
+    fresh.classList.toggle('sel', marked);
+    fresh.textContent = marked ? '已記下下單時刻 ✓' : '我剛下單了';
+    if (!asks) return;
+    fresh.addEventListener('click', function () {
+      if (!state.pendingOutcome) return;
+      var already = typeof state.pendingOutcome.enteredAt === 'number';
+      if (already) {
+        // 🔴 收回去的時候**時間與來源都要消失**。留著的話這筆紀錄會同時說
+        //    「我沒說我下單了」跟「我 14:03 下單」—— 自相矛盾，而且不會有人報錯。
+        state.pendingOutcome.enteredAt = null;
+        state.pendingOutcome.enteredAtSource = null;
+        fresh.classList.remove('sel');
+        fresh.textContent = '我剛下單了';
+        return;
+      }
+      state.pendingOutcome.enteredAt = Date.now();
+      state.pendingOutcome.enteredAtSource = 'observed';
+      fresh.classList.add('sel');
+      fresh.textContent = '已記下下單時刻 ✓';
+    });
+  }
+
+  /**
+   * 從已存在的那一筆讀一個欄位（沒有就 `undefined`）。
+   *
+   * @param {Object} s 回程票帶來的 session 快照
+   * @param {string} field 欄位名
+   * @returns {*} 既有的值，或 undefined
+   */
+  function existingField(s, field) {
+    if (!s || !s.alreadyPersisted || typeof s.recordTs !== 'number') return undefined;
+    var all = loadOutcomes();
+    for (var i = 0; i < all.length; i += 1) {
+      if (all[i].ts === s.recordTs) return all[i][field];
+    }
+    return undefined;
+  }
+
   function openResult(judgment, s) {
     var disp = outcomeDisplay(judgment);
     state.pendingOutcome = {
@@ -1593,6 +1716,11 @@
       durationSec: s.elapsedSec,
       // 回程時沿用既有紀錄的 ts —— 它是就地更新要用的 key。
       ts: s.recordTs || Date.now(),
+      // 🔴 把既有紀錄的下單時刻接回來。不接的話，一筆已經標過的紀錄會在這一頁
+      //    顯示成沒標過（而 `RECAP_OWNED_FIELDS` 的 `undefined` 跳過剛好讓它
+      //    不被覆寫 —— 也就是說**畫面說謊而資料沒事**，更難發現）。
+      enteredAt: existingField(s, 'enteredAt'),
+      enteredAtSource: existingField(s, 'enteredAtSource'),
       alreadyPersisted: !!s.alreadyPersisted,
       // 這筆決策從哪個入口來（v6 的計時器決策寫 'v6'）。統一 store 是兩個入口
       // 合流的地方，沒有這個欄位 Session 頁就分不出來源。
@@ -1666,8 +1794,14 @@
       });
     }
 
+    // ── 「我下單了」（§7 第 3 項）──
+    // 🔴 跟結果晶片同一個閘：只有「判定成立並進場」才問得出下單時刻。
+    //    判定不成立 ＝ 沒有要下的單；未判定 ＝ 連有沒有交易都不知道。
+    renderEnteredNow(asksTrade);
+
     // 依收束頁設定決定各區塊顯示（記錄一律照常，只影響呈現）。
     toggleHidden(el.resultTradeWrap, asksTrade);
+    toggleHidden(el.resultEnteredWrap, asksTrade);
     toggleHidden(el.resultHistory, state.resultSettings.showHistory);
     toggleHidden(el.resultRecap, state.resultSettings.showRecap);
     toggleHidden(el.resultReflectWrap, state.resultSettings.showReflect);
@@ -1678,7 +1812,10 @@
     var animate = !prefersReducedMotion;
     var spec = resultArcSpec(judgment);
     var rate = disciplineRate(withThis);
-    var revealItems = [el.resultHistory, el.resultRecap, el.resultReflectWrap, el.resultTradeWrap];
+    var revealItems = [
+      el.resultHistory, el.resultRecap, el.resultReflectWrap,
+      el.resultEnteredWrap, el.resultTradeWrap,
+    ];
 
     // 重置上一次的編排殘留
     el.resultArcCenter.classList.remove('landed');
@@ -1690,6 +1827,11 @@
     el.resultMeterFill.style.width = '0';
 
     openSheet(el.resultSheet);
+    // 🔴 量要在版面落定之後。雙 rAF 是這一頁既有的「等一幀」做法 ——
+    //    單一 rAF 量到的還是 openSheet 那一幀的中間態。
+    requestAnimationFrame(function () {
+      requestAnimationFrame(fitRecapToOneScreen);
+    });
 
     function reveal() {
       el.resultMeterFill.style.width = Math.round(rate * 100) + '%';

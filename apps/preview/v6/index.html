@@ -1106,6 +1106,20 @@ body{
   border:1px solid var(--n-700);border-radius:10px;padding:10px 12px;
 }
 .bf-input::placeholder{color:var(--n-500)}
+/* 🔴 iOS Safari 對**空的** `input[type=time]` / `[type=datetime-local]` 不畫
+   `--:--` 佔位字，所以它在畫面上就是一個空方框 —— founder 2026-10-30 實走
+   截圖裡看到的就是這個：看不出它是什麼、也看不出要點它。
+   ⚠️ **不能用預填一個「合理的時間」解決** —— 那正是 CLAUDE.md 禁止的
+   「量不到就填一個預設值」。提示只能放在輸入框**外面**（下面那條 .bf-input-hint）。
+   這裡做的是讓那個空框自己看起來像個可點的控制：給它最小寬度與一個
+   明確的互動色邊，不要縮成一個看不懂的小洞。 */
+/* 🔴 用既有的 token，**不要寫字面色**。第一版寫 `var(--tp-amber,#F59E0B)`，
+   那個 fallback 就是一個新顏色 —— fdcb 的色彩守門當場算出它跟 --amber-400
+   ΔE 只有 6.0 並擋下來（「產生新顏色之前先問它是不是已經有主人」）。 */
+.sd-entry-time-row .bf-input{min-width:132px;
+  border-color:rgba(var(--amber-400-rgb),0.45);
+  -webkit-appearance:none;appearance:none;text-align:center}
+.bf-input-hint{font-size:11px;color:var(--n-500);line-height:1.5;margin-top:6px}
 .bf-row{display:flex;gap:8px}
 .bf-row .bf-btn{flex:1}
 .bf-btn{
@@ -3491,9 +3505,11 @@ a.lab-wide{text-decoration:none}
         <div class="sd-entry-time" id="sdEntryTimeRow" hidden>
           <div class="sd-backfill-q">大概幾點進的？<span class="sd-backfill-note">（不確定就略過）</span></div>
           <div class="sd-entry-time-row">
-            <input type="time" class="bf-input" id="sdEntryTime">
+            <input type="time" class="bf-input" id="sdEntryTime" aria-label="進場時間">
             <button class="tp-chip" type="button" id="sdEntryTimeSave">記下來</button>
           </div>
+          <!-- 🔴 iOS 不畫空輸入框的佔位字，所以要在框**外面**說它是什麼、怎麼用。 -->
+          <div class="bf-input-hint">點左邊那格選時間（時：分），再按「記下來」。</div>
           <div class="sd-backfill-note" id="sdEntryTimeNote"></div>
         </div>
       </div>
@@ -3509,9 +3525,11 @@ a.lab-wide{text-decoration:none}
         <div class="sd-entry-time" id="sdExitTimeRow" hidden>
           <div class="sd-backfill-q">大概幾點出場的？<span class="sd-backfill-note">（不確定就略過）</span></div>
           <div class="sd-entry-time-row">
-            <input type="datetime-local" class="bf-input" id="sdExitTime">
+            <input type="datetime-local" class="bf-input" id="sdExitTime" aria-label="出場日期與時間">
             <button class="tp-chip" type="button" id="sdExitTimeSave">記下來</button>
           </div>
+          <!-- 日期也要選 —— 部位可以隔夜，這一格不是只有時間。 -->
+          <div class="bf-input-hint">點左邊那格選<strong>日期和時間</strong>（可以是隔天），再按「記下來」。</div>
           <div class="sd-backfill-note" id="sdExitTimeNote"></div>
         </div>
       </div>

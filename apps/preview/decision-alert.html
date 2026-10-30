@@ -413,6 +413,9 @@
        瀏覽器的實際高度）多出一整行。#225 那次我造成 36px 遮擋，修法就是
        「併進既有的行 ＝ 零額外高度」，同一招。 */
     .result-trade-note { font-size: 11px; color: var(--n-400); }
+    /* 下單那一題只佔一列 —— 見上面 markup 的註解（660px 一屏的硬約束）。 */
+    .result-entered-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .result-entered-row .result-chip { flex: 0 0 auto; }
     @media (prefers-reduced-motion: reduce) {
       .result-meter-fill { transition: none; }
       .result-arc-glow { display: none; }
@@ -769,7 +772,7 @@
         <span class="live-chevron" id="resChevron">▾</span>
       </button>
       <div class="live-body" id="resBody" hidden>
-        <div class="live-hint">收束頁要顯示哪些區塊 — 存在此瀏覽器。決策一律會記錄，不會遺漏。</div>
+        <div class="live-hint">收束頁要顯示哪些區塊 — 存在此瀏覽器。決策一律會記錄，不會遺漏。<br>⚠️ 畫面太矮放不下時，「紀律近況」會自動收起，好讓這一頁一屏看得完 — 你的設定不會被改掉。</div>
         <label class="set-row set-check"><span>顯示紀律近況（完成率 + 軌跡）</span><input type="checkbox" id="resShowHistory" /></label>
         <label class="set-row set-check"><span>顯示這次的決策軌跡</span><input type="checkbox" id="resShowRecap" /></label>
         <label class="set-row set-check"><span>每次詢問反思</span><input type="checkbox" id="resShowReflect" /></label>
@@ -929,6 +932,22 @@
          未判定就離開 ＝ null（不猜）。兩個都問會讓使用者答出自相矛盾的紀錄。
          🔴 三顆共用 .result-chip（琥珀＝可動層），選中態**完全相同** ——
          這個 app 不評價你的交易結果，所以不得有任何一顆長得比較好或比較壞。 -->
+    <!-- 「我下單了」（規格 §7 第 3 項）—— `enteredAt` 的 `'observed'` 來源。
+         🔴 排在結果**之前**：時序上先下單才有結果。
+         🔴 它是一句關於**現在**的陳述。還沒下單的人略過，之後在 Session 詳情
+            用「大概幾點進的」補（那條走 `'reported'`，兩者不可混算）。
+         🔴 可略過、可取消 —— 一個不可逆的誤觸會讓這筆紀錄從此說錯話。 -->
+    <div class="result-trade-wrap reveal-item" id="resultEnteredWrap">
+      <!-- 🔴 問句與按鈕**同一列**。第一版自成兩列（問句 + 晶片列），
+           strip-color 的「短視窗(660px)下收束頁一屏放得下」當場超出 53px ——
+           而這一頁的 CSS 註解早就記著同一個錯誤發生過一次（「多出 62px，
+           就是因為我新增了一整段」）。一屏放得下是這張頁的硬約束。 -->
+      <div class="result-entered-row">
+        <span class="result-reflect-q">下單了嗎<span class="result-trade-note">（還沒就略過）</span></span>
+        <button class="result-chip" type="button" id="resultEnteredBtn">我剛下單了</button>
+      </div>
+    </div>
+
     <div class="result-trade-wrap reveal-item" id="resultTradeWrap">
       <div class="result-reflect-q">這筆的結果<span class="result-trade-note">（還沒有結果也可以，之後回到這頁再填）</span></div>
       <div class="result-reflect" id="resultTrade"></div>
