@@ -1585,6 +1585,20 @@ console.log('\n── 出場時間與持有 ──');
   check('🔴 結果填完、有進場時間 → 問句列在', asked.askHidden, false);
   check('還沒答之前，持有那一格不存在', asked.heldHidden, true);
 
+  // 🔴 founder 2026-10-30 實走：iOS 對**空的** time / datetime-local 不畫
+  //    `--:--`，那個欄位在他機器上就是一個看不懂的空方框。修法只能放在框
+  //    **外面**（預填一個「合理的時間」是 CLAUDE.md 禁止的事）。
+  //    ⚠️ 這條守的是**那句話在不在、而且說得出要選日期**，不是某個節點存在 ——
+  //    容器只有 Chromium（它會畫 `--:--`），所以 iOS 那個渲染差異我在這裡
+  //    **驗不到**；能驗的是「畫面自己有沒有把它講清楚」。
+  const exitHint = await page.evaluate(() => {
+    const row = document.getElementById('sdExitTimeRow');
+    const hint = row ? row.querySelector('.bf-input-hint') : null;
+    return hint ? hint.textContent : '(缺提示這一行)';
+  });
+  checkTruthy(`🔴 出場那格旁邊說得出要選日期和時間（${exitHint}）`,
+    /日期/.test(exitHint) && /時間/.test(exitHint));
+
   const noEntry = await openWith(seed({ enteredAt: undefined, enteredAtSource: undefined }));
   check('🔴 沒有進場時間 → 問句列整列不出現', noEntry.askHidden, true);
 
