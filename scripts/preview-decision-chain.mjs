@@ -1411,11 +1411,24 @@ console.log('\n── 重設連結：先講，而且講完要留著 ──');
   });
   await p4.waitForTimeout(400);
 
-  const armed0 = await p4.evaluate(() => ({
-    ready: !document.getElementById('liveReady').hasAttribute('hidden'),
-    noteHidden: document.getElementById('liveResetWarn').hasAttribute('hidden'),
-    btn: document.getElementById('liveReset').textContent,
-  }));
+  // 🔴 讀 DOM 一律容錯 —— 節點不在時要給一條**看得懂的紅字**，不是讓
+  //    `getElementById(...).hasAttribute` 以 TypeError 把整支腳本炸掉。
+  //    反向驗證 #20（把帶子節點整個拿掉）當場踩到：沒有收尾行、失敗數不可信，
+  //    下一個人看到的是「Cannot read properties of null」而不是「帶子不見了」。
+  //    PLAYBOOK 早有這條（`getComputedStyle(null)` 那次），我這一刀又犯一次。
+  const readReset = () => {
+    const warn = document.getElementById('liveResetWarn');
+    const btn = document.getElementById('liveReset');
+    return {
+      ready: !document.getElementById('liveReady')?.hasAttribute('hidden'),
+      // null ＝ 這一格根本不存在，跟 true/false 分得開
+      noteHidden: warn ? warn.hasAttribute('hidden') : null,
+      note: warn ? warn.textContent : '(缺帶子這一格)',
+      btn: btn ? btn.textContent : '(缺重設鍵)',
+      ch: localStorage.getItem('tenki.alert.channel'),
+    };
+  };
+  const armed0 = await p4.evaluate(readReset);
   checkTruthy('前提：設定面板展開、重設鍵在（0 的話下面全是死斷言）', armed0.ready);
   check('還沒按：帶子不在', armed0.noteHidden, true);
   check('還沒按：鍵還是「重設連結」', armed0.btn, '重設連結');
@@ -1423,12 +1436,7 @@ console.log('\n── 重設連結：先講，而且講完要留著 ──');
   // 第一下 —— 只能講話，不准換頻道
   await p4.evaluate(() => document.getElementById('liveReset').click());
   await p4.waitForTimeout(400);
-  const armed1 = await p4.evaluate(() => ({
-    ch: localStorage.getItem('tenki.alert.channel'),
-    btn: document.getElementById('liveReset').textContent,
-    note: document.getElementById('liveResetWarn').textContent,
-    noteHidden: document.getElementById('liveResetWarn').hasAttribute('hidden'),
-  }));
+  const armed1 = await p4.evaluate(readReset);
   check('🔴 第一下**不換頻道**（這就是二次確認的全部意義）', armed1.ch, 'old-channel');
   check('第一下把鍵換成「確定重設」', armed1.btn, '確定重設');
   check('第一下就把帶子打開', armed1.noteHidden, false);
@@ -1442,12 +1450,7 @@ console.log('\n── 重設連結：先講，而且講完要留著 ──');
   // 第二下 —— 真的換，而且提醒留著
   await p4.evaluate(() => document.getElementById('liveReset').click());
   await p4.waitForTimeout(900);
-  const done = await p4.evaluate(() => ({
-    ch: localStorage.getItem('tenki.alert.channel'),
-    btn: document.getElementById('liveReset').textContent,
-    note: document.getElementById('liveResetWarn').textContent,
-    noteHidden: document.getElementById('liveResetWarn').hasAttribute('hidden'),
-  }));
+  const done = await p4.evaluate(readReset);
   check('第二下真的換了頻道', done.ch, 'new-channel');
   check('換完鍵回到「重設連結」（不會卡在確定態）', done.btn, '重設連結');
   // 🔴 提醒**留著**，不是閃一下 —— 使用者按完通常會先去別的地方。
@@ -1456,10 +1459,9 @@ console.log('\n── 重設連結：先講，而且講完要留著 ──');
     /每一則/.test(done.note) && /重貼/.test(done.note));
 
   // 按複製 ＝ 他正要去重貼 → 提醒收工
-  await p4.evaluate(() => document.getElementById('liveCopy').click());
+  await p4.evaluate(() => document.getElementById('liveCopy')?.click());
   await p4.waitForTimeout(300);
-  check('按了複製連結，提醒才收起來',
-    await p4.evaluate(() => document.getElementById('liveResetWarn').hasAttribute('hidden')), true);
+  check('按了複製連結，提醒才收起來', (await p4.evaluate(readReset)).noteHidden, true);
 
   check('這一段沒有 page error', errs4, []);
   await ctx4.close();
@@ -1528,11 +1530,16 @@ for (const [label, subscribeStatus, mustSay, mustNotSay] of [
   });
   await p5.waitForTimeout(900);
 
-  const push = await p5.evaluate(() => ({
-    rowHidden: document.getElementById('livePushRow').hasAttribute('hidden'),
-    btn: document.getElementById('livePushBtn').textContent,
-    status: document.getElementById('livePushStatus').textContent,
-  }));
+  const push = await p5.evaluate(() => {
+    const row = document.getElementById('livePushRow');
+    const btn = document.getElementById('livePushBtn');
+    const st = document.getElementById('livePushStatus');
+    return {
+      rowHidden: row ? row.hasAttribute('hidden') : null,
+      btn: btn ? btn.textContent : '(缺推播鍵)',
+      status: st ? st.textContent : '(缺推播狀態這一行)',
+    };
+  });
   checkTruthy(`${label}｜前提：推播列在、而且認得既有訂閱（${push.btn}）`,
     !push.rowHidden && /已開啟/.test(push.btn));
   checkTruthy(`${label}｜說得出該說的（實際：${push.status.slice(0, 24)}…）`,
