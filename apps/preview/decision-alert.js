@@ -244,6 +244,25 @@
    * 否則同一筆決策存兩份，紀律統計立刻失真。
    * @param {Object} record 這次收束的紀錄
    */
+  /**
+   * 收束頁**自己產生**的欄位。就地更新時只補這些，其餘沿用計時器寫的事實。
+   *
+   * 🔴 **新增欄位一定要加進這份清單**，否則它會被靜默丟掉 —— 而且畫面上
+   * 完全看不出來（晶片亮著、存檔成功、沒有任何錯誤）。`tradeResult` 就是
+   * 這樣掉過一次的（2026-09-28 那輪），當時的修法是再加一行；
+   * 2026-10-30 加第三個欄位時改成這份清單，因為「記得再加一行」不是一個控制。
+   *
+   * ⚠️ 只有這一頁真的會寫的欄位才放進來。放一個這頁不產生的欄位進去，
+   * 它會在每次收束時把計時器寫的事實蓋成 undefined 檢查擋不住的東西。
+   */
+  var RECAP_OWNED_FIELDS = [
+    'contextTag',
+    'tradeResult',
+    // 「我下單了」那顆（規格 §7 第 3 項）—— `enteredAt` 的 `'observed'` 來源。
+    'enteredAt',
+    'enteredAtSource',
+  ];
+
   function saveOutcome(record) {
     var all = loadOutcomes();
     var idx = -1;
@@ -254,10 +273,13 @@
     }
     if (idx >= 0) {
       // 只補這一頁真的產生的欄位，其餘沿用計時器那邊寫的事實。
-      all[idx].contextTag = record.contextTag;
-      // 🔴 結果也是這一頁產生的 —— 漏掉這一行，使用者選的結果會被靜默丟掉，
-      // 而畫面上看起來完全正常（晶片亮著、存檔成功）。
-      all[idx].tradeResult = record.tradeResult;
+      // 🔴 走 `RECAP_OWNED_FIELDS` 那份具名清單，**不要在這裡一行一行列** ——
+      //    理由就寫在那個常數上面：這個分支已經靜默丟掉過一個欄位。
+      RECAP_OWNED_FIELDS.forEach(function (field) {
+        // `undefined` ＝ 這一頁這次沒有產生它 → 不要去動既有的值。
+        // （`null` 不一樣：那是「使用者把它取消掉了」，要寫進去。）
+        if (record[field] !== undefined) all[idx][field] = record[field];
+      });
     } else {
       all.push(record);
     }
