@@ -1379,6 +1379,162 @@ console.log('\n── 審視（快訊到達 → 判定）──');
 }
 
 // ═══════════════════════════════════════════════
+// 出場時間與「持有」那一段（規格 §1.2 的 closedAt）
+//
+// 🔴 這一段守的重點跟 alertAt 那一刀同形：**不給數字的那些分支**。
+//    ① 結果還是 pending → 部位沒收，沒有出場時刻可言
+//    ② 沒有 enteredAt → 持有的另一端不存在，問了也算不出東西
+//    ③ 答過了 → 不再問
+//    以及那個最容易做錯的：**隔夜持倉必須答得出來**。
+// ═══════════════════════════════════════════════
+console.log('\n── 出場時間與持有 ──');
+{
+  await page.goto(`${base}/v3/#session`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1500);
+
+  // 純邏輯先問清楚（判準住共用模組）。
+  const judge = await page.evaluate(() => {
+    const O = window.TENKI_OUTCOME;
+    const entered = new Date(2026, 9, 29, 9, 30, 0, 0).getTime();
+    const now = new Date(2026, 9, 30, 12, 0, 0, 0).getTime();
+    const base = {
+      ts: entered - 600e3, outcomeTag: 'judged_entered', tradeResult: 'profit_taken',
+      enteredAt: entered, enteredAtSource: 'reported',
+    };
+    return {
+      allows: O.allowsExitTime(base),
+      pending: O.allowsExitTime({ ...base, tradeResult: 'pending' }),
+      noEntry: O.allowsExitTime({ ...base, enteredAt: undefined }),
+      answered: O.allowsExitTime({ ...base, closedAt: now - 1000 }),
+      sameDay: O.exitTimeFrom(base, '2026-10-29T10:45', now).ok,
+      overnight: O.exitTimeFrom(base, '2026-10-30T00:20', now).ok,
+      beforeEntry: O.exitTimeFrom(base, '2026-10-29T09:00', now).reason,
+      future: O.exitTimeFrom(base, '2026-10-31T09:00', now).reason,
+      timeOnly: O.exitTimeFrom(base, '09:00', now).reason,
+      held: O.heldSec({ ...base, closedAt: new Date(2026, 9, 30, 0, 20, 0, 0).getTime() }),
+      precBothReported: O.heldPrecision({ ...base, closedAtSource: 'reported' }),
+      precMixed: O.heldPrecision({ ...base, enteredAtSource: 'observed', closedAtSource: 'reported' }),
+      precBothObserved: O.heldPrecision({ ...base, enteredAtSource: 'observed', closedAtSource: 'observed' }),
+      noClosed: O.heldSec(base),
+    };
+  });
+  check('結果已填 + 有進場時間 → 問得出來', judge.allows, true);
+  check('🔴 結果還是 pending → 不問（部位沒收，沒有出場時刻可言）', judge.pending, false);
+  check('🔴 沒有進場時間 → 不問（持有的另一端不存在，問了也算不出東西）', judge.noEntry, false);
+  check('答過了就不再問', judge.answered, false);
+  check('同一天的出場時間收得下', judge.sameDay, true);
+  // 🔴 這條是這一刀最容易做錯的地方：拿「判定那一天」當錨的話，每一筆過夜
+  //    持倉都會被判成「比進場還早」—— 一個合法情境被擋在看不懂的錯誤後面。
+  check('🔴 隔夜持倉（9:30 進、隔天 00:20 出）收得下', judge.overnight, true);
+  check('早於進場 → 擋下來，而且說得出是哪裡不對', judge.beforeEntry, 'before_entry');
+  check('未來 → 擋下來', judge.future, 'future');
+  check('只給時間不給日期 → 看不懂（這一題收的是 datetime-local）', judge.timeOnly, 'unparsable');
+  check('持有算得出來（14 小時 50 分 = 53400 秒）', judge.held, 53400);
+  check('兩端都是回想的 → 分鐘精度', judge.precBothReported, 'minute');
+  // 🔴 一段時長不會比它最粗的那一端更精確 —— 這跟「等待」只看一端不同。
+  check('🔴 一端量到、一端回想 → 仍然是分鐘精度（取較粗的那端）', judge.precMixed, 'minute');
+  check('兩端都是量到的 → 秒精度', judge.precBothObserved, 'second');
+  check('沒有出場時間 → 持有是 null，不是 0', judge.noClosed, null);
+
+  // 畫面：問句列與「持有」那一格
+  const ENTERED = Date.now() - 3 * 3600e3;
+  const seed = (extra) => [Object.assign({
+    symbol: 'NVDA', templateId: 'MANCINI_FBD', outcomeTag: 'judged_entered',
+    judgmentSchema: 'structure_watch_v1', reachedReadiness: null,
+    durationSec: 540, marks: 0, events: [], originAlertId: 'demo-1',
+    ts: ENTERED - 600e3, source: 'alert', tradeResult: 'profit_taken',
+    enteredAt: ENTERED, enteredAtSource: 'reported',
+  }, extra)];
+
+  async function openWith(store) {
+    await page.evaluate((v) => {
+      localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(v));
+    }, store);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(1800);
+    await page.evaluate((ts) => window.openSessionDetail(ts), store[0].ts);
+    await page.waitForTimeout(400);
+    return page.evaluate(() => {
+      const row = document.getElementById('sdExitTimeRow');
+      const cell = document.getElementById('sdFactHeldCell');
+      const v = document.getElementById('sdFactHeld');
+      const note = document.getElementById('sdExitTimeNote');
+      return {
+        askHidden: row ? row.hasAttribute('hidden') : null,
+        heldHidden: cell ? cell.hasAttribute('hidden') : null,
+        held: v ? v.textContent : '(缺持有這一格)',
+        note: note ? note.textContent : '(缺說明這一行)',
+      };
+    });
+  }
+
+  const asked = await openWith(seed({}));
+  check('🔴 結果填完、有進場時間 → 問句列在', asked.askHidden, false);
+  check('還沒答之前，持有那一格不存在', asked.heldHidden, true);
+
+  const noEntry = await openWith(seed({ enteredAt: undefined, enteredAtSource: undefined }));
+  check('🔴 沒有進場時間 → 問句列整列不出現', noEntry.askHidden, true);
+
+  const stillPending = await openWith(seed({ tradeResult: 'pending' }));
+  check('🔴 結果還沒填 → 問句列整列不出現', stillPending.askHidden, true);
+
+  // 真的答一次 —— 走的是產品自己的輸入與儲存路徑
+  await openWith(seed({}));
+  const exitLocal = await page.evaluate((at) => {
+    const d = new Date(at);
+    const p = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+  }, ENTERED + 2 * 3600e3 + 20 * 60e3);
+  await page.evaluate((v) => {
+    document.getElementById('sdExitTime').value = v;
+    document.getElementById('sdExitTimeSave').click();
+  }, exitLocal);
+  await page.waitForTimeout(600);
+  const after = await page.evaluate(() => {
+    const store = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'));
+    const cell = document.getElementById('sdFactHeldCell');
+    const v = document.getElementById('sdFactHeld');
+    const row = document.getElementById('sdExitTimeRow');
+    return {
+      n: store.length,
+      closedAt: store[0].closedAt,
+      source: store[0].closedAtSource,
+      tradeResult: store[0].tradeResult,
+      enteredAt: store[0].enteredAt,
+      heldHidden: cell ? cell.hasAttribute('hidden') : null,
+      held: v ? v.textContent : '(缺持有這一格)',
+      askHidden: row ? row.hasAttribute('hidden') : null,
+    };
+  });
+  check('一筆決策仍然只留一筆紀錄', after.n, 1);
+  checkTruthy(`🔴 出場時間寫進那一筆（${after.closedAt}）`, typeof after.closedAt === 'number');
+  // 🔴 這個數字是使用者回想的，不是 App 量到的 —— 標記不得漏，
+  //    否則下游分不出它跟將來「當場按出場」那條路的差別。
+  check('🔴 來源標記成 reported（跟將來的 observed 不可混算）', after.source, 'reported');
+  check('回填只動 closedAt —— 結果沒被改掉', after.tradeResult, 'profit_taken');
+  check('回填只動 closedAt —— 進場時間沒被改掉', after.enteredAt, ENTERED);
+  check('🔴 答完持有那一格長出來', after.heldHidden, false);
+  // 🔴 回想來的時間只有分鐘精度 → 不准印 m:ss（那會是 140:00）。
+  check('🔴 印成人話的分鐘精度，不是 m:ss', after.held, '約 2 小時 20 分');
+  check('答過了就不再問', after.askHidden, true);
+
+  // 擋下來的那條路：只說那個時間怎麼了
+  await openWith(seed({}));
+  await page.evaluate(() => {
+    document.getElementById('sdExitTime').value = '2020-01-01T00:00';
+    document.getElementById('sdExitTimeSave').click();
+  });
+  await page.waitForTimeout(300);
+  const refused = await page.evaluate(() => ({
+    note: document.getElementById('sdExitTimeNote').textContent,
+    closedAt: JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'))[0].closedAt,
+  }));
+  check('🔴 早於進場的時間不准寫進去', refused.closedAt, undefined);
+  checkTruthy(`擋下來只說那個時間怎麼了（${refused.note}）`,
+    /這比進場的時候還早/.test(refused.note));
+}
+
+// ═══════════════════════════════════════════════
 // 重設連結：一個**安靜地**破壞性的動作要先講，講完還要留著
 //
 // 🔴 founder 2026-10-30 實走：按了重設、TradingView 沒有逐則重貼，於是舊 alert
