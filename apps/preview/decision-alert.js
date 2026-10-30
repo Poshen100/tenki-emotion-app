@@ -409,6 +409,7 @@
     'resultHistory', 'resultMeterFill', 'resultRate', 'resultStrip',
     'resultRecap', 'resultRecapList', 'resultReflectWrap', 'resultReflect', 'btnResultSave', 'btnResultRecord',
     'resultTradeWrap', 'resultTrade',
+    'resultEnteredWrap', 'resultEnteredBtn',
     'timerBar', 'timerLabel', 'timerClock',
     'watchAnchor', 'timerBack', 'timerUpdate',
     'liveToggle', 'liveDot', 'liveStatus', 'liveChevron', 'liveBody',
@@ -1596,6 +1597,71 @@
     return d / records.length;
   }
 
+  /**
+   * 「我剛下單了」那顆。
+   *
+   * 🔴 它是一句關於**現在**的陳述 —— 按下去蓋的是 `Date.now()`
+   * （`enteredAtSource: 'observed'`，誤差幾秒）。還沒下單的人**略過**，
+   * 之後在 Session 詳情用「大概幾點進的」補，那條走 `'reported'`。
+   * 規格 §3 硬規則 2：兩種來源**不可混算**，所以標記不得漏。
+   *
+   * 🔴 **可略過**（規格 §2 紅線：不知道的人仍然是一下點完）、
+   * **可取消**（再按一次）—— 一個不可逆的誤觸會讓這筆紀錄從此說錯話，
+   * 而這一下就只是一個按鈕。同「後來我進場了」那顆的既有紀律。
+   *
+   * ⚠️ 不在這裡放任何「要不要幫你開交易 App」—— 已立的規則（規格 §3）。
+   *
+   * ⚠️ 按鈕的樣子必須反映**紀錄現在的狀態**，不是「這次開頁有沒有按過」——
+   * 否則一筆已經有下單時刻的紀錄會顯示成沒按過，再按一次就蓋上一個比較晚的
+   * 時刻。今天到不了這條路（收束頁只由一次性回程票開），但畫面不該說假話。
+   *
+   * @param {boolean} asks 這一筆問不問得出下單時刻（＝判定成立並進場）
+   */
+  function renderEnteredNow(asks) {
+    if (!el.resultEnteredBtn) return;
+    // 每次開頁都換掉整顆，否則 listener 會疊上去（同反思晶片那條既有做法）。
+    var fresh = el.resultEnteredBtn.cloneNode(true);
+    el.resultEnteredBtn.parentNode.replaceChild(fresh, el.resultEnteredBtn);
+    el.resultEnteredBtn = fresh;
+    var marked = !!(state.pendingOutcome && typeof state.pendingOutcome.enteredAt === 'number');
+    fresh.classList.toggle('sel', marked);
+    fresh.textContent = marked ? '已記下下單時刻 ✓' : '我剛下單了';
+    if (!asks) return;
+    fresh.addEventListener('click', function () {
+      if (!state.pendingOutcome) return;
+      var already = typeof state.pendingOutcome.enteredAt === 'number';
+      if (already) {
+        // 🔴 收回去的時候**時間與來源都要消失**。留著的話這筆紀錄會同時說
+        //    「我沒說我下單了」跟「我 14:03 下單」—— 自相矛盾，而且不會有人報錯。
+        state.pendingOutcome.enteredAt = null;
+        state.pendingOutcome.enteredAtSource = null;
+        fresh.classList.remove('sel');
+        fresh.textContent = '我剛下單了';
+        return;
+      }
+      state.pendingOutcome.enteredAt = Date.now();
+      state.pendingOutcome.enteredAtSource = 'observed';
+      fresh.classList.add('sel');
+      fresh.textContent = '已記下下單時刻 ✓';
+    });
+  }
+
+  /**
+   * 從已存在的那一筆讀一個欄位（沒有就 `undefined`）。
+   *
+   * @param {Object} s 回程票帶來的 session 快照
+   * @param {string} field 欄位名
+   * @returns {*} 既有的值，或 undefined
+   */
+  function existingField(s, field) {
+    if (!s || !s.alreadyPersisted || typeof s.recordTs !== 'number') return undefined;
+    var all = loadOutcomes();
+    for (var i = 0; i < all.length; i += 1) {
+      if (all[i].ts === s.recordTs) return all[i][field];
+    }
+    return undefined;
+  }
+
   function openResult(judgment, s) {
     var disp = outcomeDisplay(judgment);
     state.pendingOutcome = {
@@ -1615,6 +1681,11 @@
       durationSec: s.elapsedSec,
       // 回程時沿用既有紀錄的 ts —— 它是就地更新要用的 key。
       ts: s.recordTs || Date.now(),
+      // 🔴 把既有紀錄的下單時刻接回來。不接的話，一筆已經標過的紀錄會在這一頁
+      //    顯示成沒標過（而 `RECAP_OWNED_FIELDS` 的 `undefined` 跳過剛好讓它
+      //    不被覆寫 —— 也就是說**畫面說謊而資料沒事**，更難發現）。
+      enteredAt: existingField(s, 'enteredAt'),
+      enteredAtSource: existingField(s, 'enteredAtSource'),
       alreadyPersisted: !!s.alreadyPersisted,
       // 這筆決策從哪個入口來（v6 的計時器決策寫 'v6'）。統一 store 是兩個入口
       // 合流的地方，沒有這個欄位 Session 頁就分不出來源。
@@ -1688,8 +1759,14 @@
       });
     }
 
+    // ── 「我下單了」（§7 第 3 項）──
+    // 🔴 跟結果晶片同一個閘：只有「判定成立並進場」才問得出下單時刻。
+    //    判定不成立 ＝ 沒有要下的單；未判定 ＝ 連有沒有交易都不知道。
+    renderEnteredNow(asksTrade);
+
     // 依收束頁設定決定各區塊顯示（記錄一律照常，只影響呈現）。
     toggleHidden(el.resultTradeWrap, asksTrade);
+    toggleHidden(el.resultEnteredWrap, asksTrade);
     toggleHidden(el.resultHistory, state.resultSettings.showHistory);
     toggleHidden(el.resultRecap, state.resultSettings.showRecap);
     toggleHidden(el.resultReflectWrap, state.resultSettings.showReflect);
@@ -1700,7 +1777,10 @@
     var animate = !prefersReducedMotion;
     var spec = resultArcSpec(judgment);
     var rate = disciplineRate(withThis);
-    var revealItems = [el.resultHistory, el.resultRecap, el.resultReflectWrap, el.resultTradeWrap];
+    var revealItems = [
+      el.resultHistory, el.resultRecap, el.resultReflectWrap,
+      el.resultEnteredWrap, el.resultTradeWrap,
+    ];
 
     // 重置上一次的編排殘留
     el.resultArcCenter.classList.remove('landed');

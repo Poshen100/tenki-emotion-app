@@ -929,6 +929,18 @@
          未判定就離開 ＝ null（不猜）。兩個都問會讓使用者答出自相矛盾的紀錄。
          🔴 三顆共用 .result-chip（琥珀＝可動層），選中態**完全相同** ——
          這個 app 不評價你的交易結果，所以不得有任何一顆長得比較好或比較壞。 -->
+    <!-- 「我下單了」（規格 §7 第 3 項）—— `enteredAt` 的 `'observed'` 來源。
+         🔴 排在結果**之前**：時序上先下單才有結果。
+         🔴 它是一句關於**現在**的陳述。還沒下單的人略過，之後在 Session 詳情
+            用「大概幾點進的」補（那條走 `'reported'`，兩者不可混算）。
+         🔴 可略過、可取消 —— 一個不可逆的誤觸會讓這筆紀錄從此說錯話。 -->
+    <div class="result-trade-wrap reveal-item" id="resultEnteredWrap">
+      <div class="result-reflect-q">下單了嗎<span class="result-trade-note">（還沒就略過，之後在紀錄裡補得到）</span></div>
+      <div class="result-reflect">
+        <button class="result-chip" type="button" id="resultEnteredBtn">我剛下單了</button>
+      </div>
+    </div>
+
     <div class="result-trade-wrap reveal-item" id="resultTradeWrap">
       <div class="result-reflect-q">這筆的結果<span class="result-trade-note">（還沒有結果也可以，之後回到這頁再填）</span></div>
       <div class="result-reflect" id="resultTrade"></div>
