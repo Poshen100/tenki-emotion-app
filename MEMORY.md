@@ -28,6 +28,87 @@
      勿刪、勿移動、勿複製第二份：`scripts/verify.sh` 驗它恰好出現一次、
      而且排在所有條目之前。它的存在理由見協議第 1 條。 -->
 
+# 2026-10-30 Session Update（四個時間戳收齊；牆拆了，限流接上；三條假綠）
+
+⚠️ 依協議 2b：**不編號**。分支 `claude/decision-timer-completion-sh7ogg`。
+承接 2026-10-29 那條（`alertAt`／「審視」）。
+
+## 做了什麼（四個 PR）
+
+| PR | |
+|---|---|
+| #291 | 頻道建立上限（接替拆掉的牆）＋「不要 modal」裁決＋ CI runner 釘回 24.04 |
+| #292 | 重設連結先講再做、推播重綁不再先宣告成功 |
+| #293 | `api/` 變可測 workspace ＋ 驗 429 ＋ 修掉會產生永不過期頻道的路徑 |
+| #294 | `closedAt` 與「持有」—— **四個時間戳收齊** |
+
+### Vercel 那條線（founder 授權、他親手按的）
+
+webhook 網址裡的 bypass 密鑰**三張截圖外流**。我第一次給的建議只解決一半 ——
+「重設連結」只換 `ch=`，換不掉 bypass（那是 `VERCEL_AUTOMATION_BYPASS_SECRET`，
+server 從環境變數讀出來拼上去的，跟保護開不開無關）。
+
+founder 選了根治：關掉 Vercel Authentication → 撤掉密鑰 → Redeploy。
+⚠️ 他的方案**沒有**「Only Preview Deployments」，而且專案沒有 custom domain，
+所以「Standard Protection ＝ protect all except production **Custom Domains**」
+的例外是空的 —— 只能整個關。
+🔴 關牆等於把 `/api/channel` 對全世界打開（它的 module doc 自己寫著
+「registration is open」），所以**先把限流 merge + 部署，才請他關**。
+
+量出來的（不是推論）：換 deploy 前讀 `/api/channel` 還是舊密鑰，換完 `null`。
+前後對照。
+
+## 教訓 —— 這一輪抓到**三條假綠**，全部是我自己的
+
+🔴 **① harness 讀 DOM 又炸了（第三次）。** 拿掉節點 → `TypeError` → 整支腳本
+以 stack trace 死掉，沒有收尾行、失敗數不可信。而這次查出它**怎麼躲過規則
+自己的判準**：判準寫的是 `\.\(textContent\|value\|className\)` 一份**列舉**，
+我用的是 `.hasAttribute` —— 第四個存取子。
+**列舉式的判準，換一個名字就繞過去**（＝本檔另一條規則的形狀）。
+判準已改成問形狀。⚠️ 它**還是沒有變成機械控制**（第②類骨架光一支 harness 就
+66 處，進 verify 會變雜訊），誠實的狀態是：這條規則靠人，而人已經錯三次。
+
+🔴 **② 死斷言：對稱規則只餵了一個方向。** `heldPrecision` 的規則是「兩端取較粗」，
+破壞「只看出場那一端」弄紅 **0 條** —— 因為我挑的混合案例在那一半照樣答對。
+判準：**把規則換成「永遠看 A」，fixture 會變嗎？不會變就是沒在驗它。**
+
+🔴 **③ Flaky 斷言，而且前一次是綠的。** `datetime-local` 只到分鐘，fixture 起點
+來自 `Date.now()` 帶著秒 → 持有少算一分鐘。**掃一整分鐘量出來：300 點裡 146 點
+會印錯**，對齊整分鐘後 0 點。這是 `29:22` 那個算術第二次咬人（上次是產品、
+這次是 fixture）。真正的代價不是當次紅，是它會在某個**不相干的 PR** 上隨機變紅。
+
+⚠️ **④ 不是假綠但同一家族**：加 workspace 沒重產 lockfile，本機 verify 全綠、
+CI `npm ci` 紅。判準：**改動 workspaces／相依之後要跑 `npm ci --dry-run`，
+不是 `npm test`** —— 後者在一個已經裝好的樹上永遠看不到這件事。
+
+以上①②③已提煉進 `docs/PLAYBOOK.md`。
+
+## 其他值得記的
+
+- **CI runner 滾到 ubuntu 26.04**，Playwright 1.56.1 不認得 → `playwright install`
+  當場死。釘回 `ubuntu-24.04`（只釘 preview 那個 job）。不升 Playwright 的理由：
+  那會換掉瀏覽器與字型基準，而這個 job 的版面斷言綁在 image 上。
+- **`registerChannel` 的 SETNX + EXPIRE 是兩個命令** → EXPIRE 失敗會留下一條
+  **永不過期**的頻道、同時回 502 叫使用者重試再鑄一把。改成單一 `SET … EX … NX`。
+  是新測試照「想要的行為」寫出來、當場紅、改到綠抓到的。
+- founder 裁決「**不要 modal**」（跨四個 session 的那一題）已寫進規格 §4，
+  連同它**禁止的形狀**；並有三條形狀守門。
+
+## 下次接手點
+
+- 規格 §7 **第 3 項**：收束頁的「我下單了」（`enteredAt` 的 `'observed'` 來源）。
+  ⚠️ `closedAt` 的 `'observed'`（當場按「現在出場了」）契約留好了、UI 未做。
+- 規格 §7 **第 6 項**：L2 盤後推播（要新排程基礎設施，最貴）。
+- **等 founder 實機走**：出場時間那一列與「持有」那一格；重設連結的二次確認；
+  推播重綁的新文案。
+- 🔴 **founder 還沒做的兩件**：① TradingView **逐則**重貼（改 `ch=`、刪 bypass、
+  **保留各自的 `&symbol=`** —— 多標的用裸連結會被兜底成頻道預設 symbol，
+  而且 200、入鏈、推播照送，完全不報錯）② 重掃一次（讀數過期 → 帶位會被統計排除）。
+- ⚠️ **沒驗到的**：api 那 9 條用的是 Upstash REST 的**仿製品**，守的是我方邏輯，
+  不是「Upstash 真的這樣回」。要驗後者得有真的實例。
+
+---
+
 # 2026-10-29 Session Update（四個時間戳的第二個：`alertAt` 與「審視」那一段）
 
 ⚠️ 依協議 2b：**不編號**。分支 `claude/decision-timer-completion-sh7ogg`。
