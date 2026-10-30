@@ -1604,7 +1604,15 @@
       { cls: disp.cls === 'disciplined' ? 'on' : 'off', label: '判定', segs: [seg(disp.text)] },
       // 「等了 NN:NN」原本擠在判定那句的尾巴。它是一個**量**，不是判定的形容詞
       // —— 給它自己的欄位，數字才對得齊上面那些。
-      { cls: '', label: '等待', segs: [seg(formatClock(s.elapsedSec), true)] },
+      //
+      // 🔴 **叫「用時」不叫「等待」**（founder 2026-10-30 實走截圖抓到）：
+      //    這一格是 `elapsedSec`（起跑 → 收束），而 Session 詳情那一格
+      //    「等待」是**判定 → 進場**（`waitedSec()`，規格 §1.2）——
+      //    兩個完全不同的量。更糟的是詳情頁**另外有一格就叫「用時」**，
+      //    而那才是這個數字。於是同一筆決策在兩頁上，同一個詞指著兩件事。
+      //    `decision-outcome.js` 開頭那句「兩頁各寫一份判準就是這支模組存在的
+      //    理由（2026-08-09 那次兩頁方言不同）」講的正是這個家族。
+      { cls: '', label: '用時', segs: [seg(formatClock(s.elapsedSec), true)] },
     ];
     rows.filter(Boolean).forEach(function (row) {
       var rowEl = document.createElement('div');
@@ -1738,8 +1746,9 @@
     el.resultOutcome.textContent = disp.text;
     el.resultOutcome.className = 'result-outcome ' + disp.cls;
     // 沒有分母了 —— 沒有「應該等多久」這回事（§7 step 3 沒有時間表）。
-    // 數字走等寬（跟軌跡表的 .num 同一個理由），「等了」兩個中文字不走。
-    el.resultArcTime.textContent = '等了 ';
+    // 數字走等寬（跟軌跡表的 .num 同一個理由），「用了」兩個中文字不走。
+    // 同上：這是用時，不是「等待」。「等了」會被讀成在等某件事發生。
+    el.resultArcTime.textContent = '用了 ';
     var arcNum = document.createElement('span');
     arcNum.className = 'num';
     arcNum.textContent = formatClock(s.elapsedSec);

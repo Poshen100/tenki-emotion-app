@@ -29,7 +29,9 @@ export const DIGEST_REPORT_TTL_SEC = 172_800;
  */
 export const DIGEST_SILENT_STREAK_MAX = 3;
 
-/** ET 收盤（16:00）。在這之前不推 —— 答案要到收盤才存在（§4 L2）。 */
+/**
+ * ET 16:00 —— 交易日結束的時刻。在這之前不推（§4 L2：答案要到那時才存在）。
+ */
 export const TRADING_CLOSE_ET_HOUR = 16;
 
 /** 不推的時候，為什麼不推。每一個都是一句**事實**，不是一個藉口。 */

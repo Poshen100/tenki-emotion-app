@@ -39,12 +39,12 @@ describe('etHour / isAfterTradingClose', () => {
     expect(etHour(utc2005)).toBe(TRADING_CLOSE_ET_HOUR - 1);
   });
 
-  it('收盤後為真，盤中為假（夏令）', () => {
+  it('ET 16:00 之後為真、之前為假（夏令）', () => {
     expect(isAfterTradingClose(SUMMER_CLOSE)).toBe(true);
     expect(isAfterTradingClose(SUMMER_NOON)).toBe(false);
   });
 
-  it('收盤後為真，盤中為假（冬令）', () => {
+  it('ET 16:00 之後為真、之前為假（冬令）', () => {
     expect(isAfterTradingClose(WINTER_CLOSE)).toBe(true);
     expect(isAfterTradingClose(WINTER_NOON)).toBe(false);
   });
@@ -78,7 +78,7 @@ describe('digestDecision', () => {
     expect(digestDecision(base, SUMMER_CLOSE)).toEqual({ send: true, count: 1 });
   });
 
-  it('🔴 盤中不推（答案要到收盤才存在）', () => {
+  it('🔴 交易日結束前不推（答案要到那時才存在）', () => {
     expect(digestDecision(base, SUMMER_NOON)).toEqual({
       send: false,
       reason: 'before_close',
