@@ -332,6 +332,27 @@ const save = await page.evaluate(() => {
 check('短視窗(660px)下儲存鈕完全可見（不必先捲動）', save.完全可見, true);
 check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
 
+// 🔴 「放得下」現在是**自動收起「紀律近況」**換來的（founder 2026-10-30 裁決）。
+//    上面那條單獨存在會變成「怎麼放得下的都算」—— 下一個人把任何一塊砍掉
+//    也會讓它綠。這兩條成對：放得下 ＋ **是靠收那一塊、而且沒改使用者的設定**。
+const fit = await page.evaluate(() => ({
+  historyHidden: document.getElementById('resultHistory')?.hasAttribute('hidden') ?? null,
+  // 設定存在這個 key；自動收起不得把它改掉。
+  raw: localStorage.getItem('tenki.alert.resultSettings.v1'),
+}));
+check('🔴 短視窗下「紀律近況」被收起（這就是放得下的原因）', fit.historyHidden, true);
+checkTruthy2('🔴 而使用者的設定沒有被改掉（showHistory 仍是開著或根本沒存過）',
+  fit.raw === null || /"showHistory"\s*:\s*true/.test(fit.raw));
+
+// 回到正常高度：那一塊要自己回來 —— 收起來是為了**這一次呈現**，不是記住了。
+await page.setViewportSize({ width: 390, height: 900 });
+await page.waitForTimeout(500);
+const tall = await page.evaluate(() =>
+  document.getElementById('resultHistory')?.hasAttribute('hidden') ?? null);
+check('🔴 畫面夠高時「紀律近況」要回來（不是被記住關掉了）', tall, false);
+await page.setViewportSize({ width: 390, height: 660 });
+await page.waitForTimeout(300);
+
 // ── 端到端：決策真的接到正式站的結果頁 ──
 //
 // founder 2026-08-09：「怎麼接到正式站的結果頁」。查出來的是 —— 管線早就通了

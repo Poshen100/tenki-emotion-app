@@ -198,6 +198,41 @@
       showReflect: s.showReflect !== false,
     };
   }
+  /**
+   * 收束頁要**一屏放得下**（in-app 瀏覽器上下工具列都在時 ≈660px）——
+   * 放不下就先收起「紀律近況」。
+   *
+   * 🔴 **量出來才收，不訂 px 門檻。** 門檻會是一個魔術常數，而且字級、
+   * 語言、瀏覽器 chrome 一變就失準。這裡直接問這一頁「你現在放得下嗎」。
+   *
+   * 🔴 收起來的為什麼是「紀律近況」：那一塊是**狀態顯示**，不是一個要使用者
+   * 回答的問題；而軌跡／反思／下單／結果全是關於**這一筆**的。founder
+   * 2026-10-30 裁決。實測它值 56px，而新增的「下單了嗎」那一列值 33px ——
+   * 這張頁在 660px 下的餘裕本來是 **0**（579 / 579），所以不是排版技巧的問題。
+   *
+   * ⚠️ **不動使用者的設定**：他在「收束頁設定」關掉的仍然是關掉的；
+   * 這裡只在「開著但放不下」時為了這一次呈現而收起來。設定卡的說明有講。
+   */
+  function fitRecapToOneScreen() {
+    if (!el.resultSheet || !el.resultHistory) return;
+    // 先回到設定該有的樣子，再決定要不要為了放得下而收。
+    toggleHidden(el.resultHistory, state.resultSettings.showHistory);
+    if (!state.resultSettings.showHistory) return;
+    if (el.resultSheet.scrollHeight <= el.resultSheet.clientHeight) return;
+    toggleHidden(el.resultHistory, false);
+  }
+
+  // 🔴 視窗高度**會變**：實機捲動時瀏覽器上下工具列收起來，視窗就長高了
+  //    （這一頁的 660px 約束講的正是「工具列都在」那個狀態）。只在開頁量一次
+  //    的話，那一塊會卡在收起狀態回不來 —— 收起來是為了**這一次放得下**，
+  //    不是一個被記住的決定。harness 那條「畫面夠高時要回來」當場抓到這件事。
+  var recapFitTimer = null;
+  window.addEventListener('resize', function () {
+    if (!el.resultSheet || !el.resultSheet.classList.contains('show')) return;
+    if (recapFitTimer) clearTimeout(recapFitTimer);
+    recapFitTimer = setTimeout(fitRecapToOneScreen, 120);
+  });
+
   function toggleHidden(node, show) {
     if (!node) return;
     if (show) node.removeAttribute('hidden');
@@ -1792,6 +1827,11 @@
     el.resultMeterFill.style.width = '0';
 
     openSheet(el.resultSheet);
+    // 🔴 量要在版面落定之後。雙 rAF 是這一頁既有的「等一幀」做法 ——
+    //    單一 rAF 量到的還是 openSheet 那一幀的中間態。
+    requestAnimationFrame(function () {
+      requestAnimationFrame(fitRecapToOneScreen);
+    });
 
     function reveal() {
       el.resultMeterFill.style.width = Math.round(rate * 100) + '%';

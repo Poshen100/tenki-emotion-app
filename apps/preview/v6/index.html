@@ -1113,7 +1113,11 @@ body{
    「量不到就填一個預設值」。提示只能放在輸入框**外面**（下面那條 .bf-input-hint）。
    這裡做的是讓那個空框自己看起來像個可點的控制：給它最小寬度與一個
    明確的互動色邊，不要縮成一個看不懂的小洞。 */
-.sd-entry-time-row .bf-input{min-width:132px;border-color:var(--tp-amber,#F59E0B);
+/* 🔴 用既有的 token，**不要寫字面色**。第一版寫 `var(--tp-amber,#F59E0B)`，
+   那個 fallback 就是一個新顏色 —— fdcb 的色彩守門當場算出它跟 --amber-400
+   ΔE 只有 6.0 並擋下來（「產生新顏色之前先問它是不是已經有主人」）。 */
+.sd-entry-time-row .bf-input{min-width:132px;
+  border-color:rgba(var(--amber-400-rgb),0.45);
   -webkit-appearance:none;appearance:none;text-align:center}
 .bf-input-hint{font-size:11px;color:var(--n-500);line-height:1.5;margin-top:6px}
 .bf-row{display:flex;gap:8px}
