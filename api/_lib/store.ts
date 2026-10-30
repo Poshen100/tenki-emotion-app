@@ -125,9 +125,25 @@ export async function countChannelCreation(
 export async function registerChannel(config: UpstashConfig): Promise<string> {
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const channelId = (randomUUID() + randomUUID()).replace(/-/g, '');
-    const claimed = await command(config, ['setnx', CHANNEL_KEY_PREFIX + channelId, String(Date.now())]);
-    if (claimed === 1) {
-      await command(config, ['expire', CHANNEL_KEY_PREFIX + channelId, String(CHANNEL_TTL_SEC)]);
+    // 🔴 Claim and expiry are ONE command (`SET … EX … NX`), not `SETNX` then
+    // `EXPIRE`. With two commands there is a window where the key exists with
+    // no TTL, and a failure in the second one leaves a channel that **never
+    // expires** while the caller is told the registration failed — the key is
+    // immortal AND the user retries, minting another one. The 30-day TTL is
+    // the only thing bounding channel growth, so it must not be a second hop.
+    // Found by api/__tests__/channel-rate-limit.test.ts (2026-10-30).
+    //
+    // `SET … NX` answers `"OK"` when it took the key and `null` when the key
+    // was already there — not SETNX's 1/0.
+    const claimed = await command(config, [
+      'set',
+      CHANNEL_KEY_PREFIX + channelId,
+      String(Date.now()),
+      'ex',
+      String(CHANNEL_TTL_SEC),
+      'nx',
+    ]);
+    if (claimed === 'OK') {
       return channelId;
     }
   }

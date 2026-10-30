@@ -34,7 +34,10 @@ jobs:
           exit $status
 
   workspaces:
-    name: packages + domain (test & typecheck)
+    # `npm test` 走 `--workspaces --if-present`，而 root workspaces 自 2026-10-30
+    # 起含 `api` —— 名字要跟著實際跑的東西走，否則下一個人會以為 api 沒有測試
+    # （那正是 2026-10-29 那一刀的處境）。
+    name: packages + domain + api (test & typecheck)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
