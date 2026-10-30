@@ -1413,7 +1413,11 @@ console.log('\n── 出場時間與持有 ──');
       timeOnly: O.exitTimeFrom(base, '09:00', now).reason,
       held: O.heldSec({ ...base, closedAt: new Date(2026, 9, 30, 0, 20, 0, 0).getTime() }),
       precBothReported: O.heldPrecision({ ...base, closedAtSource: 'reported' }),
-      precMixed: O.heldPrecision({ ...base, enteredAtSource: 'observed', closedAtSource: 'reported' }),
+      // 🔴 **兩個方向都要問。** 只問一個方向的話，「只看出場那一端」這個 bug
+      //    在 entered=observed / closed=reported 這一半照樣答對 —— 反向驗證
+      //    實測：那個破壞弄紅 0 條。有鑑別力的是**另一半**。
+      precMixedEnteredCoarse: O.heldPrecision({ ...base, enteredAtSource: 'reported', closedAtSource: 'observed' }),
+      precMixedClosedCoarse: O.heldPrecision({ ...base, enteredAtSource: 'observed', closedAtSource: 'reported' }),
       precBothObserved: O.heldPrecision({ ...base, enteredAtSource: 'observed', closedAtSource: 'observed' }),
       noClosed: O.heldSec(base),
     };
@@ -1432,12 +1436,26 @@ console.log('\n── 出場時間與持有 ──');
   check('持有算得出來（14 小時 50 分 = 53400 秒）', judge.held, 53400);
   check('兩端都是回想的 → 分鐘精度', judge.precBothReported, 'minute');
   // 🔴 一段時長不會比它最粗的那一端更精確 —— 這跟「等待」只看一端不同。
-  check('🔴 一端量到、一端回想 → 仍然是分鐘精度（取較粗的那端）', judge.precMixed, 'minute');
+  //    兩個方向成對存在：拆掉任一條，「只看某一端」的 bug 就有一半溜過去。
+  check('🔴 進場回想、出場量到 → 分鐘精度（粗的是進場那端）',
+    judge.precMixedEnteredCoarse, 'minute');
+  check('🔴 進場量到、出場回想 → 分鐘精度（粗的是出場那端）',
+    judge.precMixedClosedCoarse, 'minute');
   check('兩端都是量到的 → 秒精度', judge.precBothObserved, 'second');
   check('沒有出場時間 → 持有是 null，不是 0', judge.noClosed, null);
 
   // 畫面：問句列與「持有」那一格
-  const ENTERED = Date.now() - 3 * 3600e3;
+  //
+  // 🔴 **進場時刻要對齊整分鐘，否則下面那條「約 2 小時 20 分」是 flaky 的。**
+  //    `datetime-local` 只到分鐘，所以我們送出去的出場時間會把秒截掉；
+  //    而 `Date.now()` 帶著秒。於是持有 = 2:20:00 − (ENTERED 的秒數)，
+  //    秒數 ≥ 30 的時候 round 成 139 分 → 印「約 2 小時 19 分」。
+  //    實測：第一次跑是綠的（運氣），反向驗證重跑時當場紅，印 2 小時 19 分。
+  //    這是 `waitedPrecision` 註解裡那個 `29:22` 的同一個算術，第二次咬人 ——
+  //    上次是**產品**印出使用者沒給過的精度，這次是**fixture** 把秒帶進一條
+  //    分鐘精度的斷言裡。判準：凡是斷言分鐘精度的時長，fixture 的兩端都要
+  //    自己先對齊到整分鐘，不要靠 `Date.now()` 剛好。
+  const ENTERED = Math.floor((Date.now() - 3 * 3600e3) / 60000) * 60000;
   const seed = (extra) => [Object.assign({
     symbol: 'NVDA', templateId: 'MANCINI_FBD', outcomeTag: 'judged_entered',
     judgmentSchema: 'structure_watch_v1', reachedReadiness: null,
