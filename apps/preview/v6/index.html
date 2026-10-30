@@ -2945,7 +2945,7 @@ a.lab-wide{text-decoration:none}
     <!-- 決策收束判定的唯一來源。⚠️ 必須排在下面那個 inline script 之前 ——
          那支在**頂層**就讀 window.TENKI_OUTCOME（OUTCOME_STORE_KEY_V6 / isDisciplinedV6），
          放到頁尾跟其他 script 一起載會來不及。絕對路徑：本頁同時掛在 /v3/ 與 /preview/v6/。 -->
-    <script src="/preview/decision-outcome.js?v=do14"></script>
+    <script src="/preview/decision-outcome.js?v=do15"></script>
     <!-- Stardust Scan Takeover Styles -->
     <link rel="stylesheet" href="stardust-scan-takeover.css?v=gyro_v6">
 </head>
@@ -3465,6 +3465,8 @@ a.lab-wide{text-decoration:none}
         <!-- 等待：判定 → 進場。只有在使用者**真的答過**進場時間時才出現。
              沒答過整格不存在 —— 不印「0:00」，那是把「不知道」講成「沒等」。 -->
         <div class="sd-fact" id="sdFactWaitedCell" hidden><div class="k">等待</div><div class="v" id="sdFactWaited">—</div></div>
+        <!-- 持有：進場 → 出場。兩端都要在才算得出來，缺一整格不存在。 -->
+        <div class="sd-fact" id="sdFactHeldCell" hidden><div class="k">持有</div><div class="v" id="sdFactHeld">—</div></div>
       </div>
 
       <!-- 結果回填（規格 §9b）。
@@ -3499,6 +3501,19 @@ a.lab-wide{text-decoration:none}
       <div class="card sd-backfill" id="sdBackfillCell" hidden>
         <div class="sd-backfill-q">這筆的結果<span class="sd-backfill-note" id="sdBackfillNote"></span></div>
         <div class="sd-backfill-chips" id="sdBackfillChips"></div>
+        <!-- 🔴 出場時間（規格 §1.2 的 `closedAt`）。**可略過**，跟進場那題同一條紅線：
+             不知道的人仍然是一下點完 —— 結果晶片不等這一題。
+             🔴 收的是**日期＋時間**，不是只有時間：部位可以隔夜、隔好幾天，
+                拿「判定那一天」當錨會把每一筆過夜持倉判成「比進場還早」。
+             🔴 沒有進場時間就整列不出現 —— 持有的另一端不存在，問了也算不出東西。 -->
+        <div class="sd-entry-time" id="sdExitTimeRow" hidden>
+          <div class="sd-backfill-q">大概幾點出場的？<span class="sd-backfill-note">（不確定就略過）</span></div>
+          <div class="sd-entry-time-row">
+            <input type="datetime-local" class="bf-input" id="sdExitTime">
+            <button class="tp-chip" type="button" id="sdExitTimeSave">記下來</button>
+          </div>
+          <div class="sd-backfill-note" id="sdExitTimeNote"></div>
+        </div>
       </div>
 
       <!-- Insight（事實語言）-->
@@ -6572,6 +6587,23 @@ function fmtWhen(rec){
  * @param {Object} rec
  * @returns {string} `m:ss`，或不知道時的「—」
  */
+/**
+ * 分鐘精度的時長文案。
+ *
+ * 🔴 `fmtDur()` 是 `m:ss` —— 持倉動輒好幾小時，它會印成「890:00」，
+ * 既難讀又在宣稱秒的精度。這一支只用在兩端有一端是**回想**來的地方。
+ *
+ * @param {number} sec 秒
+ * @returns {string}
+ */
+function fmtHeldMinutes(sec){
+  const totalMin = Math.round(sec / 60);
+  if(totalMin < 60) return '約 ' + totalMin + ' 分';
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return m === 0 ? '約 ' + h + ' 小時' : '約 ' + h + ' 小時 ' + m + ' 分';
+}
+
 function fmtDurCell(rec){
   // 🔴 被上限收掉的那一筆：我們不知道他考慮了多久，但**知道它超過了上限**。
   //    印「—」會把我們真的知道的那件事也丟掉；印一個精確的 41:20 則是在宣稱
@@ -6903,6 +6935,41 @@ function renderEntryTime(rec){
 }
 
 /**
+ * 「大概幾點出場的」那一列（規格 §1.2 的 `closedAt`）。
+ *
+ * 🔴 **可略過**，跟進場那題同一條紅線（規格 §2）：不知道的人仍然是一下點完 ——
+ * 結果晶片**不等**這一題。略過就沒有 `closedAt`，不是填一個預設值。
+ * 🔴 判準全部走共用模組（`allowsExitTime` / `exitTimeFrom`）——
+ * 三個條件（結果已填、已有進場時間、還沒答過）與兩個邊界都在那裡驗。
+ *
+ * @param {Object} rec store 裡的那一筆
+ */
+function renderExitTime(rec){
+  const row = document.getElementById('sdExitTimeRow');
+  const note = document.getElementById('sdExitTimeNote');
+  if(!row || !note) return;
+  const OUT = window.TENKI_OUTCOME;
+  row.hidden = !OUT.allowsExitTime(rec);
+  if(row.hidden) return;
+
+  note.textContent = '';
+  const save = document.getElementById('sdExitTimeSave');
+  // 同另外兩顆：每次重繪換掉整顆，否則 listener 疊上去。
+  const fresh = save.cloneNode(true);
+  save.parentNode.replaceChild(fresh, save);
+  fresh.addEventListener('click', () => {
+    const r = OUT.exitTimeFrom(rec, document.getElementById('sdExitTime').value);
+    if(!r.ok){
+      // 🔴 只說**那個時間怎麼了**，不說使用者怎麼了。
+      note.textContent = OUT.EXIT_TIME_REASON_ZH[r.reason] || '這個時間記不下來';
+      return;
+    }
+    if(!patchOutcome(rec.ts, OUT.exitTimePatch(r.at))) return;
+    openSessionDetail(rec.ts);   // 持有那一格要跟著長出來
+  });
+}
+
+/**
  * 「後來我進場了」那一格。
  *
  * 🔴 判準一律走共用模組，這一頁不自己判一次 outcomeTag。
@@ -7222,6 +7289,9 @@ function openSessionDetail(ts){
 
   // 結果回填（§9b）
   renderResultBackfill(rec);
+  // 出場時間（§1.2 的 closedAt）—— 排在結果**之後**：先知道部位收了，
+  // 才談得上它是幾點收的。
+  renderExitTime(rec);
 
   // Facts
   document.getElementById('sdFactDur').textContent = fmtDurCell(rec);
@@ -7258,6 +7328,17 @@ function openSessionDetail(ts){
       window.TENKI_OUTCOME.waitedPrecision(rec) === 'minute'
         ? '約 ' + Math.round(waited / 60) + ' 分'
         : fmtDur(waited);
+  }
+
+  // 持有（進場 → 出場）。兩端缺一就整格不存在 —— **不印 0:00**。
+  const held = window.TENKI_OUTCOME.heldSec(rec);
+  const heldCell = document.getElementById('sdFactHeldCell');
+  heldCell.hidden = held === null;
+  if(held !== null){
+    // 🔴 精度取**較粗的那一端**（共用模組判的）。使用者回想的出場時間只有
+    //    分鐘精度，所以這一格不准印 m:ss —— 那是在宣稱他沒給過的精度。
+    document.getElementById('sdFactHeld').textContent =
+      window.TENKI_OUTCOME.heldPrecision(rec) === 'minute' ? fmtHeldMinutes(held) : fmtDur(held);
   }
 
   document.getElementById('sdInsight').innerHTML = buildDetailInsight(rec, m);

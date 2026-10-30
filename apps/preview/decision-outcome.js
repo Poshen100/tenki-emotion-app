@@ -632,6 +632,13 @@
       //    「我沒進場」跟「我 10:28 進場」—— 自相矛盾，而且不會有人報錯。
       enteredAt: null,
       enteredAtSource: null,
+      // ⚠️ 出場時間同理（「我沒進場」＋「我 15:30 出場」一樣自相矛盾）。
+      //    **這一條目前到不了**：`canUndoLaterEntry` 要求 `awaitsResult`
+      //    （結果還是 pending），而 `allowsExitTime` 要結果已經填了那三顆之一 ——
+      //    兩者互斥。留著是**縱深防禦，不是承重**（拆掉不會弄紅任何東西），
+      //    照實寫，不要讓下一個人以為它擋著什麼。
+      closedAt: null,
+      closedAtSource: null,
       tradeResult: defaultTradeResult(back),
     };
   }
@@ -715,6 +722,122 @@
    */
   function entryTimePatch(at) {
     return { enteredAt: at, enteredAtSource: 'reported' };
+  }
+
+  // ═════════════════════════════════════════════════
+  // 🔴 「大概幾點出場的」—— `closedAt`，以及它撐起的「持有」那一段
+  //
+  // 規格 `docs/DECISION-RECORD-LOOP.md` §1.2 **2026-10-29 更正**：
+  // `closedAt` **不是**「填結果的那一刻」。部位常常在決策窗關掉之後好幾小時
+  // 才平倉（§9b 的回填就是為此存在），所以填寫時刻跟出場時刻可以差一小時 ——
+  // 拿它當 `closedAt` 會讓「持有 N 分」變成一句它不知道的事實。
+  // 只有兩種合法來源，而且必須標記是哪一種：
+  //   `'reported'` 使用者挑的時間（這一版）／`'observed'` 當場按「現在出場了」（未做）
+  //
+  // 🔴 **`enteredAt` 不在就不問。** 持有的另一端不存在，問到了也算不出來，
+  //    只是多騷擾一次 —— 同 `allowsEntryTime` 對補記紀錄的既有紀律。
+  // ═════════════════════════════════════════════════
+
+  /** 看不懂／不合理的出場時間，各自的說法（只陳述事實，不責備）。 */
+  var EXIT_TIME_REASON_ZH = {
+    unparsable: '看不懂這個時間',
+    before_entry: '這比進場的時候還早',
+    future: '這個時間還沒到',
+    no_entry: '這筆還沒有進場時間',
+    no_record: '找不到這筆紀錄',
+  };
+
+  /**
+   * 這一筆問得出「大概幾點出場的」嗎。
+   *
+   * 🔴 三個條件缺一不可：
+   * ①**結果已經填了那三顆之一** —— 部位收掉了才有出場時刻可言。
+   *   `pending` ＝ 還在等（還沒出場）、`no_entry` ＝ 根本沒進場。
+   * ②**已經有 `enteredAt`** —— 持有的另一端。沒有它，答案算不出任何東西。
+   * ③還沒答過。
+   *
+   * @param {Object} rec 統一 store 裡的一筆
+   * @returns {boolean}
+   */
+  function allowsExitTime(rec) {
+    if (!rec) return false;
+    if (TRADE_RESULT_CHIPS.every(function (c) { return c.value !== rec.tradeResult; })) return false;
+    if (typeof rec.enteredAt !== 'number') return false;
+    return typeof rec.closedAt !== 'number';
+  }
+
+  /**
+   * 把 `<input type="datetime-local">` 的值換成時間戳（使用者的當地時間）。
+   *
+   * 🔴 **這裡收的是日期＋時間，不是只有時間 —— 跟進場那一題刻意不同。**
+   * 進場那題錨在「判定那一天」，因為進場通常就在同一盤；出場不是，部位可以
+   * 隔夜、隔好幾天。拿同一個錨去套出場，會讓每一筆過夜持倉都被判成
+   * 「比進場還早」—— 一個合法情境被擋在一句看不懂的錯誤訊息後面。
+   *
+   * 🔴 兩個邊界都要擋：**不得早於進場**（還沒進場就出場講不通）、
+   * **不得是未來**（還沒發生的不是紀錄）。擋下來只說**那個時間怎麼了**。
+   *
+   * @param {Object} rec 統一 store 裡的一筆
+   * @param {string} value `YYYY-MM-DDTHH:MM`
+   * @param {number} [now] 現在（測試可注入）
+   * @returns {{ok: true, at: number}|{ok: false, reason: string}}
+   */
+  function exitTimeFrom(rec, value, now) {
+    if (!rec || typeof rec.ts !== 'number') return { ok: false, reason: 'no_record' };
+    if (typeof rec.enteredAt !== 'number') return { ok: false, reason: 'no_entry' };
+    var m = /^(\d{4})-(\d{2})-(\d{2})T(\d{1,2}):(\d{2})$/.exec(String(value || ''));
+    if (!m) return { ok: false, reason: 'unparsable' };
+    var h = Number(m[4]);
+    var min = Number(m[5]);
+    if (h > 23 || min > 59) return { ok: false, reason: 'unparsable' };
+    // 當地時間 —— 這一頁印時刻用的就是當地時間（`fmtTimeOfDay` 走 getHours()）。
+    var d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), h, min, 0, 0);
+    var at = d.getTime();
+    if (isNaN(at)) return { ok: false, reason: 'unparsable' };
+    if (at < rec.enteredAt) return { ok: false, reason: 'before_entry' };
+    if (at > (typeof now === 'number' ? now : Date.now())) return { ok: false, reason: 'future' };
+    return { ok: true, at: at };
+  }
+
+  /**
+   * 答出出場時間之後該套的欄位。
+   *
+   * @param {number} at 出場時間戳
+   * @returns {{closedAt: number, closedAtSource: string}}
+   */
+  function exitTimePatch(at) {
+    return { closedAt: at, closedAtSource: 'reported' };
+  }
+
+  /**
+   * 持有那一格該印到什麼精度。
+   *
+   * 🔴 **兩端取較粗的那一端。** 一段時長不會比它最粗的那一端更精確 ——
+   * 進場是量到的（秒）而出場是回想的（分）時，印到秒就是在宣稱一個使用者
+   * 從來沒給過的精度。這跟「等待」只看一端不同，因為那一段的另一端
+   * （判定時刻）永遠是量到的。
+   *
+   * @param {Object} rec 統一 store 裡的一筆
+   * @returns {'minute'|'second'}
+   */
+  function heldPrecision(rec) {
+    if (!rec) return 'minute';
+    return (rec.enteredAtSource === 'reported' || rec.closedAtSource === 'reported')
+      ? 'minute' : 'second';
+  }
+
+  /**
+   * 持有了多久（進場 → 出場），秒。算不出來回 `null`。
+   *
+   * 🔴 回 `null` 不是 `0`。沒答出場時間的紀錄不是「持有了 0 秒」。
+   *
+   * @param {Object} rec 統一 store 裡的一筆
+   * @returns {number|null}
+   */
+  function heldSec(rec) {
+    if (!rec || typeof rec.enteredAt !== 'number' || typeof rec.closedAt !== 'number') return null;
+    var sec = Math.round((rec.closedAt - rec.enteredAt) / 1000);
+    return sec >= 0 ? sec : null;
   }
 
   /**
@@ -871,6 +994,12 @@
     waitedSec: waitedSec,
     waitedPrecision: waitedPrecision,
     reviewedSec: reviewedSec,
+    allowsExitTime: allowsExitTime,
+    exitTimeFrom: exitTimeFrom,
+    exitTimePatch: exitTimePatch,
+    heldSec: heldSec,
+    heldPrecision: heldPrecision,
+    EXIT_TIME_REASON_ZH: EXIT_TIME_REASON_ZH,
     WATCH_CEILING_SEC: WATCH_CEILING_SEC,
     occurredAt: occurredAt,
     endedByCeiling: endedByCeiling,
