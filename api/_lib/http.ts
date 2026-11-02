@@ -204,6 +204,21 @@ export function assembleAlertPayload(req: VercelRequestLike): Record<string, unk
 const CHANNEL_ID_PATTERN = /^[a-f0-9]{32,64}$/;
 
 /**
+ * Whether a string has the shape of a server-generated channel ID.
+ *
+ * 🔴 One definition, used by both the request path (`getChannelId`) and the
+ * storage path (`scanReportingChannels`). A second copy of this pattern would
+ * be the place where "what counts as a channel" quietly forks — and the
+ * storage side is the half nobody looks at.
+ *
+ * @param value - Candidate ID.
+ * @returns True when the shape matches.
+ */
+export function isChannelId(value: string): boolean {
+  return CHANNEL_ID_PATTERN.test(value);
+}
+
+/**
  * Reads and format-validates the channel ID. The channel travels as a
  * `?ch=` query parameter because TradingView webhooks cannot send custom
  * headers — the unguessable channel URL is the credential (capability URL),
@@ -214,5 +229,5 @@ const CHANNEL_ID_PATTERN = /^[a-f0-9]{32,64}$/;
  */
 export function getChannelId(req: VercelRequestLike): string | null {
   const value = getQueryParam(req, 'ch');
-  return value !== null && CHANNEL_ID_PATTERN.test(value) ? value : null;
+  return value !== null && isChannelId(value) ? value : null;
 }

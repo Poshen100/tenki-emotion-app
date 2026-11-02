@@ -1,11 +1,14 @@
 import {
+  DIGEST_PUSH_TAG,
   DIGEST_SILENT_STREAK_MAX,
   TRADING_CLOSE_ET_HOUR,
+  buildDigestCopy,
   digestDecision,
   etHour,
   isAfterTradingClose,
   nextSilentStreak,
 } from '../policies/digest-push';
+import { pushNotificationTag } from '../policies/alert-policy';
 import type { DigestState } from '../policies/digest-push';
 
 /** 某個 ET 日期與時刻對應的 UTC 瞬間（夏令／冬令各自換算）。 */
@@ -142,5 +145,33 @@ describe('digestDecision', () => {
     expect(
       digestDecision({ ...base, reportedAtMs: WINTER_CLOSE - 3600e3 }, WINTER_CLOSE),
     ).toEqual({ send: true, count: 1 });
+  });
+});
+
+describe('文案與 tag', () => {
+  it('講一個數字，不講「今天」（通知抵達時使用者的日曆已經翻頁了）', () => {
+    const copy = buildDigestCopy(3);
+    expect(copy.body).toContain('3');
+    expect(copy.body).not.toContain('今天');
+    expect(copy.title.length).toBeGreaterThan(0);
+  });
+
+  it('🔴 0 筆沒有誠實的講法 → 丟錯，不生一句話出來', () => {
+    expect(() => buildDigestCopy(0)).toThrow(RangeError);
+    expect(() => buildDigestCopy(-1)).toThrow(RangeError);
+    expect(() => buildDigestCopy(1.5)).toThrow(RangeError);
+  });
+
+  it('🔴 跟快訊的 tag 不同命名空間（共用會讓提醒蓋掉一則真的快訊）', () => {
+    for (const symbol of ['ES1!', 'NQ1!', 'tenki-digest', 'DIGEST', '  es1!  ']) {
+      expect(DIGEST_PUSH_TAG).not.toBe(pushNotificationTag(symbol));
+    }
+  });
+
+  it('沒有金融／醫療措辭，也不叫人去做什麼', () => {
+    const body = buildDigestCopy(1).body;
+    for (const banned of ['買', '賣', '進場', '出場', '建議', '應該', '趕快', '診斷']) {
+      expect(body).not.toContain(banned);
+    }
   });
 });

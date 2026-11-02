@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-10-28",
+  "lastUpdated": "2026-11-02",
   "canonicalHost": "https://tenki-emotion-app.vercel.app",
   "deployments": [
     {
@@ -146,6 +146,22 @@
       "url": "https://tenki-emotion-app.vercel.app/api/subscribe",
       "source": "api/subscribe.ts",
       "purpose": "Web Push 訂閱端點(POST 存、DELETE 移除,?ch=)。需 VAPID env。先前只寫在 .md、漏在本檔 —— 正是檔頭警告的同步失敗。",
+      "status": "active",
+      "editable": true
+    },
+    {
+      "route": "/api/open-count",
+      "url": "https://tenki-emotion-app.vercel.app/api/open-count",
+      "source": "api/open-count.ts",
+      "purpose": "裝置回報端點(POST,?ch=,body {openCount},2026-10-30)— 今天還有幾筆決策沒填結果。關於決策唯一離開裝置的東西:一個整數＋一個時間戳,沒有標的/結果/判定。上一刀漏在本檔與 .md —— 又一次同步失敗。",
+      "status": "active",
+      "editable": true
+    },
+    {
+      "route": "/api/digest",
+      "url": "https://tenki-emotion-app.vercel.app/api/digest",
+      "source": "api/digest.ts",
+      "purpose": "收束提醒的排程端點(GET,Authorization: Bearer CRON_SECRET,2026-11-02)。Vercel Cron 每天 UTC 01:00(= ET 20:00/21:00,兩種 DST 下都是收市後的同一個交易日;也是 UTC+8 早上 9 點)。判準全在 domain/src/policies/digest-push.ts;一天最多一則,連續 3 天沒反應就停。深連結 /v3/#session。",
       "status": "active",
       "editable": true
     }
