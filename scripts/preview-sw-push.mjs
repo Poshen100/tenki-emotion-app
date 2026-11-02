@@ -143,6 +143,33 @@ async function fireClick(targetUrl, clientUrls) {
   const acts = await fireClick('/decision-alert/', ['https://x.test/v3/']);
   check('別頁的視窗不算數 → 照樣開新的', acts.filter((a) => a[0] === 'open'), [['open', '/decision-alert/']]);
 }
+console.log('\n── notificationclick：L2 的深連結指向另一頁（/v3/#session）──');
+{
+  // 🔴 這一組就是 L2 會踩的洞：舊版把「本站視窗」寫死成含 `/decision-alert/`，
+  //    於是一個**已經開在 /v3/ 的視窗**不算數，提醒會另開一個新視窗。
+  const acts = await fireClick('/v3/#session', ['https://x.test/v3/']);
+  check('🔴 視窗已在 /v3/ → focus 並導到 #session（不另開一個）',
+    acts.filter((a) => a[0] === 'navigate'), [['navigate', '/v3/#session']]);
+  check('   而且沒有開新視窗', acts.filter((a) => a[0] === 'open'), []);
+}
+{
+  const acts = await fireClick('/v3/#session', ['https://x.test/v3/#session']);
+  check('已經停在 /v3/#session → 只 focus',
+    acts.filter((a) => a[0] !== 'close'), [['focus', 'https://x.test/v3/#session']]);
+}
+{
+  // 成對的另一半：放寬成「任何本站視窗」也會讓上面兩條綠 —— 而那會把一個
+  // 正在讀快訊頁的視窗整個導走。同路徑才算數。
+  const acts = await fireClick('/v3/#session', ['https://x.test/decision-alert/']);
+  check('🔴 別頁的視窗不得被導走 → 開新的',
+    acts.filter((a) => a[0] !== 'close'), [['open', '/v3/#session']]);
+}
+{
+  const acts = await fireClick('/decision-alert/#result', ['https://x.test/story/']);
+  check('   反方向也一樣：快訊的 target 不會把 /story/ 導走',
+    acts.filter((a) => a[0] !== 'close'), [['open', '/decision-alert/#result']]);
+}
+
 {
   const acts = await fireClick('/decision-alert/', ['https://x.test/decision-alert/']);
   check('通知一定會被關掉', acts.some((a) => a[0] === 'close'), true);
