@@ -2959,7 +2959,7 @@ a.lab-wide{text-decoration:none}
     <!-- 決策收束判定的唯一來源。⚠️ 必須排在下面那個 inline script 之前 ——
          那支在**頂層**就讀 window.TENKI_OUTCOME（OUTCOME_STORE_KEY_V6 / isDisciplinedV6），
          放到頁尾跟其他 script 一起載會來不及。絕對路徑：本頁同時掛在 /v3/ 與 /preview/v6/。 -->
-    <script src="/preview/decision-outcome.js?v=do15"></script>
+    <script src="/preview/decision-outcome.js?v=do16"></script>
     <!-- Stardust Scan Takeover Styles -->
     <link rel="stylesheet" href="stardust-scan-takeover.css?v=gyro_v6">
 </head>
@@ -4247,6 +4247,15 @@ function goTab(id){
   else apply();
 })();
 
+// 開頁回報一次「今天還有幾筆在等結果」（§4 L2 的前提：提醒要確知，不猜）。
+// 🔴 這一頁是填結果的地方 —— 他剛剛填完就離開的話，開頁這一次是伺服器
+//    知道「填完了」的唯一管道。沒有頻道就不送（判準在共用模組）。
+(function reportOpenCountOnLoad(){
+  function go(){ window.TENKI_OUTCOME.reportOpenCount(); }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go);
+  else go();
+})();
+
 // ═════════════════════════════════════════════════
 // Stardust (today screen)
 // ═════════════════════════════════════════════════
@@ -5120,6 +5129,7 @@ function saveV6Outcome(session, outcomeTag){
   if(ceilingHit) all[all.length - 1].endedBy = 'ceiling';
   if(all.length > 200) all = all.slice(all.length - 200);
   localStorage.setItem(OUTCOME_STORE_KEY_V6, JSON.stringify(all));
+  window.TENKI_OUTCOME.reportOpenCount();
   return ts;
 }
 // 收束後回 idle 的那一拍要抓得住 —— 舊版是裸的 setTimeout，
@@ -6913,6 +6923,7 @@ function patchOutcome(ts, patch){
     else all[idx][k] = patch[k];
   });
   localStorage.setItem(OUTCOME_STORE_KEY_V6, JSON.stringify(all));
+  window.TENKI_OUTCOME.reportOpenCount();
   return true;
 }
 
@@ -7243,6 +7254,7 @@ function bfSave(){
   if(!Array.isArray(all)) all = [];
   all.push(rec);
   localStorage.setItem(OUTCOME_STORE_KEY_V6, JSON.stringify(all));
+  window.TENKI_OUTCOME.reportOpenCount();
 
   closeBackfill();
   renderSessionScreen();

@@ -22,7 +22,7 @@
  */
 import { getChromium } from './lib/playwright.mjs';
 import http from 'node:http';
-import { createReadStream, existsSync, statSync } from 'node:fs';
+import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
 import { extname, join, normalize, resolve } from 'node:path';
 
 const chromium = await getChromium();
@@ -1831,6 +1831,197 @@ for (const [label, subscribeStatus, mustSay, mustNotSay] of [
   check(`🔴 ${label}｜不准說不該說的`, mustNotSay.test(push.status), false);
   check(`${label}｜沒有 page error`, errs5, []);
   await ctx5.close();
+}
+
+// ════════════════════════════════════════════════════════════════
+// 裝置回報那一個整數（§4 L2 的前提）
+// ════════════════════════════════════════════════════════════════
+// 🔴 這一段守的是「伺服器**確知**有東西沒記」這條原則在裝置端的那一半。
+//    它有三種安靜失效的方式，每一種都不會在畫面上留下痕跡：
+//      · 算錯該算哪幾筆（把昨天的、已填的、沒進場的也算進去）
+//      · 寫了結果卻沒回報 → 提醒靠一個過期的數字繼續響
+//      · 填完了卻不送 0 → 同上，而且那是最該閉嘴的時候
+console.log('\n── 裝置回報那一個整數 ──');
+{
+  const rp = await ctx.newPage();
+  const posts = [];
+  await rp.route('**/api/open-count*', async (route) => {
+    const req = route.request();
+    posts.push({ url: req.url(), method: req.method(), body: req.postData() });
+    await route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' });
+  });
+
+  const CH = 'a'.repeat(64);
+  const DAY = 24 * 3600 * 1000;
+  // 統一 store：今天在等結果 1 筆、今天已填 1 筆、今天沒進場 1 筆、昨天在等 1 筆，
+  // 外加一筆**算不出發生時刻**的（沒有 ts／startedAt）。
+  const seed = (now) => ([
+    { ts: now - 1000, outcomeTag: 'judged_entered', tradeResult: 'pending' },
+    { ts: now - 2000, outcomeTag: 'judged_entered', tradeResult: 'win' },
+    { ts: now - 3000, outcomeTag: 'judged_stood_down' },
+    { ts: now - DAY, outcomeTag: 'judged_entered', tradeResult: 'pending' },
+    { outcomeTag: 'judged_entered', tradeResult: 'pending' },
+  ]);
+
+  await rp.goto(`${base}/decision-alert/`, { waitUntil: 'domcontentloaded' });
+  await rp.waitForTimeout(1200);
+
+  const counted = await rp.evaluate(([records, now]) => {
+    return window.TENKI_OUTCOME.openRecordCount(records, now);
+  }, [seed(Date.now()), Date.now()]);
+  // 🔴 四筆裡只有一筆算 —— 已填的、沒進場的、昨天的都不算。
+  check('🔴 只算今天、而且真的在等結果的那幾筆', counted, 1);
+
+  // 🔴 算不出時刻 ⇒ 不算進去，也不當成 0。第一版 fixture 每一筆都有 ts，
+  //    於是這道守門是空的：把它改成「算不出時刻的 +1」，16 條**全綠**。
+  const noTime = await rp.evaluate(([records, now]) => {
+    return window.TENKI_OUTCOME.openRecordCount(
+      records.filter((r) => typeof r.ts !== 'number'), now);
+  }, [seed(Date.now()), Date.now()]);
+  check('🔴 算不出發生時刻的不算進去（不知道它屬於哪一天）', noTime, 0);
+
+  const yesterdayOnly = await rp.evaluate(([records, now]) => {
+    return window.TENKI_OUTCOME.openRecordCount(
+      records.filter((r) => r.ts < now - 12 * 3600 * 1000), now);
+  }, [seed(Date.now()), Date.now()]);
+  check('   只剩昨天那筆 → 0（不翻舊帳）', yesterdayOnly, 0);
+
+  // ── 沒有頻道 ⇒ 不回報 ──
+  posts.length = 0;
+  const noChannel = await rp.evaluate(([records]) => {
+    localStorage.removeItem('tenki.alert.channel');
+    localStorage.setItem(window.TENKI_OUTCOME.STORE_KEY, JSON.stringify(records));
+    return window.TENKI_OUTCOME.reportOpenCount();
+  }, [seed(Date.now())]);
+  await rp.waitForTimeout(200);
+  check('🔴 沒有頻道 ⇒ 什麼都不送（沒配對過的人沒有例外）',
+    [noChannel, posts.length], [false, 0]);
+
+  // ── 有頻道 ⇒ 送一個整數，而且只送那一個整數 ──
+  posts.length = 0;
+  const sent = await rp.evaluate((ch) => {
+    localStorage.setItem('tenki.alert.channel', ch);
+    return window.TENKI_OUTCOME.reportOpenCount();
+  }, CH);
+  await rp.waitForTimeout(300);
+  check('有頻道 → POST 一次', [sent, posts.length, posts[0] && posts[0].method], [true, 1, 'POST']);
+  check('   body 就是那一個整數', posts[0] && JSON.parse(posts[0].body), { openCount: 1 });
+  checkTruthy('   頻道走 query（跟其他端點同一個契約）',
+    posts[0] && posts[0].url.indexOf('ch=' + CH) !== -1);
+  // 🔴 送出去的東西裡不得有紀錄本身的任何痕跡。
+  check('🔴 body 裡沒有標的／判定／結果／紀錄時間戳',
+    posts[0] && ['symbol', 'outcomeTag', 'tradeResult', 'ts'].filter(
+      (k) => posts[0].body.indexOf(k) !== -1), []);
+
+  // ── 同值去重 ──
+  posts.length = 0;
+  const again = await rp.evaluate(() => window.TENKI_OUTCOME.reportOpenCount());
+  await rp.waitForTimeout(200);
+  check('同一天同一個數字不重送', [again, posts.length], [false, 0]);
+
+  // ── 填完了要送 0 ──
+  posts.length = 0;
+  const zero = await rp.evaluate(() => {
+    const all = window.TENKI_OUTCOME.load();
+    all.forEach((r) => { if (r.tradeResult === 'pending') r.tradeResult = 'win'; });
+    localStorage.setItem(window.TENKI_OUTCOME.STORE_KEY, JSON.stringify(all));
+    return window.TENKI_OUTCOME.reportOpenCount();
+  });
+  await rp.waitForTimeout(300);
+  // 🔴 0 是「都填完了」這個事實，而它正是讓提醒閉嘴的那個事實。
+  check('🔴 填完了也要送（0 不是「沒東西好回報」）',
+    [zero, posts.length, posts[0] && JSON.parse(posts[0].body).openCount], [true, 1, 0]);
+
+  // ── 伺服器沒收下 → 下一次要重試（不得被去重卡住）──
+  await rp.unroute('**/api/open-count*');
+  const fails = [];
+  await rp.route('**/api/open-count*', async (route) => {
+    fails.push(1);
+    await route.fulfill({ status: 500, contentType: 'application/json', body: '{"ok":false}' });
+  });
+  const bad = await rp.evaluate(() => {
+    const all = window.TENKI_OUTCOME.load();
+    all[0].tradeResult = 'pending';
+    localStorage.setItem(window.TENKI_OUTCOME.STORE_KEY, JSON.stringify(all));
+    return window.TENKI_OUTCOME.reportOpenCount();
+  });
+  await rp.waitForTimeout(300);
+  const retried = await rp.evaluate(() => window.TENKI_OUTCOME.reportOpenCount());
+  await rp.waitForTimeout(300);
+  check('🔴 沒收下 → 下一個觸發點會再試（去重不得把失敗記成成功）',
+    [bad, retried, fails.length], [false, false, 2]);
+  await rp.close();
+}
+
+console.log('\n── 回報的觸發點：開頁與每一次寫入 ──');
+{
+  // 開頁：/decision-alert/ 與 /v3/ 各自要在載入時回報一次 —— 那是伺服器
+  // 知道「他剛剛填完了」的唯一管道（填完就離開的話沒有別的機會）。
+  const CH = 'b'.repeat(64);
+  for (const route of ['/decision-alert/', '/v3/']) {
+    const op = await ctx.newPage();
+    const posts = [];
+    await op.route('**/api/open-count*', async (r) => {
+      posts.push(r.request().postData());
+      await r.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' });
+    });
+    await op.addInitScript(([ch, key]) => {
+      localStorage.setItem('tenki.alert.channel', ch);
+      localStorage.setItem(key, JSON.stringify([
+        { ts: Date.now() - 1000, outcomeTag: 'judged_entered', tradeResult: 'pending' },
+      ]));
+    }, [CH, 'tenki.alert.outcomes.v1']);
+    await op.goto(`${base}${route}`, { waitUntil: 'domcontentloaded' });
+    await op.waitForTimeout(2000);
+    check(`🔴 ${route} 開頁就回報一次`,
+      [posts.length >= 1, posts[0] && JSON.parse(posts[0]).openCount], [true, 1]);
+    await op.close();
+  }
+}
+{
+  // 寫入：/v3/ 的三個寫入點都要回報。這裡走 patchOutcome（結果晶片按下去
+  // 真正呼叫的那一支），所以驗的是真的那條路。
+  const CH = 'c'.repeat(64);
+  const wp = await ctx.newPage();
+  const posts = [];
+  await wp.route('**/api/open-count*', async (r) => {
+    posts.push(r.request().postData());
+    await r.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' });
+  });
+  const TS = Date.now() - 5000;
+  await wp.addInitScript(([ch, key, ts]) => {
+    localStorage.setItem('tenki.alert.channel', ch);
+    localStorage.setItem(key, JSON.stringify([
+      { ts: ts, outcomeTag: 'judged_entered', tradeResult: 'pending' },
+    ]));
+  }, [CH, 'tenki.alert.outcomes.v1', TS]);
+  await wp.goto(`${base}/v3/#session`, { waitUntil: 'domcontentloaded' });
+  await wp.waitForTimeout(2000);
+  posts.length = 0;
+  await wp.evaluate((ts) => patchOutcome(ts, { tradeResult: 'win' }), TS);
+  await wp.waitForTimeout(400);
+  check('🔴 寫了結果就回報（提醒不得靠一個過期的數字響）',
+    [posts.length, posts[0] && JSON.parse(posts[0]).openCount], [1, 0]);
+  await wp.close();
+}
+{
+  // 🔴 機械性的那一道：**每一個**寫 outcome store 的地方後面都要有回報。
+  //    上面那幾條只驗得到今天存在的那些寫入點；下一個人加第六個寫入點時，
+  //    畫面不會有任何異狀，而提醒會開始靠一個過期的數字響。
+  const files = ['apps/preview/decision-alert.js', 'apps/preview/v6/index.html'];
+  const missing = [];
+  let sites = 0;
+  for (const f of files) {
+    const lines = readFileSync(join(repoRoot, f), 'utf8').split('\n');
+    lines.forEach((line, i) => {
+      if (!/localStorage\.setItem\(OUTCOME_STORE_KEY(_V6)?,/.test(line)) return;
+      sites += 1;
+      const near = lines.slice(i + 1, i + 3).join('\n');
+      if (!/reportOpenCount\(/.test(near)) missing.push(`${f}:${i + 1}`);
+    });
+  }
+  checkTruthy('前提：真的有找到寫入點（找不到的話下一條是空的）', sites >= 5);
+  check('🔴 每一個 outcome store 的寫入點後面都接著回報', missing, []);
 }
 
 check('整條鏈走完沒有任何 page error', pageErrors, []);

@@ -285,6 +285,7 @@
     }
     if (all.length > 200) all = all.slice(all.length - 200);
     localStorage.setItem(OUTCOME_STORE_KEY, JSON.stringify(all));
+    window.TENKI_OUTCOME.reportOpenCount();
   }
 
   /**
@@ -762,6 +763,7 @@
       if (all[i] && all[i].ts === ts) {
         all[i].tradeResult = result;
         localStorage.setItem(OUTCOME_STORE_KEY, JSON.stringify(all));
+        window.TENKI_OUTCOME.reportOpenCount();
         return true;
       }
     }
@@ -2237,6 +2239,9 @@
         localStorage.setItem(CHANNEL_KEY, payload.channelId);
         live.seenIds = {};
         renderLive();
+        // 🔴 剛剛才有地方可回報 —— 開頁那一次（沒有頻道）必然是空手回來的。
+        //    不補這一次，今天已經在等結果的那幾筆要等到下一次寫入才會被數到。
+        window.TENKI_OUTCOME.reportOpenCount();
         // 🔴 提醒**留著**，不是閃一下。使用者按完重設通常會先去別的地方，
         //    回來時那句話還要在 —— 它要活到他真的去複製連結為止。
         if (pendingRepaste) {
@@ -2533,4 +2538,9 @@
   // 從 /v3/ 判定完回來 → 直接開收束頁。放在最後，確保所有 render* 與
   // openResult 需要的元素／狀態都已就緒。
   if ((window.location.hash || '').replace('#', '') === 'result') acceptReturnTicket();
+
+  // 開頁回報一次那個整數（§4 L2 的前提）。沒有頻道就不送。
+  // ⚠️ 放在 acceptReturnTicket 之後：那條路會寫一筆結果，先回報會送出一個
+  //    馬上就過期的數字（它自己也會回報，但那一次會被同值去重擋掉）。
+  window.TENKI_OUTCOME.reportOpenCount();
 })();
