@@ -16,6 +16,7 @@ import {
   channelRateKey,
 } from '../../domain/src/policies/channel-rate-limit';
 import { DIGEST_REPORT_TTL_SEC } from '../../domain/src/policies/digest-push';
+import { isChannelId } from './http';
 
 /** Prefix for per-channel alert lists (newest first). */
 export const ALERTS_KEY_PREFIX = 'tenki:alerts:v1:';
@@ -153,6 +154,65 @@ export async function saveOpenCount(
     'ex',
     String(DIGEST_REPORT_TTL_SEC),
   ]);
+}
+
+/** One page of a channel scan. */
+export interface ChannelScanPage {
+  /** Cursor for the next page; `'0'` means the scan is complete. */
+  cursor: string;
+  channelIds: string[];
+}
+
+/**
+ * Lists one page of channels that have a stored open-record report.
+ *
+ * 🔴 **Why SCAN and not an index**: Redis holds no list of channels — the
+ * channel marker keys ARE the registry, and nothing enumerates them. The
+ * report keys are the better index anyway: a channel that never reported is
+ * not eligible for the reminder, so scanning `tenki:open:v1:` iterates
+ * exactly the candidates and nothing else.
+ *
+ * ⚠️ SCAN's `count` is a **hint**, not a page size: a page may come back
+ * empty with a non-zero cursor, and the caller must keep going until the
+ * cursor is `'0'`. Treating one page as the whole set would silently skip
+ * channels — and the symptom (one device never reminded) looks like a push
+ * problem, not a scan problem.
+ *
+ * Keys whose suffix is not a well-formed channel ID are dropped rather than
+ * trusted: the prefix alone does not make something a channel.
+ *
+ * @param config - Upstash connection.
+ * @param cursor - Cursor from the previous page (`'0'` to start).
+ * @param hint - SCAN COUNT hint.
+ * @returns The page's channel IDs and the next cursor.
+ */
+export async function scanReportingChannels(
+  config: UpstashConfig,
+  cursor = '0',
+  hint = 100,
+): Promise<ChannelScanPage> {
+  const result = await command(config, [
+    'scan',
+    cursor,
+    'match',
+    `${OPEN_COUNT_KEY_PREFIX}*`,
+    'count',
+    String(hint),
+  ]);
+  if (!Array.isArray(result) || result.length < 2) {
+    throw new Error('storage scan returned an unexpected shape');
+  }
+  const nextCursor = String(result[0]);
+  const rawKeys = result[1];
+  const channelIds: string[] = [];
+  if (Array.isArray(rawKeys)) {
+    for (const key of rawKeys) {
+      if (typeof key !== 'string' || !key.startsWith(OPEN_COUNT_KEY_PREFIX)) continue;
+      const id = key.slice(OPEN_COUNT_KEY_PREFIX.length);
+      if (isChannelId(id)) channelIds.push(id);
+    }
+  }
+  return { cursor: nextCursor, channelIds };
 }
 
 /**

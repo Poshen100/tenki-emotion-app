@@ -968,6 +968,97 @@
     return typeof rec.durationSec === 'number' && rec.durationSec > WATCH_CEILING_SEC;
   }
 
+  // ═══════════════════════════════════════════════
+  // 裝置回報 —— 關於決策**唯一**離開裝置的東西
+  // ═══════════════════════════════════════════════
+  // 🔴 送出去的是**一個整數**（今天還有幾筆在等結果），沒有標的、沒有判定、
+  //    沒有結果、沒有那些紀錄自己的時間戳。紀錄留在 localStorage（local-first）。
+  //    存在的理由：收束提醒必須「確知有東西沒記」才能響（§4 原則 1 零猜測），
+  //    而伺服器從來沒看過任何一筆紀錄。founder 2026-10-30 裁決。
+  // 判準（算幾筆）在這裡，回報的時機在各頁；伺服器那邊的判準在
+  // domain/src/policies/digest-push.ts。三邊各管一段，沒有誰重寫誰的。
+
+  /** 專屬頻道 id 的 localStorage 鍵。沒有它就不回報（也沒有地方可回報）。 */
+  var CHANNEL_KEY = 'tenki.alert.channel';
+
+  /** 回報端點。 */
+  var OPEN_COUNT_ENDPOINT = '/api/open-count';
+
+  /**
+   * 今天（ET 交易日）還有幾筆決策在等結果。
+   *
+   * 🔴 **只算今天**。昨天那筆沒填就是沒填了 —— §4 的立場是隔天他已經想不起來
+   * 細節，一條會翻舊帳的提醒會變成催辦。
+   *
+   * 🔴 算不出發生時刻的紀錄**不算進去**，也不當成 0 —— 它是一筆我們不知道
+   * 屬於哪一天的紀錄，兩個方向都不要宣稱。
+   *
+   * @param {Array} all 統一 store 的全部紀錄
+   * @param {number} [nowMs] 現在（預設 Date.now()）
+   * @returns {number}
+   */
+  function openRecordCount(all, nowMs) {
+    var records = Array.isArray(all) ? all : [];
+    var today = resolveTradingDayKey(typeof nowMs === 'number' ? nowMs : Date.now());
+    var n = 0;
+    for (var i = 0; i < records.length; i += 1) {
+      var rec = records[i];
+      if (!awaitsResult(rec)) continue;
+      var at = occurredAt(rec);
+      if (typeof at !== 'number') continue;
+      if (resolveTradingDayKey(at) !== today) continue;
+      n += 1;
+    }
+    return n;
+  }
+
+  /** 這個頁面 session 裡最後一次回報過的（交易日, 筆數）。 */
+  var lastReported = null;
+
+  /**
+   * 把那個整數回報出去。Best-effort —— 失敗就安靜地不回報。
+   *
+   * 🔴 **0 也要送**。那是「今天的都填完了」這個事實，而它正是讓提醒閉嘴的
+   * 那個事實。把 0 當成「沒東西好回報」而跳過，提醒就會靠一個過期的數字跑。
+   *
+   * 🔴 沒有頻道 ⇒ 不回報。沒配對過的人從來沒有任何東西離開過裝置，
+   * 這條路也不該是第一個例外。
+   *
+   * 同一個交易日、同一個數字在同一個頁面 session 裡只送一次 ——
+   * 省掉開頁／寫入連續觸發的重複請求，但**不跨頁面 session**（重新載入
+   * 一定會再送一次，因為伺服器那邊的新鮮度是按時間算的）。
+   *
+   * @param {number} [nowMs] 現在（預設 Date.now()）
+   * @returns {Promise<boolean>} 伺服器收下了沒有
+   */
+  function reportOpenCount(nowMs) {
+    var at = typeof nowMs === 'number' ? nowMs : Date.now();
+    var channel = '';
+    try { channel = localStorage.getItem(CHANNEL_KEY) || ''; } catch (e) { channel = ''; }
+    if (!channel) return Promise.resolve(false);
+    if (typeof fetch !== 'function') return Promise.resolve(false);
+
+    var day = resolveTradingDayKey(at);
+    var count = openRecordCount(load(), at);
+    if (lastReported && lastReported.day === day && lastReported.count === count) {
+      return Promise.resolve(false);
+    }
+    lastReported = { day: day, count: count };
+
+    return fetch(OPEN_COUNT_ENDPOINT + '?ch=' + encodeURIComponent(channel), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ openCount: count }),
+    }).then(function (r) {
+      // 沒收下就忘掉這次，下一個觸發點會再試一次。
+      if (!r.ok) lastReported = null;
+      return r.ok;
+    }).catch(function () {
+      lastReported = null;
+      return false;
+    });
+  }
+
   global.TENKI_OUTCOME = {
     TEMPLATE_ID_TO_V6: TEMPLATE_ID_TO_V6,
     OUTCOME_VIEW: OUTCOME_VIEW,
@@ -1017,6 +1108,8 @@
     resolveTradingDayKey: resolveTradingDayKey,
     resolveDayCadence: resolveDayCadence,
     load: load,
+    openRecordCount: openRecordCount,
+    reportOpenCount: reportOpenCount,
     MIN_BAND_SAMPLES_FOR_RATE: MIN_BAND_SAMPLES_FOR_RATE,
     BAND_ORDER: BAND_ORDER,
     bandOfRecord: bandOfRecord,

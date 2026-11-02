@@ -59,7 +59,15 @@ self.addEventListener('notificationclick', function (event) {
       for (var i = 0; i < list.length; i++) {
         var client = list[i];
         if (typeof client.url !== 'string') continue;
-        if (client.url.indexOf('/decision-alert/') === -1) continue;
+        // 🔴 「算不算找到了」比的是**跟 target 同一個路徑**，不是寫死
+        //    `/decision-alert/`。L2 的收束提醒指向 `/v3/#session`（決策紀錄
+        //    那一頁），而寫死的版本會把一個**已經開在 /v3/ 的視窗**當成
+        //    不相干，另開一個新視窗 —— 同一個 App 在手機上變成兩個分頁。
+        //    對舊的 target（`/decision-alert/…`）行為逐字不變：同路徑的
+        //    判準在那個 target 下就是「含 /decision-alert/」。
+        //    ⚠️ 刻意**不**放寬成「任何本站視窗」：那會把一個正在讀 /story/
+        //    的視窗導走。導走只在「他已經在這一頁、只是停在別的 hash」時才對。
+        if (!samePath(client.url, target)) continue;
         if (sameTarget(client.url, target)) {
           return 'focus' in client ? client.focus() : undefined;
         }
@@ -95,11 +103,38 @@ self.addEventListener('notificationclick', function (event) {
  * @returns {boolean}
  */
 function sameTarget(clientUrl, target) {
+  var pair = urlPair(clientUrl, target);
+  return pair !== null && pair.a.pathname === pair.b.pathname && pair.a.hash === pair.b.hash;
+}
+
+/**
+ * 這個視窗是不是**在同一頁上**（路徑相同，hash 可以不同）。
+ *
+ * 這是「導過去」的授權門檻：同一頁的視窗可以被 focus 並導到 target，
+ * 別頁的視窗不行 —— 它正在做別的事。
+ *
+ * @param {string} clientUrl - 視窗的絕對網址。
+ * @param {string} target - 站內相對路徑（可含 hash）。
+ * @returns {boolean}
+ */
+function samePath(clientUrl, target) {
+  var pair = urlPair(clientUrl, target);
+  return pair !== null && pair.a.pathname === pair.b.pathname;
+}
+
+/**
+ * 把視窗網址與站內 target 解析成可比較的一對。解析不出來就是 null ——
+ * **不是**「視為相同」。
+ *
+ * @param {string} clientUrl - 視窗的絕對網址。
+ * @param {string} target - 站內相對路徑。
+ * @returns {{a: URL, b: URL}|null}
+ */
+function urlPair(clientUrl, target) {
   try {
     var a = new URL(clientUrl);
-    var b = new URL(target, a.origin);
-    return a.pathname === b.pathname && a.hash === b.hash;
+    return { a: a, b: new URL(target, a.origin) };
   } catch (e) {
-    return false;
+    return null;
   }
 }

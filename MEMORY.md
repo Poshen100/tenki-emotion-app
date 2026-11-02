@@ -28,6 +28,48 @@
      勿刪、勿移動、勿複製第二份：`scripts/verify.sh` 驗它恰好出現一次、
      而且排在所有條目之前。它的存在理由見協議第 1 條。 -->
 
+# 2026-11-02 Session Update（L2 收束提醒整條接起來：排程 + 裝置回報）
+
+**做了什麼**（三個 commit，founder「接著 下一刀 開 §7 第 6 項」）
+1. `sw.js` 的 `notificationclick` 把「本站視窗」寫死成含 `/decision-alert/` ——
+   L2 的深連結指向 `/v3/#session`，於是一個已經開在 `/v3/` 的視窗不算數、
+   會另開新視窗。改成「跟 target 同路徑才算找到了」（舊 target 行為逐字不變），
+   刻意**不**放寬成「任何本站視窗」（那會把正在讀 `/story/` 的視窗導走）。
+2. `api/digest.ts`：GET + `Bearer CRON_SECRET`，SCAN `tenki:open:v1:` 當索引，
+   每頻道走 `digestDecision()`，自己的 tag 與 `/v3/#session` 深連結，
+   **真的送出去才** `saveDigestSent()`。`vercel.json` 排 `0 1 * * *`。
+3. `decision-outcome.js` 的 `openRecordCount` / `reportOpenCount`：裝置回報
+   那一個整數，兩頁開頁 + 配對成功 + 五個寫入點各觸發一次。
+
+**三個判斷值得記**
+- **cron 時刻是算出來的，不是挑的**：要同時「ET 收市後」且「還是同一個 ET
+  交易日」，而使用者在 UTC+8。UTC 21:05 會在當地凌晨 5 點響。選 UTC 01:00
+  （ET 20:00/21:00、台北 09:00），四個日期跨兩個 DST 季實測。
+- **文案刻意不照規格原文**：§4 L2 寫「今天有 1 筆還沒填結果」，但通知抵達時
+  使用者的日曆已經翻頁了 ——「今天」會指到一個還沒發生的交易日。只講數字。
+- **沒真的送出去不算推過**：沒訂閱／全部失敗都不寫記錄。否則一個沒有裝置的
+  頻道會燒掉自己每天唯一的額度，並長出一條假的沉默連續記錄。
+
+**三條假綠**（都提煉進 PLAYBOOK）
+- `expect(payload.url).toBe(DIGEST_PUSH_URL)` 是拿常數跟自己比 —— 把深連結
+  改回 `/decision-alert/`，48 條全綠。
+- 破壞寫成 `if (false && …)` 會殺掉 TypeScript 的 narrowing → 整個 suite
+  編不過、沒有具名的紅。那種「紅」不是斷言在說話。
+- `openRecordCount` 守「算不出發生時刻的不算進去」，但 fixture 每一筆都有
+  `ts` —— 那道門是空的（破壞後 16 條全綠）。補一筆沒有時刻的紀錄進 fixture。
+
+**順手修的**：`/api/open-count` 與 `/api/digest` 補進 `DEPLOYMENT_MAP`
+（.md + .json）—— 上一刀漏了 open-count，正是那份檔頭自己警告的同步失敗。
+
+**下次接手點**
+- 🔴 **founder 要在 Vercel 加 `CRON_SECRET` 環境變數並 Redeploy**，否則
+  `/api/digest` 一律 503（刻意的：「沒設就跳過檢查」是端點變成公開按鈕的方式）。
+  步驟寫在 `docs/TRADINGVIEW-SETUP.md` §8。
+- §7 第 4 項（**L1 快訊帶**）是現在唯一的缺口，而它是三層裡最便宜的那一層。
+  現在的形狀是 L0 + L2，沒有 L1。
+- 實走還沒驗到的：收束提醒真的響（要等 CRON_SECRET + 一個隔夜）、
+  以及「用時」正名與 `我剛下單了` 那兩顆（上一刀推的）。
+
 # 2026-10-30 Session Update（四個時間戳收齊；牆拆了，限流接上；三條假綠）
 
 ⚠️ 依協議 2b：**不編號**。分支 `claude/decision-timer-completion-sh7ogg`。

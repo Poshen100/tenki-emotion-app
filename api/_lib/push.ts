@@ -11,6 +11,7 @@
 import webpush from 'web-push';
 import type { AlertContract } from '../../domain/src/contracts/alert-contract';
 import { pushNotificationTag } from '../../domain/src/policies/alert-policy';
+import { DIGEST_PUSH_TAG, buildDigestCopy } from '../../domain/src/policies/digest-push';
 import type { StoredPushSubscription } from './store';
 
 /** VAPID credentials, resolved from the environment. */
@@ -63,12 +64,7 @@ const BODY_MAX = 120;
  * @param alert - Canonical alert record.
  * @returns Notification content.
  */
-export function buildPushPayload(alert: AlertContract): {
-  title: string;
-  body: string;
-  url: string;
-  tag: string;
-} {
+export function buildPushPayload(alert: AlertContract): PushPayload {
   const parts = [alert.symbol];
   if (alert.condition !== null) {
     parts.push(alert.condition);
@@ -90,10 +86,93 @@ export function buildPushPayload(alert: AlertContract): {
   };
 }
 
+/** A notification as the service worker reads it (`apps/preview/sw.js`). */
+export interface PushPayload {
+  title: string;
+  body: string;
+  url: string;
+  tag: string;
+}
+
 /**
- * Sends a push to every subscription. Returns the endpoints that are gone
- * (404/410) so the caller can prune them. Other per-subscription errors are
- * ignored (transient).
+ * Where the close-of-day reminder lands.
+ *
+ * 🔴 The decision records live on `/v3/#session` — the page that can actually
+ * accept a result. Sending the reminder to `/decision-alert/` (the alert
+ * page's default) would drop the user on a page that cannot answer the
+ * question the notification just asked.
+ *
+ * ⚠️ This only works because `sw.js` honours `data.url` **and** treats a
+ * window on the target's own path as "found" — both were holes listed in
+ * docs/DECISION-RECORD-LOOP.md §4 L2 and both are now closed with harness
+ * assertions (`scripts/preview-sw-push.mjs`).
+ */
+export const DIGEST_PUSH_URL = '/v3/#session';
+
+/**
+ * Builds the close-of-day reminder payload.
+ *
+ * Copy and tag come from the domain policy (one place decides what the user
+ * reads and what counts as "the same notification"); only the route is
+ * decided here.
+ *
+ * @param count - Records still awaiting a result.
+ * @returns Notification content.
+ */
+export function buildDigestPushPayload(count: number): PushPayload {
+  const copy = buildDigestCopy(count);
+  return { title: copy.title, body: copy.body, url: DIGEST_PUSH_URL, tag: DIGEST_PUSH_TAG };
+}
+
+/**
+ * Sends one payload to every subscription. Returns how many were accepted and
+ * the endpoints that are gone (404/410) so the caller can prune them. Other
+ * per-subscription errors are ignored (transient).
+ *
+ * 🔴 One implementation for every kind of notification. Two copies of this
+ * loop would drift — and the half that drifts is the dead-endpoint pruning,
+ * which fails silently (a channel slowly fills with endpoints nobody can
+ * reach, and nothing says so).
+ *
+ * @param vapid - VAPID credentials.
+ * @param subscriptions - Channel's stored subscriptions.
+ * @param payload - Notification to deliver.
+ * @returns Accepted count and dead endpoints.
+ */
+export async function sendPushPayload(
+  vapid: VapidConfig,
+  subscriptions: readonly StoredPushSubscription[],
+  payload: PushPayload,
+): Promise<{ sent: number; dead: string[] }> {
+  webpush.setVapidDetails(vapid.subject, vapid.publicKey, vapid.privateKey);
+  const body = JSON.stringify(payload);
+  const dead: string[] = [];
+  let sent = 0;
+
+  await Promise.all(
+    subscriptions.map(async (subscription) => {
+      try {
+        await webpush.sendNotification(subscription, body);
+        sent += 1;
+      } catch (error) {
+        const statusCode = (error as { statusCode?: number }).statusCode;
+        const errBody = (error as { body?: string }).body;
+        console.error(
+          `[push] send failed status=${statusCode ?? '?'} body=${(errBody ?? '').slice(0, 120)}`,
+        );
+        if (statusCode === 404 || statusCode === 410) {
+          dead.push(subscription.endpoint);
+        }
+      }
+    }),
+  );
+
+  console.log(`[push] sent=${sent} failed=${subscriptions.length - sent} dead=${dead.length}`);
+  return { sent, dead };
+}
+
+/**
+ * Sends an alert push to every subscription.
  *
  * @param vapid - VAPID credentials.
  * @param subscriptions - Channel's stored subscriptions.
@@ -105,27 +184,6 @@ export async function sendAlertPush(
   subscriptions: readonly StoredPushSubscription[],
   alert: AlertContract,
 ): Promise<string[]> {
-  webpush.setVapidDetails(vapid.subject, vapid.publicKey, vapid.privateKey);
-  const payload = JSON.stringify(buildPushPayload(alert));
-  const dead: string[] = [];
-  let sent = 0;
-
-  await Promise.all(
-    subscriptions.map(async (subscription) => {
-      try {
-        await webpush.sendNotification(subscription, payload);
-        sent += 1;
-      } catch (error) {
-        const statusCode = (error as { statusCode?: number }).statusCode;
-        const body = (error as { body?: string }).body;
-        console.error(`[push] send failed status=${statusCode ?? '?'} body=${(body ?? '').slice(0, 120)}`);
-        if (statusCode === 404 || statusCode === 410) {
-          dead.push(subscription.endpoint);
-        }
-      }
-    }),
-  );
-
-  console.log(`[push] sent=${sent} failed=${subscriptions.length - sent} dead=${dead.length}`);
+  const { dead } = await sendPushPayload(vapid, subscriptions, buildPushPayload(alert));
   return dead;
 }

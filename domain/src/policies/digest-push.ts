@@ -154,3 +154,47 @@ export function digestDecision(state: DigestState, nowMs: number): DigestDecisio
 
   return { send: true, count: state.openCount };
 }
+
+/**
+ * 這一則提醒在裝置上的 tag。
+ *
+ * 🔴 **為什麼這裡可以用一個常數，而快訊不行**：tag 是一句宣稱 ——
+ * 「這兩則是同一件事，後到的可以取代先到的」。快訊的「同一件事」是**同一個
+ * 標的**（所以 `pushNotificationTag()` 吃 symbol；寫死一個常數曾讓 NQ1! 靜靜
+ * 蓋掉 ES1!）。這一則不同：`digestDecision()` 保證**一天最多一則**，所以兩則
+ * 提醒一定落在不同的日子，而舊的那一則在新的出現時已經過時 —— 取代是對的。
+ *
+ * ⚠️ 這個常數的正當性**整個靠 `already_sent_today` 那道閘**。哪天一天會推兩則
+ * （例如拆成不同標的），這個 tag 就會開始弄丟其中一則，要跟著改。
+ *
+ * ⚠️ 而且它必須跟快訊的 tag 不同命名空間（`docs/DECISION-RECORD-LOOP.md` §4
+ * L2 的三個洞之一）：共用 tag 會讓提醒**蓋掉一則真正的快訊**。
+ */
+export const DIGEST_PUSH_TAG = 'tenki-digest';
+
+/**
+ * 這一則提醒的文案。
+ *
+ * 🔴 **刻意不講「今天」**，雖然 §4 L2 的原文是「今天有 1 筆還沒填結果」。
+ * cron 排在 ET 收市後，而使用者在 UTC+8 —— 通知抵達時他的日曆已經翻頁了，
+ * 「今天」會指到一個**還沒發生的**交易日。講一個數字就好：數字是事實，
+ * 日期在這個時區組合下不是。
+ *
+ * 🔴 沒有 user-facing 的金融／醫療措辭，也不講「該去做什麼」——
+ * 它是一句事實（還有幾筆沒記），不是一個催辦。
+ *
+ * @param count - Records still awaiting a result (must be ≥ 1).
+ * @returns Notification title and body.
+ * @throws RangeError when `count` is not a positive integer — there is no
+ *   honest copy for "zero left to fill", and coercing one would be the
+ *   `null → 0` mistake in a different costume.
+ */
+export function buildDigestCopy(count: number): { title: string; body: string } {
+  if (!Number.isInteger(count) || count < 1) {
+    throw new RangeError(`buildDigestCopy needs a positive integer, got ${count}`);
+  }
+  return {
+    title: 'TENKI 決策紀錄',
+    body: `有 ${count} 筆決策還沒記下結果`,
+  };
+}
