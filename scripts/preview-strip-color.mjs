@@ -282,7 +282,7 @@ const recap = await page.evaluate(() => {
       const hasNum = !!v.querySelector('.num');
       return !hasNum && /[\u4e00-\u9fff]/.test(v.textContent) && mono(v);
     }),
-    waitValue: (rows.find((r) => r.querySelector('.rc-label')?.textContent === '等待')
+    waitValue: (rows.find((r) => r.querySelector('.rc-label')?.textContent === '用時')
       ?.querySelector('.rc-value')?.textContent ?? '').trim(),
   };
 });
@@ -293,8 +293,15 @@ check('數字與代號走等寬', recap.numsAllMono, true);
 // 全形方塊，密度整個垮掉（decision-alert.html:405 那段註解為這件事付過學費）。
 check('🔴 中文標籤不得走等寬', recap.labelsAnyMono, false);
 check('🔴 純中文的值不得走等寬', recap.cjkValueMono, false);
-// 「等了 NN:NN」原本擠在判定那句的尾巴 —— 它是一個量，要有自己的欄位。
-check('等待自成一欄且值是時鐘', /^\d{2}:\d{2}$/.test(recap.waitValue), true);
+// 「用了 NN:NN」原本擠在判定那句的尾巴 —— 它是一個量，要有自己的欄位。
+// 🔴 這一格叫**用時**，不是「等待」（2026-10-30 改名）：Session 詳情的「等待」
+//    是**判定 → 進場**（規格 §1.2），而詳情頁另有一格就叫「用時」，那才是這個
+//    數字。同一個詞在兩頁指兩件事是 PLAYBOOK 記過的「兩頁方言不同」家族。
+check('用時自成一欄且值是時鐘', /^\d{2}:\d{2}$/.test(recap.waitValue), true);
+// 🔴 成對：改名要**兩邊都成立** —— 新名字在、而且舊名字不得還留在畫面上
+//    （只驗新名字的話，兩個標籤同時存在也會綠）。
+check('🔴 收束頁上不得再出現「等待」這個標籤（它在詳情頁是別的量）',
+  recap.labels.includes('等待'), false);
 
 // 完成率是表頭右邊的「量」：大數字走等寬，中文註腳不走。
 const rateNode = await page.evaluate(() => {
@@ -330,26 +337,32 @@ const save = await page.evaluate(() => {
   };
 });
 check('短視窗(660px)下儲存鈕完全可見（不必先捲動）', save.完全可見, true);
-check('短視窗(660px)下收束頁一屏放得下', save.需捲動, 0);
+// 🔴 **「一屏放得下」這條已經放寬**（founder 2026-11-02）。
+//    2026-10-30 加「下單了嗎」那一列之後，660px 下整頁要捲 32px。當時的解法是
+//    自動收起「紀律近況」；founder 11-02 看了實機說「改成只在更矮的視窗才收」，
+//    而**量完之後那句話的意思是「不要收」**：一路量到 420px，儲存鈕都還完全
+//    可見（sheet 自己有 max-height + 內部捲動）。所以那段自動收起是一段永遠
+//    不會跑的程式，整段拆掉了（CLAUDE.md：不得把不能上線的程式留在引擎裡）。
+//
+//    被守住的**不是**「完全不用捲」，而是上面那條：**儲存鈕不必先捲就按得到**。
+//    下面三條把新規則釘死 —— 少了它們，「放寬」就會變成「沒人守」。
+check('🔴 660px 下「紀律近況」仍然在（founder 11-02：不要為了不用捲而收掉它）',
+  await page.evaluate(() =>
+    document.getElementById('resultHistory')?.hasAttribute('hidden') ?? null), false);
 
-// 🔴 「放得下」現在是**自動收起「紀律近況」**換來的（founder 2026-10-30 裁決）。
-//    上面那條單獨存在會變成「怎麼放得下的都算」—— 下一個人把任何一塊砍掉
-//    也會讓它綠。這兩條成對：放得下 ＋ **是靠收那一塊、而且沒改使用者的設定**。
-const fit = await page.evaluate(() => ({
-  historyHidden: document.getElementById('resultHistory')?.hasAttribute('hidden') ?? null,
-  // 設定存在這個 key；自動收起不得把它改掉。
-  raw: localStorage.getItem('tenki.alert.resultSettings.v1'),
-}));
-check('🔴 短視窗下「紀律近況」被收起（這就是放得下的原因）', fit.historyHidden, true);
-checkTruthy2('🔴 而使用者的設定沒有被改掉（showHistory 仍是開著或根本沒存過）',
-  fit.raw === null || /"showHistory"\s*:\s*true/.test(fit.raw));
-
-// 回到正常高度：那一塊要自己回來 —— 收起來是為了**這一次呈現**，不是記住了。
-await page.setViewportSize({ width: 390, height: 900 });
+// 🔴 放寬之所以安全，靠的是「更矮也按得到」。這條紅了就表示 sheet 的
+//    max-height/overflow 那層保險壞了 —— 而那正是 660px 可以捲的全部理由。
+await page.setViewportSize({ width: 390, height: 420 });
 await page.waitForTimeout(500);
-const tall = await page.evaluate(() =>
-  document.getElementById('resultHistory')?.hasAttribute('hidden') ?? null);
-check('🔴 畫面夠高時「紀律近況」要回來（不是被記住關掉了）', tall, false);
+const shortest = await page.evaluate(() => {
+  const b = document.getElementById('btnResultSave').getBoundingClientRect();
+  return {
+    reachable: b.top >= 0 && b.bottom <= window.innerHeight,
+    historyHidden: document.getElementById('resultHistory')?.hasAttribute('hidden') ?? null,
+  };
+});
+check('🔴 420px（極矮）下儲存鈕仍然完全可見', shortest.reachable, true);
+check('🔴 而且沒有偷偷收掉「紀律近況」', shortest.historyHidden, false);
 await page.setViewportSize({ width: 390, height: 660 });
 await page.waitForTimeout(300);
 

@@ -198,41 +198,6 @@
       showReflect: s.showReflect !== false,
     };
   }
-  /**
-   * 收束頁要**一屏放得下**（in-app 瀏覽器上下工具列都在時 ≈660px）——
-   * 放不下就先收起「紀律近況」。
-   *
-   * 🔴 **量出來才收，不訂 px 門檻。** 門檻會是一個魔術常數，而且字級、
-   * 語言、瀏覽器 chrome 一變就失準。這裡直接問這一頁「你現在放得下嗎」。
-   *
-   * 🔴 收起來的為什麼是「紀律近況」：那一塊是**狀態顯示**，不是一個要使用者
-   * 回答的問題；而軌跡／反思／下單／結果全是關於**這一筆**的。founder
-   * 2026-10-30 裁決。實測它值 56px，而新增的「下單了嗎」那一列值 33px ——
-   * 這張頁在 660px 下的餘裕本來是 **0**（579 / 579），所以不是排版技巧的問題。
-   *
-   * ⚠️ **不動使用者的設定**：他在「收束頁設定」關掉的仍然是關掉的；
-   * 這裡只在「開著但放不下」時為了這一次呈現而收起來。設定卡的說明有講。
-   */
-  function fitRecapToOneScreen() {
-    if (!el.resultSheet || !el.resultHistory) return;
-    // 先回到設定該有的樣子，再決定要不要為了放得下而收。
-    toggleHidden(el.resultHistory, state.resultSettings.showHistory);
-    if (!state.resultSettings.showHistory) return;
-    if (el.resultSheet.scrollHeight <= el.resultSheet.clientHeight) return;
-    toggleHidden(el.resultHistory, false);
-  }
-
-  // 🔴 視窗高度**會變**：實機捲動時瀏覽器上下工具列收起來，視窗就長高了
-  //    （這一頁的 660px 約束講的正是「工具列都在」那個狀態）。只在開頁量一次
-  //    的話，那一塊會卡在收起狀態回不來 —— 收起來是為了**這一次放得下**，
-  //    不是一個被記住的決定。harness 那條「畫面夠高時要回來」當場抓到這件事。
-  var recapFitTimer = null;
-  window.addEventListener('resize', function () {
-    if (!el.resultSheet || !el.resultSheet.classList.contains('show')) return;
-    if (recapFitTimer) clearTimeout(recapFitTimer);
-    recapFitTimer = setTimeout(fitRecapToOneScreen, 120);
-  });
-
   function toggleHidden(node, show) {
     if (!node) return;
     if (show) node.removeAttribute('hidden');
@@ -1604,7 +1569,15 @@
       { cls: disp.cls === 'disciplined' ? 'on' : 'off', label: '判定', segs: [seg(disp.text)] },
       // 「等了 NN:NN」原本擠在判定那句的尾巴。它是一個**量**，不是判定的形容詞
       // —— 給它自己的欄位，數字才對得齊上面那些。
-      { cls: '', label: '等待', segs: [seg(formatClock(s.elapsedSec), true)] },
+      //
+      // 🔴 **叫「用時」不叫「等待」**（founder 2026-10-30 實走截圖抓到）：
+      //    這一格是 `elapsedSec`（起跑 → 收束），而 Session 詳情那一格
+      //    「等待」是**判定 → 進場**（`waitedSec()`，規格 §1.2）——
+      //    兩個完全不同的量。更糟的是詳情頁**另外有一格就叫「用時」**，
+      //    而那才是這個數字。於是同一筆決策在兩頁上，同一個詞指著兩件事。
+      //    `decision-outcome.js` 開頭那句「兩頁各寫一份判準就是這支模組存在的
+      //    理由（2026-08-09 那次兩頁方言不同）」講的正是這個家族。
+      { cls: '', label: '用時', segs: [seg(formatClock(s.elapsedSec), true)] },
     ];
     rows.filter(Boolean).forEach(function (row) {
       var rowEl = document.createElement('div');
@@ -1738,8 +1711,9 @@
     el.resultOutcome.textContent = disp.text;
     el.resultOutcome.className = 'result-outcome ' + disp.cls;
     // 沒有分母了 —— 沒有「應該等多久」這回事（§7 step 3 沒有時間表）。
-    // 數字走等寬（跟軌跡表的 .num 同一個理由），「等了」兩個中文字不走。
-    el.resultArcTime.textContent = '等了 ';
+    // 數字走等寬（跟軌跡表的 .num 同一個理由），「用了」兩個中文字不走。
+    // 同上：這是用時，不是「等待」。「等了」會被讀成在等某件事發生。
+    el.resultArcTime.textContent = '用了 ';
     var arcNum = document.createElement('span');
     arcNum.className = 'num';
     arcNum.textContent = formatClock(s.elapsedSec);
@@ -1827,11 +1801,6 @@
     el.resultMeterFill.style.width = '0';
 
     openSheet(el.resultSheet);
-    // 🔴 量要在版面落定之後。雙 rAF 是這一頁既有的「等一幀」做法 ——
-    //    單一 rAF 量到的還是 openSheet 那一幀的中間態。
-    requestAnimationFrame(function () {
-      requestAnimationFrame(fitRecapToOneScreen);
-    });
 
     function reveal() {
       el.resultMeterFill.style.width = Math.round(rate * 100) + '%';

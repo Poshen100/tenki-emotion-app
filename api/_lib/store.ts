@@ -15,6 +15,7 @@ import {
   CHANNEL_CREATE_WINDOW_SEC,
   channelRateKey,
 } from '../../domain/src/policies/channel-rate-limit';
+import { DIGEST_REPORT_TTL_SEC } from '../../domain/src/policies/digest-push';
 
 /** Prefix for per-channel alert lists (newest first). */
 export const ALERTS_KEY_PREFIX = 'tenki:alerts:v1:';
@@ -39,6 +40,19 @@ export const PUSH_KEY_PREFIX = 'tenki:push:v1:';
 
 /** Maximum retained push subscriptions per channel (a channel is one user's devices). */
 export const PUSH_SUBS_MAX = 5;
+
+/**
+ * Prefix for the device's open-record report (L2).
+ *
+ * 🔴 The value is **one integer and one timestamp** — no symbol, no result,
+ * no judgement. The decision records themselves never leave the device
+ * (local-first); this is the minimum the server needs so the close-of-day
+ * reminder is a fact rather than a guess. Founder's call, 2026-10-30.
+ */
+export const OPEN_COUNT_KEY_PREFIX = 'tenki:open:v1:';
+
+/** Prefix for what the server remembers about reminders it already sent. */
+export const DIGEST_KEY_PREFIX = 'tenki:digest:v1:';
 
 /** A stored Web Push subscription (the browser's PushSubscription JSON shape). */
 export interface StoredPushSubscription {
@@ -88,6 +102,117 @@ async function command(config: UpstashConfig, parts: string[]): Promise<unknown>
  * @param config - Upstash credentials.
  * @returns The new channel ID.
  */
+/** What the device last told us, and what we already did about it. */
+export interface DigestRecord {
+  openCount: number | null;
+  reportedAtMs: number | null;
+  lastSentDayKey: string | null;
+  lastSentCount: number | null;
+  silentStreak: number;
+}
+
+function parseJson(value: unknown): Record<string, unknown> | null {
+  if (typeof value !== 'string' || value.length === 0) return null;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return parsed !== null && typeof parsed === 'object'
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function numberOrNull(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+/**
+ * Records the device's open-record count for a channel.
+ *
+ * TTL is the policy's report TTL, so a device that stops reporting simply
+ * stops being eligible — the reminder goes quiet by itself rather than
+ * running on a number nobody refreshed.
+ *
+ * @param config - Upstash connection.
+ * @param channelId - Channel the report belongs to.
+ * @param openCount - How many of today's records still await a result.
+ * @param nowMs - Instant of the report (Unix ms).
+ */
+export async function saveOpenCount(
+  config: UpstashConfig,
+  channelId: string,
+  openCount: number,
+  nowMs: number,
+): Promise<void> {
+  const key = OPEN_COUNT_KEY_PREFIX + channelId;
+  await command(config, [
+    'set',
+    key,
+    JSON.stringify({ n: openCount, at: nowMs }),
+    'ex',
+    String(DIGEST_REPORT_TTL_SEC),
+  ]);
+}
+
+/**
+ * Reads everything the digest decision needs for one channel.
+ *
+ * 🔴 A missing or unparsable value becomes `null`, never `0`. `0` would mean
+ * "the device told us there is nothing left", which is a different fact from
+ * "we have not heard from this device" — and the policy refuses to push on
+ * the second one.
+ *
+ * @param config - Upstash connection.
+ * @param channelId - Channel to read.
+ * @returns The channel's digest state.
+ */
+export async function loadDigestRecord(
+  config: UpstashConfig,
+  channelId: string,
+): Promise<DigestRecord> {
+  const [rawOpen, rawDigest] = await Promise.all([
+    command(config, ['get', OPEN_COUNT_KEY_PREFIX + channelId]),
+    command(config, ['get', DIGEST_KEY_PREFIX + channelId]),
+  ]);
+  const open = parseJson(rawOpen);
+  const digest = parseJson(rawDigest);
+  return {
+    openCount: open === null ? null : numberOrNull(open.n),
+    reportedAtMs: open === null ? null : numberOrNull(open.at),
+    lastSentDayKey:
+      digest !== null && typeof digest.lastSentDayKey === 'string' ? digest.lastSentDayKey : null,
+    lastSentCount: digest === null ? null : numberOrNull(digest.lastSentCount),
+    silentStreak: (digest === null ? null : numberOrNull(digest.silentStreak)) ?? 0,
+  };
+}
+
+/**
+ * Records that a reminder went out, so the next run can honour "one a day"
+ * and the silent-streak cap.
+ *
+ * @param config - Upstash connection.
+ * @param channelId - Channel the reminder went to.
+ * @param dayKey - ET trading day of the send.
+ * @param sentCount - Open count at the moment of the send.
+ * @param silentStreak - Streak after this send.
+ */
+export async function saveDigestSent(
+  config: UpstashConfig,
+  channelId: string,
+  dayKey: string,
+  sentCount: number,
+  silentStreak: number,
+): Promise<void> {
+  await command(config, [
+    'set',
+    DIGEST_KEY_PREFIX + channelId,
+    JSON.stringify({ lastSentDayKey: dayKey, lastSentCount: sentCount, silentStreak }),
+    'ex',
+    String(CHANNEL_TTL_SEC),
+  ]);
+}
+
 /**
  * Counts one channel-creation attempt for `clientKey` and returns the running
  * total for the current window.
