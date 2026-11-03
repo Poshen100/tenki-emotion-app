@@ -374,6 +374,17 @@ bash scripts/verify.sh        # lint + 4 套件 tsc + root 測試 + mobile tsc/�
   不會變就是沒在驗它。⚠️ 這是「用單一參數點驗證一條門檻」的同一個家族，
   只是那條講的是數值軸，這條講的是**哪一端**。
 
+- **🔴 `cmd | tail; echo $?` 回報的是 `tail` 的退出碼 —— 不是 cmd 的**
+  （2026-11-03）。我今天兩次用 `npm run lint 2>&1 | tail -6; echo "exit=$?"`
+  判斷 lint 過了，兩次都印 `exit=0`，而 lint 其實是 **1**（我自己新寫的測試裡
+  有兩個 `forEach` 回傳值的 error）。那個 0 是 `tail` 的。
+  **規則**：要知道某個指令過沒過，就**不要把它接進 pipeline**：
+  `cmd > /tmp/x.log 2>&1; echo $?`，或在 pipeline 後讀 `${PIPESTATUS[0]}`
+  （而且要確認自己讀的是哪一格）。
+  ⚠️ 根本的做法還是那條既有的：**只有 `npm run verify` 的綠燈算完成** ——
+  我分步跑了 tsc／jest／check-vocab，就是沒跑 lint，而 verify 第一步就是它。
+  這是同一個 session 第二次（上一次漏的是 check-vocab）。
+
 - **🔴 宣稱「某一項還沒做」之前先 grep —— 文件的狀態欄不是事實來源**
   （2026-11-03）。`DECISION-RECORD-LOOP.md` §7 第 4 項（L1 快訊帶）標著「還沒做」，
   而它**早在 2026-10-27 就做完了**（`renderPendingBand()` ＋ 16 條 harness 斷言）。

@@ -5,6 +5,7 @@
  * `firstLevelLock` 當成 `'not_locked'`，就是把「他沒告訴我們」講成
  * 「他沒做」—— 而這一欄看起來最像成績，那個謊代價最大。
  */
+import * as runnerLedger from '../contracts/runner-ledger';
 import {
   FIRST_LEVEL_LOCKS,
   RUNNER_OUTCOMES,
@@ -49,8 +50,12 @@ describe('沒答 ≠ 答了', () => {
   });
 
   it('守門函式認得每一個合法值，而且只認它們', () => {
-    FIRST_LEVEL_LOCKS.forEach((v) => expect(isFirstLevelLock(v)).toBe(true));
-    RUNNER_OUTCOMES.forEach((v) => expect(isRunnerOutcome(v)).toBe(true));
+    FIRST_LEVEL_LOCKS.forEach((v) => {
+      expect(isFirstLevelLock(v)).toBe(true);
+    });
+    RUNNER_OUTCOMES.forEach((v) => {
+      expect(isRunnerOutcome(v)).toBe(true);
+    });
     expect(isFirstLevelLock('still_running')).toBe(false);
     expect(isRunnerOutcome('locked')).toBe(false);
     expect(isFirstLevelLock(null)).toBe(false);
@@ -120,11 +125,9 @@ describe('合規邊界', () => {
   it('🔴 這份契約不得輸出任何分數／比率／連續天數', () => {
     // 這條是機械性的：以後有人加一個 `alignmentRate()` 進來，它會紅。
     // 「對齊率」那一格退場過一次（§10 item 7），不得從這裡回來。
-    const exported = Object.keys(
-      // biome-ignore lint/style/useNodejsImportProtocol: 測試裡動態 require 讀的是自己的模組
-      require('../contracts/runner-ledger') as Record<string, unknown>,
-    ).sort();
-    expect(exported).toEqual([
+    // 讀整個 module 的 namespace —— `export type` 在執行期不存在，
+    // 所以這裡看到的就是它真的輸出的「值」。
+    expect(Object.keys(runnerLedger).sort()).toEqual([
       'FIRST_LEVEL_LOCKS',
       'RUNNER_OUTCOMES',
       'allowsRunnerLedger',
