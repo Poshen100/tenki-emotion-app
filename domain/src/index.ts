@@ -330,6 +330,23 @@ export {
 export type { DomainTradeResult } from './contracts/trade-result';
 
 export {
+  FIRST_LEVEL_LOCKS,
+  RUNNER_OUTCOMES,
+  allowsRunnerLedger,
+  isFirstLevelLock,
+  isRunnerOutcome,
+  readRunnerLedger,
+  runnerLedgerConflict,
+} from './contracts/runner-ledger';
+
+export type {
+  FirstLevelLock,
+  RunnerLedger,
+  RunnerLedgerConflict,
+  RunnerOutcome,
+} from './contracts/runner-ledger';
+
+export {
   DAILY_TRADE_BUDGET,
   DAY_CADENCE_STATES,
   TRADING_DAY_TZ,

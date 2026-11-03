@@ -2317,6 +2317,9 @@ a.lab-wide{text-decoration:none}
 .sd-backfill-note{font-size:11px;color:var(--n-400)}
 .sd-backfill-chips{display:flex;gap:8px;margin-top:8px}
 .sd-backfill-chips .tp-chip{flex:1 1 0;text-align:center;white-space:normal}
+/* 四顆晶片擠在一排時每顆只剩 ~85px，字會疊成三行 —— 排成 2×2 才讀得完。 */
+.sd-chips-2col{flex-wrap:wrap}
+.sd-chips-2col .tp-chip{flex:1 1 calc(50% - 4px)}
 .tp-chip.picked{background:var(--amber-400);border-color:var(--amber-400);color:var(--n-950)}
 @media (prefers-reduced-motion: reduce){ .tp-picker{transition:none} }
 
@@ -2959,7 +2962,7 @@ a.lab-wide{text-decoration:none}
     <!-- 決策收束判定的唯一來源。⚠️ 必須排在下面那個 inline script 之前 ——
          那支在**頂層**就讀 window.TENKI_OUTCOME（OUTCOME_STORE_KEY_V6 / isDisciplinedV6），
          放到頁尾跟其他 script 一起載會來不及。絕對路徑：本頁同時掛在 /v3/ 與 /preview/v6/。 -->
-    <script src="/preview/decision-outcome.js?v=do16"></script>
+    <script src="/preview/decision-outcome.js?v=do17"></script>
     <!-- Stardust Scan Takeover Styles -->
     <link rel="stylesheet" href="stardust-scan-takeover.css?v=gyro_v6">
 </head>
@@ -3531,6 +3534,24 @@ a.lab-wide{text-decoration:none}
           <!-- 日期也要選 —— 部位可以隔夜，這一格不是只有時間。 -->
           <div class="bf-input-hint">點左邊那格選<strong>日期和時間</strong>（可以是隔天），再按「記下來」。</div>
           <div class="sd-backfill-note" id="sdExitTimeNote"></div>
+        </div>
+
+        <!-- ═══ Runner 帳本 —— 方法論 §4 的「進場之後那一半」（founder 2026-11-03）═══
+             現在存的每一欄都停在進場：`outcomeTag` 問有沒有做出判定、
+             `tradeResult` 問怎麼結束，而中間那一段（第一級鎖 ~75%、留 runner、
+             不主動平倉直到結構失效）紀錄上完全看不出來。
+             🔴 **兩個窄事實，各一下點完，而且都可以不答。** 沒答就是整個欄位
+                不存在 —— 不是 null、不是預設值。沒填**不是壞紀錄**
+                （`docs/DECISION-RECORD-LOOP.md` §4 原則 4）。
+             🔴 不得聚合成任何分數／比率／連續天數。「對齊率 100%」那一格
+                退場過一次（方法論 §10 第 7 項），不得從這裡回來。 -->
+        <div class="sd-entry-time" id="sdRunnerRows" hidden>
+          <div class="sd-backfill-q">第一級鎖了嗎？<span class="sd-backfill-note">（沒答也可以）</span></div>
+          <div class="sd-backfill-chips" id="sdFirstLevelChips"></div>
+          <div class="sd-backfill-q" style="margin-top:10px">runner 最後怎麼了？<span class="sd-backfill-note">（沒答也可以）</span></div>
+          <div class="sd-backfill-chips sd-chips-2col" id="sdRunnerChips"></div>
+          <!-- 兩個來源不一致就**說出來**，不挑一邊（CLAUDE.md：不取平均）。 -->
+          <div class="sd-backfill-note" id="sdRunnerConflict" hidden></div>
         </div>
       </div>
 
@@ -7054,6 +7075,68 @@ function renderLaterEntry(rec){
 }
 
 /**
+ * Runner 帳本的兩列晶片（方法論 §4 的「進場之後那一半」）。
+ *
+ * 🔴 適用判準走共用模組的 `allowsRunnerLedger()` —— 這一頁不自己判一次
+ * `outcomeTag`。只有真的進場的那一筆有 runner 可言。
+ * 🔴 再點同一顆 ＝ 取消回報 → 那一欄被**刪掉**（回到「沒答」），
+ * 不是回到某個預設值。判準在 `runnerLedgerPatch()`，寫入在這裡。
+ * 🔴 衝突不挑一邊：「還在跑」碰上已結束的紀錄就把那句話說出來。
+ *
+ * @param {Object} rec store 裡的那一筆
+ */
+function renderRunnerLedger(rec){
+  const rows = document.getElementById('sdRunnerRows');
+  if(!rows) return;
+  const OUT = window.TENKI_OUTCOME;
+  const asks = OUT.allowsRunnerLedger(rec);
+  rows.hidden = !asks;
+  if(!asks) return;
+
+  [
+    { field: 'firstLevelLock', chips: OUT.FIRST_LEVEL_CHIPS, wrap: 'sdFirstLevelChips' },
+    { field: 'runnerOutcome', chips: OUT.RUNNER_OUTCOME_CHIPS, wrap: 'sdRunnerChips' },
+  ].forEach(def => {
+    const wrap = document.getElementById(def.wrap);
+    if(!wrap) return;
+    wrap.textContent = '';
+    def.chips.forEach(opt => {
+      const chip = document.createElement('button');
+      chip.className = 'tp-chip' + (rec[def.field] === opt.value ? ' picked' : '');
+      chip.type = 'button';
+      chip.textContent = opt.label;
+      chip.setAttribute('data-runner-field', def.field);
+      chip.setAttribute('data-runner-value', opt.value);
+      chip.addEventListener('click', () => {
+        const patch = OUT.runnerLedgerPatch(rec, def.field, opt.value);
+        if(!patch || !patchOutcome(rec.ts, patch)) return;
+        // 手上這份跟著走：`null` ＝ 刪掉那一欄，不是存一個 null 進去。
+        // ⚠️ 照實說：這一行是**縱深防禦，不是承重的那道**。真正守住
+        //    「取消 ＝ 那一欄不見」的是 `patchOutcome` 看到 `null` 就
+        //    `delete`，而畫面每次重開都從 store 重讀。反向驗證證明過：
+        //    只把這一行改成存 null，18 條全綠。留著的理由是讓手上這份
+        //    跟 store 同形 —— 下一個人拿 `rec` 去寫別的東西時不會帶著
+        //    一個 store 裡不存在的 `null` 欄位。
+        if(patch[def.field] === null) delete rec[def.field];
+        else rec[def.field] = patch[def.field];
+        renderRunnerLedger(rec);
+      });
+      wrap.appendChild(chip);
+    });
+  });
+
+  // 🔴 衝突那一行吃的是 `tradeResult` 與 `closedAt` —— 也就是**旁邊那兩格
+  //    剛剛可能改掉的值**。所以它們改完都要回頭呼叫這一支（同
+  //    renderLaterEntry 那條既有教訓：不重繪的話畫面停在上一次的答案）。
+  const conflict = OUT.runnerLedgerConflict(rec);
+  const cEl = document.getElementById('sdRunnerConflict');
+  if(cEl){
+    cEl.hidden = conflict === null;
+    cEl.textContent = conflict === null ? '' : (OUT.RUNNER_LEDGER_CONFLICT_ZH[conflict] || '');
+  }
+}
+
+/**
  * 結果回填的晶片列。
  *
  * 🔴 只在 `judged_entered` 出現。其餘兩條路的結果是**推導**出來的
@@ -7091,6 +7174,9 @@ function renderResultBackfill(rec){
       // 就地更新手上這份，讓重繪讀得到新值（不重新 load 整個 store）。
       rec.tradeResult = next;
       renderResultBackfill(rec);
+      // 🔴 Runner 帳本的衝突行吃 `tradeResult` —— 剛剛改掉的就是它。
+      //    不重繪的話「還在跑 + 達到目標」這組矛盾要等重新開一次詳情才看得到。
+      renderRunnerLedger(rec);
       // 🔴 「後來我進場了」那一格也要跟著重繪 —— 收回的路開不開
       //    取決於 `canUndoLaterEntry()`，而它問的是 `awaitsResult()`，
       //    也就是**剛剛被這一下改掉的那個值**。不重繪的話那顆按鈕的
@@ -7322,6 +7408,9 @@ function openSessionDetail(ts){
   // 出場時間（§1.2 的 closedAt）—— 排在結果**之後**：先知道部位收了，
   // 才談得上它是幾點收的。
   renderExitTime(rec);
+  // Runner 帳本（§4 的進場之後那一半）—— 呼叫順序跟 DOM 順序一致，
+  // 而且它的衝突行吃 `tradeResult`／`closedAt`，排在它們之後最不容易漏。
+  renderRunnerLedger(rec);
 
   // Facts
   document.getElementById('sdFactDur').textContent = fmtDurCell(rec);

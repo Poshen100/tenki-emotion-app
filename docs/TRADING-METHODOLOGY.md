@@ -254,7 +254,7 @@ Step 1: 判斷 Mode → Step 2: 選擇策略 → Step 3: 等待結構 → Step 4
 2. ⏳ **Mode-aware 模板提示**：Mode 1 日對 FBD 類快訊降權提示（本檔 §5 整合表的機器化）。
 3. ⏳ **行為統計分層**：事件鏈統計依 Mode 分組（「Mode 2 日的紀律完成率」），仍走流程統計語言（勝率語言已禁）。
 4. ✅ **時段感知（quiet window）**（2026-07-19 完成）：§6.1 迴避時段（11:00–14:00 盤整帶）→ **軟性事實提示**。`domain/src/policies/alert-policy.ts` `isWithinQuietWindowET`（美東 ET，DST-aware）+ `QUIET_WINDOW_CONTEXT_ZH`「安靜時段」；preview 設定面板開關（`?v=alert10`）。面板仍浮出、加一行脈絡，不硬靜音。
-5. 🚧 **節奏熔斷**（2026-08-04 domain 層完成，UI 待接）：§6.1 贏停/雙輸熔斷。
+5. ✅ **節奏熔斷**（2026-08-04 domain 層，UI 2026-10-27 接完）：§6.1 贏停/雙輸熔斷。
    ⚠️ **原本寫「勝負須映射到 session close/cancel」—— 那是硬湊，close/cancel 不是輸贏。**
    實際缺的是資料不是邏輯：持久化的每一欄都在描述紀律，沒有一欄描述結果。
    已補 `domain/src/contracts/trade-result.ts`（`profit_taken`/`stopped_out`/`scratch`/`no_entry`）
@@ -262,7 +262,16 @@ Step 1: 判斷 Mode → Step 2: 選擇策略 → Step 3: 等待結構 → Step 4
    判定細節：`no_entry` **不計入當日筆數**（§7 step 7 是紀律，不該燒額度）；
    `scratch` **不算輸**（熔斷為止血，平手沒在流血）；日界用 **ET**，
    不可重用 `alert-policy` 的 `resolveAlertDayKey()`（那是 UTC，會把傍晚交易歸到隔天）。
-   待接：結果頁四選一 UI + Entry Panel 事實行 + 快訊收摺。
+   ⚠️ **狀態更正（2026-11-03）**：這一行的「待接」清單早就接完了，只是沒人回來改它
+   （`docs/PLAYBOOK.md` 有一條新判準專講這件事：宣稱某項沒做之前先 grep）。實際落點：
+   · 結果 UI ＝ `TRADE_RESULT_CHIPS` **三顆**（達到目標／觸及保護價／打平出場），
+     不是四選一 —— `no_entry` 由判定**推導**（`defaultTradeResult('judged_stood_down')`），
+     刻意不再問一次「你是不是沒進場」，因為那件事他剛剛才答過。
+   · Entry Panel 事實行 ＝ `el.entryCadence` ← `resolveDayCadence()`（`decision-alert.js`）。
+   · 快訊收摺 ＝ 設定預設 **on**，而且只收摺方法論**明文的兩個停手點**；
+     收摺 ＝ 一顆可點的晶片（摩擦，不是消失）。
+   守門：`scripts/preview-strip-color.mjs`（事實行上畫面／不得評價或指示／
+   收摺關掉時贏停的快訊仍照常浮出）＋ `domain/src/__tests__` 的 day-cadence 斷言。
 
 6. ✅ **結構守望取代決策計時器**（2026-08-04 完成）：原本 180s 固定計時 + Readiness 窗判紀律，
    與 §7 step 3「結構確認沒有時間表」相反，且 §2.2 把 **fast failure 列為最高品質 FBD** ——
@@ -272,7 +281,7 @@ Step 1: 判斷 Mode → Step 2: 選擇策略 → Step 3: 等待結構 → Step 4
    `templateId` 與 engine 的 `durationSec`/`segments`/`readinessWindow` 契約**未動**。
    ⚠️ 語意斷點：新紀錄帶 `judgmentSchema: 'structure_watch_v1'`，統計混算時必須標註舊語意筆數。
 
-7. ⏳ **Runner 帳本**：§4 level-to-level 管理的機器化（75% 鎖利 / runner 狀態）。
+7. 🟡 **Runner 帳本**：§4 level-to-level 管理的機器化（75% 鎖利 / runner 狀態）。**v1 2026-11-03 做完**。
    目前的紀律判準只量到進場之前；提早砍 runner、沒鎖 75%、加碼攤平都沒被記錄。
    🔴 **2026-10-11：那個叫「對齊率」的格子因此退場。** 這一行寫了很久，
    但畫面上照舊有一格叫「對齊率 100%」—— 一個只量到進場之前的布林，
@@ -282,4 +291,42 @@ Step 1: 判斷 Mode → Step 2: 選擇策略 → Step 3: 等待結構 → Step 4
    ⚠️ 同一輪拿掉「平均用時」（按鈕之間的秒數），而且**刻意沒有**換成
    「從快訊到進場等了多久」—— 理由就是上一條（第 6 條，結構守望取代決策計時器）：
    把等待做成統計數字，等於把拆掉的計時器從另一個方向裝回去。
+
+   #### ✅ v1（2026-11-03，founder 裁決「兩個窄事實」）
+
+   沒有券商介接，所以它一定是**他自己回報的事實**，跟「大概幾點進的」同一種。
+   記兩個，各一下點完，而且**都可以不答**：
+
+   | 欄位 | 值 | 畫面上的字 |
+   |---|---|---|
+   | `firstLevelLock` | `locked` / `not_locked` / `never_reached` | 鎖了一段／沒鎖／沒走到第一級 |
+   | `runnerOutcome` | `structure_failed` / `cut_early` / `still_running` / `no_runner` | 結構失效才出／結構還在就出了／還在跑／沒留 runner |
+
+   落點：契約 `domain/src/contracts/runner-ledger.ts`（14 條單元測試）、
+   鏡射 `apps/preview/decision-outcome.js`（`scripts/preview-drift.mjs` 第四組
+   逐一比對值與順序）、UI 在 `/v3/` Session 詳情的結果那張卡裡
+   （`scripts/preview-decision-chain.mjs` 21 條斷言）。
+
+   🔴 **刻意不做的，每一條都有理由**：
+   - **加碼攤平**：第三軸，v1 不碰。它是最該被看見的行為，但也最像在審判他 ——
+     要做之前先有 founder 的一句話。
+   - **任何聚合**：沒有「對齊率」、沒有百分比、沒有連續天數。這一格退場過一次
+     （就是上面那段），而它退場的理由（一個只量到進場前的布林被取名成涵蓋整段
+     交易的比率）在資料夠之前一樣成立。契約檔有一條**機械性**的測試釘住 export
+     清單，鏡射那側也擋 `alignmentRate` 這類名字 —— 它不得從任何一側長回來。
+   - **沒答不是壞紀錄**：沒回報就是整個欄位不存在，不是 null、不是預設值
+     （`docs/DECISION-RECORD-LOOP.md` §4 原則 4）。
+   - **不上收束頁、不上 L1 快訊帶**：收束頁那張 sheet 的一屏預算實測剩 0px；
+     一條帶只講一筆（§4 L1 硬規則）。它住在「回填結果」的那一刻，
+     因為那時交易已經結束，兩題才答得出來。
+
+   ⚠️ 唯一一個會被顯示出來的矛盾：「還在跑」碰上已結束的紀錄（結果或 `closedAt`）。
+   **顯示衝突，不挑一邊。** 契約裡逐條列出「看起來怪但不是矛盾」的那幾組
+   （沒走到第一級＋結構失效才出、沒鎖＋沒留 runner、鎖了＋沒留 runner），
+   並有測試放行它們 —— 擋下一個人順手把它們也變成矛盾。
+
+   **v1 之後還缺什麼**（所以這一項是 🟡 不是 ✅）：它記的是「這一筆怎麼管的」，
+   還不是「每一級各發生了什麼」。要真的叫得上 level-to-level，需要逐級的時刻與
+   價位，而那要他在交易中按 —— 「忙到來不及記」正是這整條規格存在的原因。
+   先讓這兩個事實累積起來再說。
 6. ✅ **session 中同標的安靜更新**（2026-07-18 完成，源自 7553/7547 實戰）：active session 中同標的後續觸發 → 計時條下浮一行事實更新、不彈新面板；異標的維持 silent。`domain/src/policies/alert-policy.ts` 的 `session_quiet_update` 決策 + preview 鏡像。
