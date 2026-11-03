@@ -254,7 +254,7 @@ Step 1: 判斷 Mode → Step 2: 選擇策略 → Step 3: 等待結構 → Step 4
 2. ⏳ **Mode-aware 模板提示**：Mode 1 日對 FBD 類快訊降權提示（本檔 §5 整合表的機器化）。
 3. ⏳ **行為統計分層**：事件鏈統計依 Mode 分組（「Mode 2 日的紀律完成率」），仍走流程統計語言（勝率語言已禁）。
 4. ✅ **時段感知（quiet window）**（2026-07-19 完成）：§6.1 迴避時段（11:00–14:00 盤整帶）→ **軟性事實提示**。`domain/src/policies/alert-policy.ts` `isWithinQuietWindowET`（美東 ET，DST-aware）+ `QUIET_WINDOW_CONTEXT_ZH`「安靜時段」；preview 設定面板開關（`?v=alert10`）。面板仍浮出、加一行脈絡，不硬靜音。
-5. 🚧 **節奏熔斷**（2026-08-04 domain 層完成，UI 待接）：§6.1 贏停/雙輸熔斷。
+5. ✅ **節奏熔斷**（2026-08-04 domain 層，UI 2026-10-27 接完）：§6.1 贏停/雙輸熔斷。
    ⚠️ **原本寫「勝負須映射到 session close/cancel」—— 那是硬湊，close/cancel 不是輸贏。**
    實際缺的是資料不是邏輯：持久化的每一欄都在描述紀律，沒有一欄描述結果。
    已補 `domain/src/contracts/trade-result.ts`（`profit_taken`/`stopped_out`/`scratch`/`no_entry`）
@@ -262,7 +262,16 @@ Step 1: 判斷 Mode → Step 2: 選擇策略 → Step 3: 等待結構 → Step 4
    判定細節：`no_entry` **不計入當日筆數**（§7 step 7 是紀律，不該燒額度）；
    `scratch` **不算輸**（熔斷為止血，平手沒在流血）；日界用 **ET**，
    不可重用 `alert-policy` 的 `resolveAlertDayKey()`（那是 UTC，會把傍晚交易歸到隔天）。
-   待接：結果頁四選一 UI + Entry Panel 事實行 + 快訊收摺。
+   ⚠️ **狀態更正（2026-11-03）**：這一行的「待接」清單早就接完了，只是沒人回來改它
+   （`docs/PLAYBOOK.md` 有一條新判準專講這件事：宣稱某項沒做之前先 grep）。實際落點：
+   · 結果 UI ＝ `TRADE_RESULT_CHIPS` **三顆**（達到目標／觸及保護價／打平出場），
+     不是四選一 —— `no_entry` 由判定**推導**（`defaultTradeResult('judged_stood_down')`），
+     刻意不再問一次「你是不是沒進場」，因為那件事他剛剛才答過。
+   · Entry Panel 事實行 ＝ `el.entryCadence` ← `resolveDayCadence()`（`decision-alert.js`）。
+   · 快訊收摺 ＝ 設定預設 **on**，而且只收摺方法論**明文的兩個停手點**；
+     收摺 ＝ 一顆可點的晶片（摩擦，不是消失）。
+   守門：`scripts/preview-strip-color.mjs`（事實行上畫面／不得評價或指示／
+   收摺關掉時贏停的快訊仍照常浮出）＋ `domain/src/__tests__` 的 day-cadence 斷言。
 
 6. ✅ **結構守望取代決策計時器**（2026-08-04 完成）：原本 180s 固定計時 + Readiness 窗判紀律，
    與 §7 step 3「結構確認沒有時間表」相反，且 §2.2 把 **fast failure 列為最高品質 FBD** ——
