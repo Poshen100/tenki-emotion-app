@@ -231,6 +231,58 @@ check('五句事實行逐字一致',
   cadenceCopy(CADENCE_MIRROR), cadenceCopy(CADENCE_TS));
 
 // ═══════════════════════════════════════════════════
+// 第四組鏡射：Runner 帳本（方法論 §4 的「進場之後那一半」）
+//
+// `domain/src/contracts/runner-ledger.ts` ↔ `apps/preview/decision-outcome.js`
+//
+// 🔴 這一組漂移的後果：少一個值 → 那顆晶片點了寫進去一個 domain 不認得的
+//    字串（而 `readRunnerLedger` 會把它丟掉），於是**畫面上看起來記住了、
+//    讀端卻當它不存在**。多一個值 → 反過來：契約認得但畫面上答不出來。
+//    兩種都不報錯。
+// ⚠️ 順序也比 —— 這兩組值是枚舉，順序就是晶片在畫面上的順序。
+// ═══════════════════════════════════════════════════
+console.log('\n── Runner 帳本：鏡射常數 ──');
+
+const RUNNER_TS = read('domain/src/contracts/runner-ledger.ts');
+const RUNNER_MIRROR = read('apps/preview/decision-outcome.js');
+
+for (const name of ['FIRST_LEVEL_LOCKS', 'RUNNER_OUTCOMES']) {
+  const ts = stringArrayConst(RUNNER_TS, name);
+  checkTruthy(`${name} 在 domain 讀得到（讀不到的話下一條會拿兩個 null 互相比而全綠）`,
+    Array.isArray(ts) && ts.length > 0, `ts=${JSON.stringify(ts)}`);
+  check(`${name} 值與順序一致`, stringArrayConst(RUNNER_MIRROR, name), ts);
+}
+
+/** 抓 `NAME = [ { value: 'a', … }, … ]` 裡的 value 清單（照出現順序）。 */
+function chipValues(src, name) {
+  const start = src.search(new RegExp(`\\b${name}\\b[^=\\n]*=\\s*\\[`));
+  if (start === -1) return null;
+  const open = src.indexOf('[', start);
+  let depth = 0;
+  let close = -1;
+  for (let i = open; i < src.length; i += 1) {
+    if (src[i] === '[') depth += 1;
+    else if (src[i] === ']') { depth -= 1; if (depth === 0) { close = i; break; } }
+  }
+  if (close === -1) return null;
+  return [...src.slice(open, close).matchAll(/value:\s*'([^']+)'/g)].map((m) => m[1]);
+}
+
+// 🔴 成對的那一半：常數一致**不代表畫面上答得出每一個值**。晶片清單漏一顆，
+//    那個值就永遠沒有人能選 —— 契約照樣認得它，測試照樣綠。
+check('🔴 第一級那三顆晶片剛好覆蓋 FIRST_LEVEL_LOCKS（不多不少、同順序）',
+  chipValues(RUNNER_MIRROR, 'FIRST_LEVEL_CHIPS'),
+  stringArrayConst(RUNNER_TS, 'FIRST_LEVEL_LOCKS'));
+check('🔴 runner 那四顆晶片剛好覆蓋 RUNNER_OUTCOMES（不多不少、同順序）',
+  chipValues(RUNNER_MIRROR, 'RUNNER_OUTCOME_CHIPS'),
+  stringArrayConst(RUNNER_TS, 'RUNNER_OUTCOMES'));
+
+// 🔴 合規邊界也是機械性的：這兩欄不得被聚合成任何數字。
+//    「對齊率」那一格退場過一次（方法論 §10 第 7 項），不得從鏡射這一側回來。
+checkTruthy('🔴 鏡射裡沒有長出任何「率／分數／連續天數」的聚合',
+  !/alignmentRate|runnerRate|runnerScore|alignmentScore|runnerStreak/.test(RUNNER_MIRROR));
+
+// ═══════════════════════════════════════════════════
 
 console.log('\n── 讀數歷史：鏡射 ──');
 for (const name of ['READINESS_HISTORY_SCHEMA', 'READINESS_HISTORY_MAX']) {

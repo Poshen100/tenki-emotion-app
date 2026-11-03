@@ -969,6 +969,138 @@
   }
 
   // ═══════════════════════════════════════════════
+  // Runner 帳本 —— §4 的「進場之後那一半」
+  // 鏡射 `domain/src/contracts/runner-ledger.ts`
+  // ═══════════════════════════════════════════════
+  // ⚠️ preview 不能 import `domain/`（CLAUDE.md 架構限制），所以這裡是手抄。
+  //    `scripts/preview-drift.mjs` 逐一比對兩邊的值與順序 —— 這個 repo 為
+  //    鏡射漂移付過三次學費（同一筆決策，一頁 100%、另一頁 0%）。
+  // 🔴 沒回報 ＝ **整個欄位不存在**，不是 null、不是預設值。把沒答的
+  //    `firstLevelLock` 當成 `'not_locked'`，就是把「他沒告訴我們」講成
+  //    「他沒做」—— 而這兩欄看起來最像成績，那個謊代價最大。
+  // 🔴 不得聚合成任何分數／比率／連續天數（「對齊率」退場過一次，見
+  //    `docs/TRADING-METHODOLOGY.md` §10 第 7 項，不得從這裡回來）。
+
+  var FIRST_LEVEL_LOCKS = ['locked', 'not_locked', 'never_reached'];
+  var RUNNER_OUTCOMES = ['structure_failed', 'cut_early', 'still_running', 'no_runner'];
+
+  /**
+   * 第一級鎖利那一題的三顆晶片。
+   *
+   * 🔴 文案講**市場與動作的事實**，不講他做得好不好。
+   *    `never_reached` 是「價格沒走到」—— 市場的事實，他根本沒得選，
+   *    所以它不能跟「沒鎖」共用一句話。
+   */
+  var FIRST_LEVEL_CHIPS = [
+    { value: 'locked', label: '鎖了一段' },
+    { value: 'not_locked', label: '沒鎖' },
+    { value: 'never_reached', label: '沒走到第一級' },
+  ];
+
+  /**
+   * runner 結局那一題的四顆晶片。
+   *
+   * 🔴 前兩顆刻意是**同一個軸上的兩句事實**（出場當下結構還在不在），
+   *    不是「守紀律／沒守紀律」。方法論的原話是「提早砍 runner」，
+   *    但畫面上不用那個帶評價的動詞 —— 紀錄是他的日誌，不是成績單。
+   */
+  var RUNNER_OUTCOME_CHIPS = [
+    { value: 'structure_failed', label: '結構失效才出' },
+    { value: 'cut_early', label: '結構還在就出了' },
+    { value: 'still_running', label: '還在跑' },
+    { value: 'no_runner', label: '沒留 runner' },
+  ];
+
+  /** 這兩欄在紀錄上的欄位名（寫入與清除都走這份清單）。 */
+  var RUNNER_LEDGER_FIELDS = ['firstLevelLock', 'runnerOutcome'];
+
+  /**
+   * 這一筆有沒有 runner 可言。
+   *
+   * 只有真的進場的那一筆有。判定不成立沒有部位可管，未判定就離開連有沒有
+   * 交易都不知道 —— 問了只會得到一個關於不存在的部位的答案。
+   * ⚠️ `tradeResult` 還是 `pending` 時**仍然成立**：runner 那一題在交易
+   * 進行中就答得出來（「還在跑」就是其中一個答案）。
+   *
+   * @param {Object} rec 統一 store 裡的一筆
+   * @returns {boolean}
+   */
+  function allowsRunnerLedger(rec) {
+    return !!rec && rec.outcomeTag === 'judged_entered';
+  }
+
+  /**
+   * 這份回報跟紀錄的其他部分矛盾嗎。
+   *
+   * 「還在跑」說部位還開著；已結束的結果或出場時刻說它沒開著。兩件事不會
+   * 同時成立，而誠實的做法是**把衝突顯示出來**，不挑一邊、也不偷偷丟掉
+   * 其中一個（CLAUDE.md：兩個來源不一致就說「訊號衝突」，不取平均）。
+   *
+   * ⚠️ 這是**唯一**一個 —— 契約檔裡逐條列出「看起來怪但不是矛盾」的那幾組
+   * （沒走到第一級 + 結構失效才出、沒鎖 + 沒留 runner、鎖了 + 沒留 runner），
+   * 它們每一組都是說得通的回報，不得被順手擋掉。
+   *
+   * @param {Object} rec 統一 store 裡的一筆
+   * @returns {string|null} 衝突代碼，或 null
+   */
+  function runnerLedgerConflict(rec) {
+    if (!rec || rec.runnerOutcome !== 'still_running') return null;
+    var r = rec.tradeResult;
+    var closedResult = r === 'profit_taken' || r === 'stopped_out' || r === 'scratch';
+    var hasClosedAt = typeof rec.closedAt === 'number' && isFinite(rec.closedAt);
+    return closedResult || hasClosedAt ? 'still_running_but_closed' : null;
+  }
+
+  /** 衝突的人話。只說發生了什麼，不說誰錯。 */
+  var RUNNER_LEDGER_CONFLICT_ZH = {
+    still_running_but_closed: '這一筆同時說「還在跑」和「已經結束」—— 兩件事不會同時成立',
+  };
+
+  /**
+   * 點一顆晶片之後要套上去的欄位。
+   *
+   * 🔴 回的是**要套上去的欄位**，不自己寫 store（同 `laterEntryPatch`
+   * 的既有紀律：寫入在各頁，判準在這裡）。
+   * 🔴 再點同一顆 ＝ 取消 → 值是 `null`，而讀端的 `patchOutcome` 看到
+   * `null` 會**刪掉那一欄**。那是刻意的：取消回報之後，狀態要回到
+   * 「沒答」，不是回到某個預設值。
+   *
+   * @param {Object} rec 統一 store 裡的一筆
+   * @param {string} field `firstLevelLock` 或 `runnerOutcome`
+   * @param {string} value 該欄的合法值
+   * @returns {Object|null} 要套的欄位，或不適用時 `null`
+   */
+  function runnerLedgerPatch(rec, field, value) {
+    if (!allowsRunnerLedger(rec)) return null;
+    if (RUNNER_LEDGER_FIELDS.indexOf(field) === -1) return null;
+    var allowed = field === 'firstLevelLock' ? FIRST_LEVEL_LOCKS : RUNNER_OUTCOMES;
+    if (allowed.indexOf(value) === -1) return null;
+    var patch = {};
+    patch[field] = rec[field] === value ? null : value;
+    return patch;
+  }
+
+  /**
+   * 這個值在畫面上怎麼說。
+   *
+   * 🔴 讀回用的字跟晶片上的字是**同一份** —— 兩份會漂成「同一筆紀錄在
+   * 兩個地方有兩種講法」，而這個 repo 為那件事付過學費（收束頁與詳情頁
+   * 的「等待」曾經是兩個不同的量）。
+   *
+   * @param {string} field `firstLevelLock` 或 `runnerOutcome`
+   * @param {string} value 該欄的值
+   * @returns {string|null} 畫面上的字，認不得就是 `null`
+   */
+  function runnerLedgerLabel(field, value) {
+    var chips = field === 'firstLevelLock' ? FIRST_LEVEL_CHIPS
+      : field === 'runnerOutcome' ? RUNNER_OUTCOME_CHIPS : [];
+    for (var i = 0; i < chips.length; i += 1) {
+      if (chips[i].value === value) return chips[i].label;
+    }
+    return null;
+  }
+
+  // ═══════════════════════════════════════════════
   // 裝置回報 —— 關於決策**唯一**離開裝置的東西
   // ═══════════════════════════════════════════════
   // 🔴 送出去的是**一個整數**（今天還有幾筆在等結果），沒有標的、沒有判定、
@@ -1108,6 +1240,16 @@
     resolveTradingDayKey: resolveTradingDayKey,
     resolveDayCadence: resolveDayCadence,
     load: load,
+    FIRST_LEVEL_LOCKS: FIRST_LEVEL_LOCKS,
+    RUNNER_OUTCOMES: RUNNER_OUTCOMES,
+    FIRST_LEVEL_CHIPS: FIRST_LEVEL_CHIPS,
+    RUNNER_OUTCOME_CHIPS: RUNNER_OUTCOME_CHIPS,
+    RUNNER_LEDGER_FIELDS: RUNNER_LEDGER_FIELDS,
+    RUNNER_LEDGER_CONFLICT_ZH: RUNNER_LEDGER_CONFLICT_ZH,
+    allowsRunnerLedger: allowsRunnerLedger,
+    runnerLedgerConflict: runnerLedgerConflict,
+    runnerLedgerPatch: runnerLedgerPatch,
+    runnerLedgerLabel: runnerLedgerLabel,
     openRecordCount: openRecordCount,
     reportOpenCount: reportOpenCount,
     MIN_BAND_SAMPLES_FOR_RATE: MIN_BAND_SAMPLES_FOR_RATE,
