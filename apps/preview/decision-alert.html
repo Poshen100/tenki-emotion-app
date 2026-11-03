@@ -255,7 +255,13 @@
     .result-outcome.broke { color: var(--zone-strain); }
     .result-outcome.neutral { color: var(--n-400); }
     /* ── 決策收束頁（視覺化）── */
-    #resultSheet { max-height: 88dvh; overflow-y: auto; }
+    /* 🔴 sheet 自己**不捲**（捲的是 #resultScroll），否則兩層捲動疊在一起，
+       而且按鈕列又會回到「蓋住內容」的老路。 */
+    #resultSheet { max-height: 88dvh; overflow: hidden; display: flex; flex-direction: column; }
+    .result-scroll {
+      flex: 1 1 auto; min-height: 0; overflow-y: auto;
+      -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+    }
     /* 弧的尺寸只有**一個來源**：這個 CSS 變數。drawResultArc() 讀 computed 寬度
        決定 canvas backing store，不再自己寫死 176 —— 兩邊各記一次就會不同步。 */
     .result-sheet { --result-arc: 176px; }
@@ -550,6 +556,10 @@
     /* 主要動作**釘在 sheet 底部**：內容再長，按鈕都在可視範圍內，
        不需要先捲到底才發現有東西可按。負的左右 margin + padding 讓底色
        蓋滿整個寬度，捲動的內容才不會從按鈕兩側露出來。 */
+    /* ⚠️ `.sheet-actions` 的 sticky 是給**其他** sheet 用的（那幾張整張自己捲）。
+       收束頁改成 flex 欄之後它是捲動區的兄弟，sticky 反而會讓它黏在自己那一格
+       的底部 —— 行為一樣，但語意已經不需要了，所以這裡關掉。 */
+    .result-sheet .sheet-actions { position: static; flex: 0 0 auto; }
     .sheet-actions {
       display: flex; gap: 10px; margin-top: 12px;
       position: sticky; bottom: 0; z-index: 1;
@@ -894,6 +904,17 @@
   <!-- 決策收束頁（計時器結束後）— 視覺化收束 -->
   <div class="sheet result-sheet" id="resultSheet">
     <div class="sheet-handle"></div>
+    <!-- 🔴 會捲的只有這一段，按鈕列是它的**兄弟**不是它的最後一個小孩。
+         原本整張 sheet 自己捲、按鈕列 `position: sticky; bottom: 0` —— 於是
+         內容一超過一屏，那條不透明的按鈕列就**蓋住最後兩列**（「我剛下單了」
+         與三顆結果晶片，也就是這一頁唯一能點的兩件事）。實測：
+         `elementFromPoint` 在「我剛下單了」上回的是 `btnResultRecord`，
+         三顆晶片**點不到**；而因為按鈕列的背景跟卡片同色，畫面讀起來像
+         「這一頁到這裡就結束了」（founder 2026-11-03 實走：「是不是有點裁到」）。
+         改成 flex 欄：捲動區吃剩下的高度，按鈕列永遠在它**下面**。
+         放得下的時候兩者逐像素相同；放不下的時候最後一列會被捲動區的邊界
+         切一半 —— 那是全世界都認得的「下面還有」。 -->
+    <div class="result-scroll" id="resultScroll">
     <div class="alert-head" id="resultHead"></div>
 
     <div class="result-hero">
@@ -952,6 +973,7 @@
       <div class="result-reflect-q">這筆的結果<span class="result-trade-note">（還沒有結果也可以，之後回到這頁再填）</span></div>
       <div class="result-reflect" id="resultTrade"></div>
     </div>
+    </div><!-- /#resultScroll -->
 
     <!-- 交接要看得見。先前只在事件鏈留一條「看歷史」小字，founder 2026-08-09：
          「好像不想讓人知道似的」。他是對的 —— 我當時的理由是「不佔收束頁高度」，
@@ -1014,6 +1036,6 @@
   <script src="/preview/readiness-scan.js?v=rs23"></script>
   <!-- 判定的唯一來源，必須排在 decision-alert.js 之前（後者在頂層就讀它）。 -->
   <script src="/preview/decision-outcome.js?v=do17"></script>
-  <script src="decision-alert.js?v=alert51"></script>
+  <script src="decision-alert.js?v=alert52"></script>
 </body>
 </html>

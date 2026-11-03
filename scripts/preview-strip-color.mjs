@@ -333,7 +333,10 @@ const save = await page.evaluate(() => {
   const sheet = document.getElementById('resultSheet');
   return {
     完全可見: r.top >= 0 && r.bottom <= window.innerHeight,
-    需捲動: sheet.scrollHeight - sheet.clientHeight,
+    // ⚠️ 捲的是 `#resultScroll` 了（2026-11-03 的 flex 欄改法），
+    //    還讀 sheet 的話這個診斷值永遠是 0 —— 看起來像「不用捲」。
+    需捲動: (() => { const sc = document.getElementById('resultScroll') || sheet;
+      return sc.scrollHeight - sc.clientHeight; })(),
   };
 });
 check('短視窗(660px)下儲存鈕完全可見（不必先捲動）', save.完全可見, true);
@@ -365,6 +368,70 @@ check('🔴 420px（極矮）下儲存鈕仍然完全可見', shortest.reachable
 check('🔴 而且沒有偷偷收掉「紀律近況」', shortest.historyHidden, false);
 await page.setViewportSize({ width: 390, height: 660 });
 await page.waitForTimeout(300);
+
+// ── 🔴 放不下的時候，按鈕列不得蓋住最後兩列 ──
+//
+// founder 2026-11-03 實走截圖：「判定成立已進場的頁面，是不是有點裁到」。
+// 量出來的病灶**不是**裁掉，是遮住：`.sheet-actions` 原本是
+// `position: sticky; bottom: 0` + 不透明背景，而整張 sheet 自己捲 ——
+// 內容一超過一屏，那條按鈕列就浮在捲動區底部，**蓋住「我剛下單了」與三顆
+// 結果晶片**（實測 `elementFromPoint` 在「我剛下單了」上回 `btnResultRecord`，
+// 三顆晶片直接點不到）。而因為它的背景跟卡片同色，畫面讀起來像
+// 「這一頁到這裡就結束了」—— 被蓋住的剛好是這一頁**唯一能點的兩件事**。
+//
+// 修法：sheet 改成 flex 欄，`#resultScroll` 吃剩下的高度，按鈕列是它的
+// **兄弟**而不是它的最後一個小孩。放得下時兩者逐像素相同（量過）；
+// 放不下時最後一列被捲動區的邊界切一半 —— 那是全世界都認得的「下面還有」。
+{
+  const box = await page.evaluate(() => {
+    const scroll = document.getElementById('resultScroll');
+    const actions = document.querySelector('#resultSheet .sheet-actions');
+    const sheet = document.getElementById('resultSheet');
+    if (!scroll || !actions) return null;
+    const s = scroll.getBoundingClientRect();
+    const a = actions.getBoundingClientRect();
+    return {
+      overflow: Math.round(scroll.scrollHeight - scroll.clientHeight),
+      overlap: Math.round(Math.min(s.bottom, a.bottom) - Math.max(s.top, a.top)),
+      sheetOverflowY: getComputedStyle(sheet).overflowY,
+      actionsPosition: getComputedStyle(actions).position,
+    };
+  });
+  check(`前提：660px 下捲動區真的溢出（實測 ${box && box.overflow}px；不溢出的話下面兩條是空的）`,
+    !!box && box.overflow > 0, true);
+  // 🔴 這一條就是修法的本質：兩個矩形不得相交。
+  check(`🔴 按鈕列與捲動區不得重疊（重疊 ＝ 它正蓋著某一列；實測 ${box && box.overlap}px）`,
+    !!box && box.overlap <= 0, true);
+  // 成對的另一半：只驗不重疊的話，把捲動還給整張 sheet 也會「不重疊」——
+  // 因為那時 `#resultScroll` 根本不捲，而按鈕列又浮回內容上面。
+  // ⚠️ 照實說這一條的性質：**它是結構性的，不是行為性的**。反向驗證量過 ——
+  //    只把 `position` 改回 sticky（flex 欄留著），四條行為斷言全綠，因為在
+  //    flex 欄裡 sticky 黏的是它自己那一格，無害。它擋的是**改回舊形狀的第一步**。
+  check('🔴 sheet 自己不捲（捲的是 #resultScroll），按鈕列也不再 sticky',
+    box && [box.sheetOverflowY, box.actionsPosition], ['hidden', 'static']);
+
+  // 捲到底之後，這一頁唯一能點的兩件事都要真的點得到。
+  const reach = await page.evaluate(() => {
+    const scroll = document.getElementById('resultScroll');
+    scroll.scrollTop = scroll.scrollHeight;
+    const self = (node) => {
+      if (!node) return '(沒有這個節點)';
+      const b = node.getBoundingClientRect();
+      if (b.height === 0) return '(沒有高度)';
+      const hit = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+      return hit === node ? 'self' : (hit ? (hit.id || hit.className || hit.tagName) : '(點不到)');
+    };
+    return {
+      entered: self(document.getElementById('resultEnteredBtn')),
+      chips: [...document.querySelectorAll('#resultTrade .result-chip')].map(self),
+    };
+  });
+  await page.waitForTimeout(200);
+  check('🔴 捲到底後「我剛下單了」點得到（不是被按鈕列接走）', reach.entered, 'self');
+  check('🔴 三顆結果晶片也都點得到', reach.chips, ['self', 'self', 'self']);
+  await page.evaluate(() => { document.getElementById('resultScroll').scrollTop = 0; });
+  await page.waitForTimeout(200);
+}
 
 // ── 端到端：決策真的接到正式站的結果頁 ──
 //
