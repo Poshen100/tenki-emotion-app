@@ -2024,6 +2024,189 @@ console.log('\n── 回報的觸發點：開頁與每一次寫入 ──');
   check('🔴 每一個 outcome store 的寫入點後面都接著回報', missing, []);
 }
 
+// ════════════════════════════════════════════════════════════════
+// Runner 帳本：§4 的「進場之後那一半」（founder 2026-11-03「兩個窄事實」）
+// ════════════════════════════════════════════════════════════════
+// 🔴 這一組守的是三件會安靜失效的事：
+//   · **沒答被存成一個值** —— 取消回報之後欄位必須真的不見，不是留一個 null
+//     或退回某個預設值（那會把「他沒告訴我們」變成「他沒做」）
+//   · **衝突行不跟著重繪** —— 它吃的是旁邊那兩格剛剛改掉的 `tradeResult`，
+//     不重繪的話「還在跑 + 達到目標」要等重新開一次詳情才看得到
+//   · **四顆晶片擠成一排** —— 390px 下每顆只剩 ~85px，字疊成三行或溢出，
+//     而「一根手指答得完」是這一層的設計前提
+console.log('\n── Runner 帳本（Session 詳情）──');
+{
+  const rl = await ctx.newPage();
+  const rlErrors = [];
+  rl.on('pageerror', (e) => rlErrors.push(e.message));
+  const TS_IN = Date.now() - 6 * 3600e3;
+  const TS_OUT = Date.now() - 5 * 3600e3;
+  await rl.addInitScript(([key, tIn, tOut]) => {
+    if (localStorage.getItem('__rlseeded')) return;
+    localStorage.setItem('__rlseeded', '1');
+    localStorage.setItem(key, JSON.stringify([
+      // 判定不成立那一筆：沒有部位可管 → 整組不該出現
+      { ts: tOut, symbol: 'NQ1!', templateId: 'MANCINI_FBD', outcomeTag: 'judged_stood_down',
+        tradeResult: 'no_entry', durationSec: 60, marks: 0, events: [] },
+      // 進場那一筆：結果還沒填
+      { ts: tIn, symbol: 'ES1!', templateId: 'MANCINI_FBD', outcomeTag: 'judged_entered',
+        tradeResult: 'pending', durationSec: 90, marks: 0, events: [] },
+    ]));
+  }, ['tenki.alert.outcomes.v1', TS_IN, TS_OUT]);
+  await rl.goto(`${base}/v3/#session`, { waitUntil: 'domcontentloaded' });
+  await rl.waitForTimeout(1800);
+
+  /** 開一筆的詳情，回傳帳本那一塊的狀態。 */
+  const openAndRead = async (ts) => rl.evaluate((t) => {
+    openSessionDetail(t);
+    const rows = document.getElementById('sdRunnerRows');
+    const vis = (el) => !!el && !el.hidden && el.getBoundingClientRect().height > 0;
+    const chipsOf = (id) => [...document.querySelectorAll(`#${id} .tp-chip`)].map((c) => ({
+      label: c.textContent.trim(),
+      value: c.getAttribute('data-runner-value'),
+      picked: c.classList.contains('picked'),
+      right: Math.round(c.getBoundingClientRect().right),
+      top: Math.round(c.getBoundingClientRect().top),
+      h: Math.round(c.getBoundingClientRect().height),
+    }));
+    const wrap = document.getElementById('sdRunnerChips');
+    const conflict = document.getElementById('sdRunnerConflict');
+    return {
+      shown: vis(rows),
+      // 🔴 **量 `hidden` 這個屬性本身**，不只量看不看得見。這兩列住在
+      //    「結果回填」那張卡裡，而那張卡對非進場的紀錄本來就是 hidden ——
+      //    所以 `vis()` 在 `allowsRunnerLedger()` 壞掉時照樣是 false，
+      //    那條斷言會因為**別人**的閘而綠（反向驗證當場抓到：把適用判準
+      //    改成「一律問」，18 條全綠）。
+      ownGate: rows ? rows.hidden : '(沒有這個節點)',
+      first: chipsOf('sdFirstLevelChips'),
+      runner: chipsOf('sdRunnerChips'),
+      wrapRight: wrap ? Math.round(wrap.getBoundingClientRect().right) : null,
+      conflictShown: vis(conflict),
+      conflictText: conflict ? conflict.textContent.trim() : '(沒有這個節點)',
+      blockText: rows ? rows.textContent : '',
+    };
+  }, ts);
+
+  const stood = await openAndRead(TS_OUT);
+  check('🔴 判定不成立那一筆 → 整組不存在（沒有部位可管，問了會得到關於不存在的部位的答案）',
+    stood.shown, false);
+  check('🔴 而且是**它自己**收起來的（不是靠外層那張卡）', stood.ownGate, true);
+
+  const entered = await openAndRead(TS_IN);
+  check('🔴 進場那一筆 → 兩列都長出來', entered.shown, true);
+  check('第一級那一列是共用模組的三顆（這一頁不自己寫清單）',
+    entered.first.map((c) => c.value), ['locked', 'not_locked', 'never_reached']);
+  check('runner 那一列是共用模組的四顆',
+    entered.runner.map((c) => c.value),
+    ['structure_failed', 'cut_early', 'still_running', 'no_runner']);
+  check('🔴 沒答的時候一顆都不是選中的（不給預設值）',
+    entered.first.concat(entered.runner).filter((c) => c.picked), []);
+  // 🔴 一根手指答得完的前提：四顆晶片不得溢出，而且要排成兩列。
+  check('🔴 四顆晶片都在容器裡（390px 下不得溢出）',
+    entered.runner.filter((c) => c.right > entered.wrapRight + 1), []);
+  check('🔴 而且排成 2×2（擠成一排每顆只剩 ~85px）',
+    new Set(entered.runner.map((c) => c.top)).size, 2);
+  check('🔴 文案不得評價，也不得出現任何百分比',
+    /應該|建議|沒守|違規|失誤|%/.test(entered.blockText), false);
+  check('說得出可以不答', /沒答也可以/.test(entered.blockText), true);
+
+  /** 點一顆晶片。 */
+  // ⚠️ **容錯，而且回報找不找得到那顆晶片。** 第一版直接
+  //    `querySelector(...).click()`，於是「帳本沒被 openSessionDetail 畫出來」
+  //    那個破壞讓它拋 TypeError —— 腳本當場死掉、沒有收尾那一行，
+  //    失敗數不可信（PLAYBOOK 已記的第三次同款事故）。
+  const tap = async (field, value) => {
+    const found = await rl.evaluate(([f, v]) => {
+      const node = document.querySelector(`[data-runner-field="${f}"][data-runner-value="${v}"]`);
+      if (!node) return false;
+      node.click();
+      return true;
+    }, [field, value]);
+    await rl.waitForTimeout(150);
+    return found;
+  };
+  const stored = async (ts) => rl.evaluate((t) => {
+    const all = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1')) || [];
+    const rec = all.find((r) => r.ts === t) || {};
+    const other = all.find((r) => r.ts !== t) || {};
+    return {
+      hasFirst: 'firstLevelLock' in rec,
+      firstLevelLock: rec.firstLevelLock === undefined ? '(沒有這一欄)' : rec.firstLevelLock,
+      hasRunner: 'runnerOutcome' in rec,
+      runnerOutcome: rec.runnerOutcome === undefined ? '(沒有這一欄)' : rec.runnerOutcome,
+      tradeResult: rec.tradeResult,
+      symbol: rec.symbol,
+      otherKeys: Object.keys(other).sort().join(','),
+      count: all.length,
+    };
+  }, ts);
+
+  check('前提：那顆晶片真的點得到（點不到的話下面每一條都不可信）',
+    await tap('firstLevelLock', 'locked'), true);
+  const afterLock = await stored(TS_IN);
+  check('點一下就寫進去了', [afterLock.firstLevelLock, afterLock.hasRunner], ['locked', false]);
+  check('🔴 只動那一欄（結果、標的都沒被碰到）',
+    [afterLock.tradeResult, afterLock.symbol], ['pending', 'ES1!']);
+  check('🔴 別人那一筆一欄都沒被碰到',
+    afterLock.otherKeys,
+    'durationSec,events,marks,outcomeTag,symbol,templateId,tradeResult,ts');
+  check('🔴 仍然只有兩筆紀錄（回填不得 push）', afterLock.count, 2);
+
+  // 🔴 這一條是整組裡最重要的：取消回報之後，那一欄必須**真的不見**。
+  //    留一個 null 下來，讀端就得去猜 null 是「沒答」還是「答了沒有」。
+  await tap('firstLevelLock', 'locked');
+  const afterUndo = await stored(TS_IN);
+  check('🔴 再點同一顆 ＝ 取消 → 那一欄被刪掉（不是存一個 null）',
+    [afterUndo.hasFirst, afterUndo.firstLevelLock], [false, '(沒有這一欄)']);
+
+  // ── 衝突：還在跑 + 已經結束 ──
+  await tap('runnerOutcome', 'still_running');
+  const running = await rl.evaluate(() => ({
+    stored: (JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1')) || [])
+      .map((r) => r.runnerOutcome).filter(Boolean),
+    conflictShown: !document.getElementById('sdRunnerConflict').hidden,
+  }));
+  check('「還在跑」+ 結果還是 pending → 沒有衝突（這是正常狀態）',
+    [running.stored, running.conflictShown], [['still_running'], false]);
+
+  // 點結果晶片 → 衝突行要**當場**出現，不必重新開一次詳情
+  await rl.evaluate(() => {
+    document.querySelector('#sdBackfillChips [data-trade-result="profit_taken"]').click();
+  });
+  await rl.waitForTimeout(200);
+  const conflicted = await rl.evaluate(() => {
+    const c = document.getElementById('sdRunnerConflict');
+    return { shown: !c.hidden, text: c.textContent.trim() };
+  });
+  check('🔴 改了結果之後衝突行當場出現（不必重新開一次詳情）', conflicted.shown, true);
+  check('🔴 衝突只說發生了什麼，不說誰錯',
+    /不會同時成立/.test(conflicted.text) && !/應該|錯|違規/.test(conflicted.text), true);
+  // ── 衝突的另一條路：出場時刻（不是只看 tradeResult）──
+  // 🔴 成對的另一半。只餵 `tradeResult` 那一半的話，把 `closedAt` 那條判準
+  //    拿掉**18 條全綠**（反向驗證當場抓到）。domain 的單元測試有驗，
+  //    但**鏡射**那一份沒有 —— 而畫面吃的是鏡射。
+  // ⚠️ fixture 刻意是「結果還是 pending、卻已經有出場時刻」：舊版本寫下的
+  //    紀錄真的會長這樣（`undoLaterEntryPatch` 會清掉 `closedAt` 就是為了它）。
+  const TS_ODD = Date.now() - 4 * 3600e3;
+  await rl.evaluate(([key, ts]) => {
+    const all = JSON.parse(localStorage.getItem(key)) || [];
+    all.push({
+      ts, symbol: 'CL1!', templateId: 'MANCINI_FBD', outcomeTag: 'judged_entered',
+      tradeResult: 'pending', closedAt: ts + 600000, runnerOutcome: 'still_running',
+      durationSec: 90, marks: 0, events: [],
+    });
+    localStorage.setItem(key, JSON.stringify(all));
+  }, ['tenki.alert.outcomes.v1', TS_ODD]);
+  const odd = await openAndRead(TS_ODD);
+  check('🔴 「還在跑」碰上出場時刻也是衝突（不是只看結果那一欄）',
+    [odd.conflictShown, /不會同時成立/.test(odd.conflictText)], [true, true]);
+
+  check('🔴 這一頁沒有任何 page error（渲染函式一拋，後面每一條斷言都不可信）',
+    rlErrors, []);
+  await rl.close();
+}
+
 check('整條鏈走完沒有任何 page error', pageErrors, []);
 
 await browser.close();
