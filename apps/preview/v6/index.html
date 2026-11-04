@@ -3330,6 +3330,23 @@ a.lab-wide{text-decoration:none}
           <div style="color:var(--n-400);font-size:18px">›</div>
         </a>
 
+        <!-- 🔴 `/finger/` 的入口。**同一個洞的第三次。**
+             它本來只掛在 Today 的信心膠囊上，而那顆膠囊跟「到 Scan 掃一次」
+             是**互斥**的：讀數過期或還沒有讀數時顯示 CTA、膠囊整顆 hidden
+             （見 renderEdgeV6 「過期 → 該做的是重掃」那段，那個取捨本身是對的）。
+             後果是：指尖校準的唯一入口**只在讀數新鮮的那 15 分鐘內存在** ——
+             而「還沒有今天的讀數」正是最想去校準的那個狀態。
+             founder 2026-11-04 實走：停在過期的 Today 上問「從哪裡可以連到？」
+             ⚠️ 副標刻意留空，字一律由 renderPulseRow() 寫（同上面兩列的理由）。 -->
+        <a class="lab-wide plain" id="labPulseRow" href="/finger/">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 11v3"/><path d="M8.5 9.2a4 4 0 0 1 7 2.8v2"/><path d="M5.5 7.5a7.5 7.5 0 0 1 13 5v3.5"/><path d="M3 18c1.5-1.2 2.2-3 2.2-5.2"/><path d="M12 21c-1.4-1.6-2-3.4-2-5.5"/></svg></div>
+          <div class="info">
+            <div class="nm">指尖脈搏校準</div>
+            <div class="sub" id="labPulseSub"></div>
+          </div>
+          <div style="color:var(--n-400);font-size:18px">›</div>
+        </a>
+
         <div class="lab-sec">設定</div>
         <div class="lab-grid">
           <!-- 🔴 這一塊的副標原本寫死 `HR 68 · HRV 52 · RR 14`。
@@ -5927,6 +5944,7 @@ function renderLab(){
   renderCalibrationBench();
   renderAlertRow();
   renderDriftRow();
+  renderPulseRow();
 }
 
 /**
@@ -5968,6 +5986,29 @@ function renderAlertRow(){
   parts.push(symbol || '還沒填標的');
   if(push) parts.push('推播已開');
   el.textContent = parts.join(' · ');
+}
+
+/**
+ * 指尖脈搏校準那一列的副標。
+ *
+ * 🔴 數到的是**真的立住的錨點**，不是「做過幾次」—— 沒立住的那幾次
+ * `/finger/` 本來就不存入（renderStage 的 `anchor !== null`）。這裡只是讀，
+ * 所以兩邊不會各說一套。
+ * ⚠️ 天數要數 distinct `localDateKey`：同一天做五次描述的是同一個早上，
+ * 而階段的硬條件是「跨幾天」（pulse-anchor.ts 的 PULSE_BASELINE_THRESHOLDS）。
+ * 🔴 這一列不得出現「基線」—— 只有最後一階可以用那個詞。
+ */
+function renderPulseRow(){
+  const el = document.getElementById('labPulseSub');
+  if(!el) return;
+  let anchors = [];
+  try {
+    const raw = JSON.parse(localStorage.getItem('tenki.preview.pulseAnchors') || '[]');
+    if(Array.isArray(raw)) anchors = raw;
+  } catch(e){ /* 無痕模式：落到「還沒有校準過」，那句話仍然是誠實的 */ }
+  if(anchors.length === 0){ el.textContent = '還沒有校準過 · 從這裡開始'; return; }
+  const days = new Set(anchors.map(a => a && a.localDateKey).filter(Boolean)).size;
+  el.textContent = anchors.length + ' 次校準 · ' + days + ' 天';
 }
 
 function renderDriftRow(){

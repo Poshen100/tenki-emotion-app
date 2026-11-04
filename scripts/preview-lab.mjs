@@ -299,6 +299,37 @@ const alertPaired = await empty.evaluate(() => {
 check('🔴 配對後副標講出真的標的與推播狀態（證明它真的在讀 store）',
   alertPaired, '已接上 · NQ1! · 推播已開');
 
+// 🔴 指尖脈搏校準那一列 —— **同一個洞的第三次**。
+// 它本來只掛在 Today 的信心膠囊上，而那顆膠囊跟「到 Scan 掃一次」互斥：
+// 讀數過期或沒有讀數時膠囊整顆 hidden，於是入口只在讀數新鮮的 15 分鐘內
+// 存在 —— 而「還沒有今天的讀數」正是最想去校準的那個狀態。
+const pulseEntry = await empty.evaluate(() => {
+  const a = document.getElementById('labPulseRow');
+  return { href: a?.getAttribute('href'), sub: document.getElementById('labPulseSub')?.textContent };
+});
+check('🔴 Lab 有連到 /finger/ 的入口（讀數過期時 Today 的膠囊是 hidden 的）',
+  pulseEntry.href, '/finger/');
+check('🔴 沒校準過時副標直說，不留空也不假裝有紀錄',
+  pulseEntry.sub, '還沒有校準過 · 從這裡開始');
+
+// 成對的另一半：有錨點就要講出次數與**天數**。只驗空狀態的話，把
+// renderPulseRow() 寫死成那一句也會綠 —— 而那時它一個字都沒讀。
+// ⚠️ 兩筆同一天 + 一筆隔天 ＝ 3 次 / 2 天。數 distinct localDateKey，
+// 不是數筆數（同一天做五次描述的是同一個早上）。
+const pulseFilled = await empty.evaluate(() => {
+  localStorage.setItem('tenki.preview.pulseAnchors', JSON.stringify([
+    { restingPulseBpm: 62, localDateKey: '2026-11-01' },
+    { restingPulseBpm: 64, localDateKey: '2026-11-01' },
+    { restingPulseBpm: 61, localDateKey: '2026-11-02' },
+  ]));
+  window.renderLab();
+  return document.getElementById('labPulseSub')?.textContent;
+});
+check('🔴 有錨點時講出次數與天數（證明它真的在讀 store，而且天數是去重的）',
+  pulseFilled, '3 次校準 · 2 天');
+check('🔴 這一列不得出現「基線」—— 只有最後一階可以用那個詞',
+  [pulseEntry.sub, pulseFilled].filter((t) => t && t.includes('基線')), []);
+
 const overflow = await empty.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 checkTruthy(`390px 下沒有橫向溢出（多出 ${overflow}px）`, overflow <= 1);
 await empty.close();
