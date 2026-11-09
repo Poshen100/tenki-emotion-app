@@ -2207,6 +2207,101 @@ console.log('\n── Runner 帳本（Session 詳情）──');
   await rl.close();
 }
 
+// ════════════════════════════════════════════════════════════════
+// Session 清單的「下面還有」—— 它報的是事實，不是裝飾
+// ════════════════════════════════════════════════════════════════
+// founder 2026-11-09 實走：「這個頁面無法上下滑動，最下方 Mancini-FBD 被遮擋」。
+// 量出來的是：清單**捲得動**（視窗高 ×筆數每一種組合都捲得動，捲到底也一定
+// 脫離底座），但 FDCB 那顆藥丸是**不透明**的（`--fdcb-bg: var(--n-950/900)`），
+// 最後一張卡被它切一半 —— 而捲軸是隱藏的，所以畫面讀起來就是「到這裡為止」。
+// ⚠️ 照實說：「完全捲不動」那一半**我重現不出來**，所以這一組守的是
+//    「看得出還有東西」，不是「它會捲」。
+//
+// 🔴 要在真機的條件下量：上方安全區（瀏海）在 Chromium 的 `env()` 是 0，
+//    不補回來就會多出 59px 的預算 —— 那正是「我這邊看起來沒事」的來源。
+console.log('\n── Session 清單的「下面還有」──');
+{
+  const sp = await ctx.newPage();
+  const spErrors = [];
+  sp.on('pageerror', (e) => spErrors.push(e.message));
+  const now = Date.now();
+  const recs = [0.2, 0.6, 16, 33, 120, 170, 220].map((h, i) => ({
+    ts: now - h * 3600e3, symbol: 'ES1!', templateId: 'MANCINI_FBD', source: 'alert',
+    outcomeTag: i % 2 ? 'judged_entered' : 'judged_stood_down',
+    tradeResult: i % 2 ? 'profit_taken' : 'no_entry', durationSec: 13 + i, marks: 0, events: [],
+  }));
+  await sp.addInitScript((rs) => {
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(rs));
+    localStorage.setItem('tenki.app.onboarded.v1', String(Date.now()));
+  }, recs);
+  await sp.setViewportSize({ width: 393, height: 852 });
+  await sp.goto(`${base}/v3/#session`, { waitUntil: 'domcontentloaded' });
+  await sp.waitForFunction(() => {
+    const el = document.getElementById('tenki-splash');
+    return !el || el.getBoundingClientRect().height === 0 || getComputedStyle(el).opacity === '0';
+  }, null, { timeout: 15000 }).catch(() => {});
+  await sp.evaluate(() => document.getElementById('tenki-splash')?.remove());
+  await sp.evaluate(() => {
+    const st = document.createElement('style');
+    st.textContent = ':root{--top-safe:calc(59px + 14px)}';   // iPhone 瀏海
+    document.head.appendChild(st);
+  });
+  await sp.evaluate(() => window.dispatchEvent(new Event('resize')));
+  await sp.waitForTimeout(400);
+
+  const read = () => sp.evaluate(() => {
+    const body = document.querySelector('#session-screen .session-body');
+    const more = document.getElementById('sessionMore');
+    return {
+      left: Math.round(body.scrollHeight - body.scrollTop - body.clientHeight),
+      more: more ? !more.hidden : null,
+      moreHit: more ? getComputedStyle(more).pointerEvents : null,
+    };
+  });
+
+  const top = await read();
+  checkTruthy(`前提：7 筆在 393×852（含瀏海）真的捲得動（實測還剩 ${top.left}px）`, top.left > 0);
+  check('🔴 還有東西沒看到時，提示要在', top.more, true);
+  check('提示不得吃掉任何一下點擊', top.moreHit, 'none');
+
+  // 捲到底 → 提示收起來（它是事實，不是裝飾）
+  await sp.evaluate(() => {
+    const body = document.querySelector('#session-screen .session-body');
+    body.scrollTop = body.scrollHeight;
+  });
+  await sp.waitForTimeout(300);
+  const end = await read();
+  check(`🔴 捲到底提示就收起來（還剩 ${end.left}px）`, [end.left <= 4, end.more], [true, false]);
+
+  // 捲到底之後，最後一張卡必須完全脫離那顆不透明的底座
+  const clear = await sp.evaluate(() => {
+    const cards = [...document.querySelectorAll('#session-screen .session-item')];
+    const last = cards[cards.length - 1];
+    const bar = document.querySelector('[class*="fdcb"]');
+    const lb = last.getBoundingClientRect();
+    const bb = bar.getBoundingClientRect();
+    const hit = document.elementFromPoint(lb.left + lb.width / 2, lb.bottom - 6);
+    return { gap: Math.round(bb.top - lb.bottom), self: hit ? hit.className.includes('session-item') : false };
+  });
+  check(`🔴 捲到底後最後一張卡脫離底座（間距 ${clear.gap}px）`,
+    [clear.gap >= 0, clear.self], [true, true]);
+
+  // 東西不多的時候，提示一次都不該出現
+  await sp.evaluate(() => {
+    const all = JSON.parse(localStorage.getItem('tenki.alert.outcomes.v1'));
+    localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(all.slice(0, 3)));
+  });
+  await sp.reload({ waitUntil: 'domcontentloaded' });
+  await sp.waitForTimeout(2000);
+  await sp.evaluate(() => document.getElementById('tenki-splash')?.remove());
+  await sp.evaluate(() => window.dispatchEvent(new Event('resize')));
+  await sp.waitForTimeout(300);
+  const few = await read();
+  check(`🔴 沒東西可捲時提示不得出現（還剩 ${few.left}px）`, [few.left <= 4, few.more], [true, false]);
+  check('這一頁沒有 page error', spErrors, []);
+  await sp.close();
+}
+
 check('整條鏈走完沒有任何 page error', pageErrors, []);
 
 await browser.close();

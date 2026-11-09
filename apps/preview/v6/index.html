@@ -989,11 +989,25 @@ body{
    ═══════════════════════════════════════════════════ */
 #session-screen{padding:0 20px;gap:12px}
 .session-body{
-  flex:1;display:flex;flex-direction:column;gap:10px;
-  overflow-y:auto;scrollbar-width:none;
+  flex:1;min-height:0;display:flex;flex-direction:column;gap:10px;
+  /* iOS 的巢狀捲動硬化：`-webkit-overflow-scrolling` 是舊 iOS 的動量捲動，
+     `touch-action:pan-y` 宣告這一塊吃垂直拖曳（避免被祖先的手勢處理吃掉）。
+     ⚠️ 照實說：這兩條**在這個容器裡驗不出差別**（Chromium 每一種組態都捲得動）。
+     它們是針對 founder 2026-11-09「無法上下滑動」的 iOS 假設，不是已驗證的修法。 */
+  overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;scrollbar-width:none;
   padding-bottom:calc(var(--tabbar-h) + var(--fdcb-h) + var(--fdcb-gap) + 20px);
 }
 .session-body::-webkit-scrollbar{display:none}
+/* 「下面還有」：清單底緣的淡出，壓在 FDCB 底座正上方。
+   ⚠️ 不能放進 .session-body 的 ::after —— 那會跟著內容捲走，只在最底下出現一次。
+   pointer-events:none，不吃任何一下點擊。 */
+.session-more{
+  position:absolute;left:0;right:0;
+  bottom:calc(var(--tabbar-h) + var(--fdcb-h) + var(--fdcb-gap));
+  height:26px;pointer-events:none;z-index:44;
+  background:linear-gradient(to bottom, rgba(0,0,0,0), var(--n-950) 92%);
+}
+.session-more[hidden]{display:none}
 .session-body > *{flex-shrink:0}
 
 .session-stats{
@@ -3174,6 +3188,14 @@ a.lab-wide{text-decoration:none}
 
     <!-- ═══════ SESSION ═══════ -->
     <div class="screen" id="session-screen">
+      <!-- 🔴 「下面還有」的提示。founder 2026-11-09 實走：「這個頁面無法上下滑動，
+           最下方 Mancini-FBD 被遮擋」。量出來的是：清單**捲得動**（每一種視窗
+           ×筆數的組合都捲得動，捲到底也一定脫離底座），但 FDCB 那顆藥丸是
+           **不透明**的（`--fdcb-bg: var(--n-900)`），最後一張卡被它切一半 ——
+           而捲軸是隱藏的（`scrollbar-width:none`），所以畫面讀起來就是「到這裡為止」。
+           這一條只在**真的還有內容**時出現，捲到底就消失 —— 它說的是一件事實，
+           不是一個裝飾。 -->
+      <div class="session-more" id="sessionMore" hidden aria-hidden="true"></div>
       <div class="screen-header">
         <div class="screen-title">Session</div>
         <div class="screen-date" id="sessionDate">決策紀錄</div>
@@ -6703,6 +6725,34 @@ function fmtDurCell(rec){
   }
   return typeof rec.durationSec === 'number' ? fmtDur(rec.durationSec) : '—';
 }
+/**
+ * 「下面還有」那條淡出：**只在真的還有內容時**出現。
+ *
+ * 🔴 它報的是一件事實（`scrollHeight > scrollTop + clientHeight`），不是裝飾 ——
+ * 捲到底就收起來。沒有東西可捲的時候它一次都不該出現。
+ * 門檻 4px 是為了吃掉次像素誤差，不是為了好看。
+ */
+function syncSessionMore(){
+  const body = document.querySelector('#session-screen .session-body');
+  const more = document.getElementById('sessionMore');
+  if(!body || !more) return;
+  const left = body.scrollHeight - body.scrollTop - body.clientHeight;
+  more.hidden = !(left > 4);
+}
+
+// 捲動時跟著收 —— 不綁的話它只會在開頁那一刻算一次，捲到底仍然掛著一條
+// 「下面還有」，那就從事實變成裝飾了。
+(function bindSessionMore(){
+  function bind(){
+    const body = document.querySelector('#session-screen .session-body');
+    if(!body) return;
+    body.addEventListener('scroll', syncSessionMore, { passive: true });
+    window.addEventListener('resize', syncSessionMore);
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+  else bind();
+})();
+
 function renderSessionScreen(){
   // 🔴 排序必須跟 `fmtWhen` 印的是**同一個量**。清單印 `occurredAt` 卻依 `ts` 排，
   //    被上限收掉的那一筆（起點好幾天前、收掉是剛剛）就會頂在最上面卻標著舊日期
@@ -6754,6 +6804,7 @@ function renderSessionScreen(){
   document.getElementById('sessionListHead').querySelector('.session-section')
     .style.display = empty ? 'none' : '';
   document.getElementById('sessionList').style.display = empty ? 'none' : '';
+  syncSessionMore();
 
   if(!empty){
     // 🔴 這一行逐類講出來，而不是算一個比率 —— 比率會把「2 進場 / 1 不成立」
