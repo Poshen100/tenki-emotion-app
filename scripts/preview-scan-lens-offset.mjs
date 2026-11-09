@@ -213,6 +213,9 @@ async function measure(h, mission, symbol, safeTop) {
   return geom;
 }
 
+/** 每台機型每種 inset 的框心，用來比對兩種來意（見檔尾那條）。 */
+const frameCenters = new Map();
+
 const C = (await measure(852, 'daily', null, 0)).constants;
 console.log(`框心目標 ${C.LENS_TARGET_VH}vh · stage 頂→框心 ${C.STAGE_TOP_TO_FRAME_PX}px`
   + ` · padding 下限 ${C.LENS_PAD_FLOOR_PX}px\n`);
@@ -225,6 +228,7 @@ for (const dev of DEVICES) {
   ]) {
     const g = await measure(dev.h, mission, symbol, safeTop);
     const ratio = g.frameCY / g.H;
+    frameCenters.set(`${dev.h}|${safeTop}|${mission}`, g.frameCY);
 
     // 角度只印不驗（見 DEVICES 的註解）。
     const mmPerPx = dev.screenMm / dev.h;
@@ -234,8 +238,11 @@ for (const dev of DEVICES) {
       + ` · 視線約 ${deg.toFixed(1)}°（假設手持 ${dev.holdMm}mm）`);
 
     // 1. 算式真的用那三個具名常數：從常數推導 padding，必須對上 render 出來的。
+    // 🔴 decision 多一列標的，而那一列的高度要從 padding 扣回去 ——
+    //    不扣的話框心會跟著它往下 34px（founder 2026-11-09「圓框偏下方」的成因）。
+    const symbolRow = mission === 'decision' && symbol ? C.SYMBOL_ROW_PX : 0;
     const expectPad = Math.max(safeTop + C.LENS_PAD_FLOOR_PX,
-      (C.LENS_TARGET_VH / 100) * g.H - C.STAGE_TOP_TO_FRAME_PX);
+      (C.LENS_TARGET_VH / 100) * g.H - C.STAGE_TOP_TO_FRAME_PX - symbolRow);
     check(`${tag} padding-top 等於常數推導值`, g.padTop, expectPad, 0.6);
 
     // 2. 推導的框心對上量到的框心（padding + stage 頂到框心）。
@@ -264,7 +271,7 @@ for (const dev of DEVICES) {
       //    現在：vh 項在**每一台**都贏，那個常數的名字才等於它做的事。
       //    哪天有人把它調回 30 以下，這條會紅 —— 而那正是我們要被喊住的時候。
       const floorTerm = safeTop + C.LENS_PAD_FLOOR_PX;
-      const vhTerm = (C.LENS_TARGET_VH / 100) * g.H - C.STAGE_TOP_TO_FRAME_PX;
+      const vhTerm = (C.LENS_TARGET_VH / 100) * g.H - C.STAGE_TOP_TO_FRAME_PX - symbolRow;
       check(`${tag} 🔴 位置由 LENS_TARGET_VH 決定（旋鈕活著）`
         + `（vh ${vhTerm.toFixed(0)} > 下限 ${floorTerm}）`, vhTerm > floorTerm, true);
       check(`${tag} 而且 padding 真的等於 vh 項`, g.padTop, vhTerm, 0.6);
@@ -316,6 +323,29 @@ for (const dev of DEVICES) {
 const ref = await measure(852, 'daily', null);
 check('🔴 STAGE_TOP_TO_FRAME_PX 仍與實測相符（常數沒過期）',
   ref.aboveFrame + ref.frameH / 2, C.STAGE_TOP_TO_FRAME_PX, 0.6);
+
+// ══════════════════════════════════════════════════════════════
+// 🔴 框心的位置不得因為「來意」而改變
+// ══════════════════════════════════════════════════════════════
+// `LENS_TARGET_VH` 的名字說「框心落在視窗高的 N%」。在這條斷言之前它**說的
+// 不是它做的事**：decision 來意多一列標的（`.rs-symbol` ＋ gap），而那一列
+// 沒有從 padding 扣回去 —— 框心跟著往下 34px，0.350H 變成 0.385H。
+//
+// 代價落在這條線最貴的地方：角度預算的最壞一格就是 decision。
+// 2026-11-09 實測 Max 932：daily 7.87° / **decision 8.83°**
+// （已知會壞 10°、已知好 6.5° —— 也就是離壞掉只剩 1.17°）。
+// founder 同一天走 decision 掃描，回報「臉正對螢幕，圓框卻偏下方」＋「向上對齊」。
+//
+// ⚠️ 這條也逼出了那個常數的真值：從版面推是 33，實測是 **34**（行高≠字級）。
+//    第一版用 33，這條紅了 1px —— 那正是它存在的理由。
+for (const dev of DEVICES) {
+  for (const safeTop of [0, SAFE_TOP[dev.h]]) {
+    const daily = frameCenters.get(`${dev.h}|${safeTop}|daily`);
+    const decision = frameCenters.get(`${dev.h}|${safeTop}|decision`);
+    check(`${dev.label} inset${safeTop} 🔴 兩種來意的框心一樣（${daily?.toFixed(1)} vs ${decision?.toFixed(1)}）`,
+      daily, decision, 0.6);
+  }
+}
 
 console.log(`\n${fail === 0 ? '🟢' : '🔴'} pass=${pass} fail=${fail}`);
 await browser.close();

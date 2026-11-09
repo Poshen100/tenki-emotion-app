@@ -259,6 +259,34 @@
    */
   var STAGE_TOP_TO_FRAME_PX = 151;
   /**
+   * decision 來意多出來的那一列（`.rs-symbol` 15px ＋ stage gap 18px）。
+   *
+   * 🔴 **這一列原本會把整個掃描框往下推 33px，而沒有人把它從 padding 扣回來** ——
+   * 於是 `LENS_TARGET_VH`（「框心落在視窗高的 N%」）在 decision 來意上**說的不是
+   * 它做的事**：實測框心跑到 0.385–0.399H，而 daily 是 0.350H。
+   *
+   * 後果正好落在這條線最貴的地方：角度預算的最壞那一格就是 decision。
+   * 2026-11-09 實測（換算見 `scripts/preview-scan-lens-offset.mjs`）：
+   *   Max 932 · daily 7.87° ／ **decision 8.83°**（已知會壞的是 10°、已知好的是 6.5°）
+   * founder 同一天實走 decision 掃描，回報「臉正對螢幕，圓框卻偏下方」＋
+   * 「向上對齊」—— 正是這份文件早就預告的那個症狀，而且出現在最差的那一格。
+   *
+   * 把它從 padding 扣掉之後，**兩種來意的框心落在同一個位置**（0.350H），
+   * 最壞的一格從 8.83° 回到 7.87°，而 daily 的高度**一毫米都沒動** ——
+   * 所以這一刀沒有動到 founder 2026-10-28 挑的那個高度，只是讓常數名副其實。
+   *
+   * ⚠️ **33 ＝ `.rs-symbol` 15px ＋ stage gap 18px**，跟 `STAGE_TOP_TO_FRAME_PX`
+   * 同一套算式。
+   *
+   * 🔴 這個數字被我改錯過一次，而錯法值得留著：第一版我「實測」成 **34**，
+   * 因為那次量測跑在一個**字型飄掉的容器**上（`sans-serif` 解析到 Inter 而不是
+   * 基準的 Liberation Sans，`scripts/lib/playwright.mjs` 的金絲雀就是在擋這件事
+   * —— 而我當時還沒跑它）。於是我用一個壞環境下的量測推翻了正確的推導。
+   * 字型對齊之後，兩種來意的框心差回到 33.0px。
+   * **判準：量測值要勝過推導值之前，先確認金絲雀是綠的。**
+   */
+  var SYMBOL_ROW_PX = 33;
+  /**
    * padding 的下限 —— **瀏海下緣到 mission 標籤的淨空**。
    *
    * ⚠️ 2026-10-28 起 `LENS_TARGET_VH` 取 32，vh 項在**每一台**機型上都贏過這個
@@ -430,8 +458,13 @@
       //    預設仍然是 `env()`，而 harness 覆寫 `--rs-safe-top` 之後，
       //    **算這個位置的仍然是產品自己這條算式**，不是 harness 裡的複製品。
       '--rs-safe-top:env(safe-area-inset-top, 0px);',
+      // 🔴 多出來的標的列要從 padding 扣回去，否則框心會跟著它往下跑 ——
+      //    見 SYMBOL_ROW_PX 的註解（那是 founder 2026-11-09「圓框偏下方」的成因）。
+      '--rs-symbol-row:0px;',
       '--rs-lens-pad:max(calc(var(--rs-safe-top) + ' + LENS_PAD_FLOOR_PX + 'px),',
-      ' calc(' + LENS_TARGET_VH + 'vh - ' + STAGE_TOP_TO_FRAME_PX + 'px));}',
+      ' calc(' + LENS_TARGET_VH + 'vh - ' + STAGE_TOP_TO_FRAME_PX + 'px'
+        + ' - var(--rs-symbol-row)));}',
+      '#' + OVERLAY_ID + '.has-symbol{--rs-symbol-row:' + SYMBOL_ROW_PX + 'px;}',
       '#' + OVERLAY_ID + '.open{display:flex;}',
       // 🔴 相機影像一幀都不顯示（North Star §4，founder 2026-08-08 拍板）。
       // 看到自己的臉會變成自拍、有容貌焦慮的人反而更緊張，而且牽涉肖像權與免責。
@@ -2537,7 +2570,11 @@
 
     var overlay = ensureOverlay();
     q('mission').textContent = MISSIONS[mission].label;
-    q('symbol').textContent = mission === 'decision' && opts.symbol ? opts.symbol : '';
+    var symbolText = mission === 'decision' && opts.symbol ? opts.symbol : '';
+    q('symbol').textContent = symbolText;
+    // 🔴 有標的列就把它的高度從 --rs-lens-pad 扣掉，框心才不會跟著往下跑。
+    //    `.rs-symbol:empty{display:none}` 已經讓空的時候不佔位，所以這裡跟著它走。
+    overlay.classList.toggle('has-symbol', symbolText.length > 0);
     setInstruction('正在啟動相機⋯');
     ['light', 'center', 'still'].forEach(function (name) { setDot(name, null); });
     q('cancel').hidden = false; // 上一輪揭示時收起過
@@ -2689,6 +2726,7 @@
       constants: {
         LENS_TARGET_VH: LENS_TARGET_VH,
         STAGE_TOP_TO_FRAME_PX: STAGE_TOP_TO_FRAME_PX,
+        SYMBOL_ROW_PX: SYMBOL_ROW_PX,
         LENS_PAD_FLOOR_PX: LENS_PAD_FLOOR_PX,
       },
     },
