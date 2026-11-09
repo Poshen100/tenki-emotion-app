@@ -2225,12 +2225,19 @@ console.log('\n── Session 清單的「下面還有」──');
   const spErrors = [];
   sp.on('pageerror', (e) => spErrors.push(e.message));
   const now = Date.now();
-  const recs = [0.2, 0.6, 16, 33, 120, 170, 220].map((h, i) => ({
+  // ⚠️ 9 筆不是隨便挑的：2026-11-09 把首屏壓緊之後，393×852 一次就放得下 7 筆
+  //    —— 原本的 7 筆種子會讓下面「真的捲得動」那條前提自己垮掉。
+  const recs = [0.2, 0.6, 16, 33, 120, 170, 220, 270, 300].map((h, i) => ({
     ts: now - h * 3600e3, symbol: 'ES1!', templateId: 'MANCINI_FBD', source: 'alert',
     outcomeTag: i % 2 ? 'judged_entered' : 'judged_stood_down',
     tradeResult: i % 2 ? 'profit_taken' : 'no_entry', durationSec: 13 + i, marks: 0, events: [],
   }));
+  // 🔴 `addInitScript` **每一次導頁／重載都會再跑一次** —— 少了這個旗標，
+  //    下面「只留 3 筆再 reload」會被它覆寫回 9 筆，於是「沒東西可捲」那條
+  //    永遠驗不到（實際踩到：它回報還剩 81px）。strip-color 早就記過這一條。
   await sp.addInitScript((rs) => {
+    if (localStorage.getItem('__dcseeded')) return;
+    localStorage.setItem('__dcseeded', '1');
     localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(rs));
     localStorage.setItem('tenki.app.onboarded.v1', String(Date.now()));
   }, recs);
@@ -2258,6 +2265,25 @@ console.log('\n── Session 清單的「下面還有」──');
       moreHit: more ? getComputedStyle(more).pointerEvents : null,
     };
   });
+
+  // 🔴 首屏到底看得到幾筆 —— 「壓緊一點」買到的就是這個數字（founder 2026-11-09）。
+  //    決策紀錄是這個產品會複利的那個資產，第一眼看到幾筆是它的門面。
+  //    實測（393×852 含瀏海）：頂部從 194px 壓到 157px → 6 筆變 **7 筆**。
+  const firstScreen = await sp.evaluate(() => {
+    const body = document.querySelector('#session-screen .session-body');
+    const bar = document.querySelector('[class*="fdcb"]');
+    const limit = bar.getBoundingClientRect().top;
+    const bodyTop = body.getBoundingClientRect().top;
+    const list = document.getElementById('sessionList');
+    return {
+      full: [...document.querySelectorAll('#session-screen .session-item')]
+        .filter((c) => { const b = c.getBoundingClientRect();
+          return b.top >= bodyTop - 1 && b.bottom <= limit + 0.5; }).length,
+      header: Math.round(list.getBoundingClientRect().top - bodyTop),
+    };
+  });
+  checkTruthy(`🔴 首屏（393×852 含瀏海）至少看得到 7 筆完整紀錄（實測 ${firstScreen.full} 筆，頂部 ${firstScreen.header}px）`,
+    firstScreen.full >= 7);
 
   const top = await read();
   checkTruthy(`前提：7 筆在 393×852（含瀏海）真的捲得動（實測還剩 ${top.left}px）`, top.left > 0);

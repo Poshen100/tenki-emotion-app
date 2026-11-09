@@ -989,7 +989,7 @@ body{
    ═══════════════════════════════════════════════════ */
 #session-screen{padding:0 20px;gap:12px}
 .session-body{
-  flex:1;min-height:0;display:flex;flex-direction:column;gap:10px;
+  flex:1;min-height:0;display:flex;flex-direction:column;gap:6px;
   /* iOS 的巢狀捲動硬化：`-webkit-overflow-scrolling` 是舊 iOS 的動量捲動，
      `touch-action:pan-y` 宣告這一塊吃垂直拖曳（避免被祖先的手勢處理吃掉）。
      ⚠️ 照實說：這兩條**在這個容器裡驗不出差別**（Chromium 每一種組態都捲得動）。
@@ -1014,7 +1014,9 @@ body{
   display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;
 }
 .session-stats .cell{
-  padding:12px 10px;border-radius:14px;
+  /* 🔴 首屏要先讓紀錄露出來（founder 2026-11-09「壓緊一點」）——
+     壓的是留白，三格的資訊一個字都沒動。 */
+  padding:7px 10px;border-radius:14px;
   background:rgba(255,255,255,0.03);
   border:1px solid rgba(255,255,255,0.05);
   text-align:center;
@@ -1025,7 +1027,7 @@ body{
    留一個隨時會被重新套上的鉤子，所以**連規則一起拔**，不只是不用它。 */
 .session-stats .lbl{font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:var(--n-400);margin-top:4px;font-weight:600}
 
-.session-section{font-size:10px;letter-spacing:0.28em;text-transform:uppercase;color:rgba(255,255,255,0.4);font-weight:600;padding:8px 4px 2px}
+.session-section{font-size:10px;letter-spacing:0.28em;text-transform:uppercase;color:rgba(255,255,255,0.4);font-weight:600;padding:4px 4px 2px}
 
 .session-item{
   padding:12px 14px;border-radius:14px;
@@ -1153,13 +1155,13 @@ body{
 .bf-submit:disabled{background:var(--n-800);color:var(--n-500);cursor:default}
 
 .insight-card{
-  padding:14px 16px;border-radius:14px;
+  padding:8px 14px;border-radius:14px;
   background:linear-gradient(135deg, rgba(0,180,216,0.08), rgba(0,180,216,0.02));
   border:1px solid rgba(0,180,216,0.15);
 }
 .insight-card .head{
   font-size:10px;letter-spacing:0.24em;text-transform:uppercase;
-  color:var(--primary);margin-bottom:8px;font-weight:600;display:flex;align-items:center;gap:6px;
+  color:var(--primary);margin-bottom:5px;font-weight:600;display:flex;align-items:center;gap:6px;
 }
 .insight-card .body{font-size:13px;color:rgba(255,255,255,0.88);line-height:1.5}
 .insight-card .body b{color:var(--primary);font-weight:600;font-variant-numeric:tabular-nums}
