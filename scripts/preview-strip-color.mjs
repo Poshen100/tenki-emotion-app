@@ -369,6 +369,45 @@ check('🔴 而且沒有偷偷收掉「紀律近況」', shortest.historyHidden,
 await page.setViewportSize({ width: 390, height: 660 });
 await page.waitForTimeout(300);
 
+// ── 🔴 死區：會溢出但沒有人壓縮的那一段高度 ──
+//
+// founder 2026-11-09 實走：「這次的決策過程，你給自己…這邊被裁切」。
+// 量出來的不是單一機型的事 —— 2026-11-09 掃描（修改前，字型對齊基準後重量）：
+//   430x932 → 0px（**只有 Pro Max 放得下**）
+//   412x894 → 3px ／ 393x852 → **40px** ／ 374x810 → 77px ／ 358x776 → 106px
+// 而壓縮的 media query 要到 ≤740 才生效 —— 中間 110px 是一段「會溢出但沒人壓」
+// 的死區，**一般的 iPhone 15/16（852）整個落在裡面**。
+// 修法：弧改成跟著視窗連續縮（clamp），並把留白壓縮提前到 ≤930、字級到 ≤820。
+// ⚠️ ≤746 仍然會溢出（7–52px）—— 那是 in-app 瀏覽器／1.25 倍以上縮放的範圍，
+//    founder 2026-11-02 的裁決是「那一段可以捲，只要儲存鈕按得到」（上面那兩條）。
+{
+  // 🔴 **要把真機的安全區模擬回來。** 按鈕列的 padding-bottom 吃
+  //    `env(safe-area-inset-bottom)`，而 headless Chromium 的那個值是 0 ——
+  //    少了它，這幾條量到的是一個**比真機寬鬆 34px 的預算**，於是
+  //    「把壓縮門檻退回 740」那個破壞只紅 1 條（852 照樣綠）。
+  //    34px 是 home indicator 機型的實值（iPhone X 以後）。
+  const IOS_HOME_INDICATOR_PX = 34;
+  await page.evaluate((px) => {
+    const st = document.createElement('style');
+    st.id = '__safearea';
+    st.textContent = `#resultSheet .sheet-actions{padding-bottom:${px + 4}px !important}`;
+    document.head.appendChild(st);
+  }, IOS_HOME_INDICATOR_PX);
+  const heights = [932, 894, 852, 810, 776];
+  for (const h of heights) {
+    await page.setViewportSize({ width: 390, height: h });
+    await page.waitForTimeout(260);
+    const over = await page.evaluate(() => {
+      const sc = document.getElementById('resultScroll');
+      return sc ? Math.round(sc.scrollHeight - sc.clientHeight) : null;
+    });
+    check(`🔴 ${h}px 高的視窗下收束頁一屏放得下（實測溢出 ${over}px）`, over, 0);
+  }
+  await page.evaluate(() => { document.getElementById('__safearea')?.remove(); });
+  await page.setViewportSize({ width: 390, height: 660 });
+  await page.waitForTimeout(260);
+}
+
 // ── 🔴 放不下的時候，按鈕列不得蓋住最後兩列 ──
 //
 // founder 2026-11-03 實走截圖：「判定成立已進場的頁面，是不是有點裁到」。
@@ -715,7 +754,10 @@ await page.waitForTimeout(300);
   ];
   // ⚠️ 掃高度要掃**視窗**高度不是裝置高度（PLAYBOOK 2026-09-10）。
   // 932/844 走 176px 弧、700 走短視窗的 128px 弧，兩組都要驗。
-  for (const height of [932, 844, 700]) {
+  // 🔴 790 是為了量**弧 140 那一階**（≤820 的壓縮層，2026-11-09 新增）。
+  //    沒有它的話這組只量過 176 與 128，中間那一階是用內插「推論安全」——
+  //    而這個 repo 已經為「只量兩個點就宣稱一條線」付過學費（PLAYBOOK §22）。
+  for (const height of [932, 844, 790, 700]) {
     for (const [tag, want] of RING_CASES) {
       const rp = await browser.newPage({ viewport: { width: 390, height }, isMobile: true, hasTouch: true });
       // 走真的產品路徑：紀錄 + 回程票 + `#result`（判定完 /v3/ 就是這樣導回來的）

@@ -264,11 +264,48 @@
     }
     /* 弧的尺寸只有**一個來源**：這個 CSS 變數。drawResultArc() 讀 computed 寬度
        決定 canvas backing store，不再自己寫死 176 —— 兩邊各記一次就會不同步。 */
+    /* 🔴 2026-11-09 掃出來的事實：收束頁在 430×932 剛好 0px 放得下，而**比它矮的
+       每一台都溢出**（894 → 3px、852 → **40px**、810 → 77px、776 → 106px），
+       壓縮卻要到 ≤740 才生效 —— 中間 110px 是一段「會溢出但沒人壓」的死區，
+       一般 iPhone 15/16（852）整整落在裡面。founder 2026-11-09 實走回報
+       「這次的決策過程…這邊被裁切」就是這一段。
+       ⚠️ **這個 176 一動都沒動。** 反向驗證量過：把弧改成跟視窗連續縮
+       （clamp），五個高度**照樣全綠** —— 也就是說真正在出力的是下面的留白
+       壓縮，弧只有在 ≤820 才需要讓位。弧是這一頁的主角，沒量到好處就不縮它。 */
     .result-sheet { --result-arc: 176px; }
     .result-hero { position: relative; width: var(--result-arc); height: var(--result-arc); margin: 12px auto 6px; }
     .result-arc { display: block; width: var(--result-arc); height: var(--result-arc); }
     /* 短視窗（in-app 瀏覽器上下工具列都在時 ≈660px）：收束頁要能**一屏放得下**，
        不然主要按鈕就得靠捲動才看得到。壓縮的是留白與弧的尺寸，不砍任何資訊。 */
+    /* 🔴 死區那一段：只壓留白，不動資訊、不動晶片字級。
+       門檻取 930 是因為**只有 932 那一台原本放得下** —— 低於它就要開始省。 */
+    @media (max-height: 930px) {
+      .result-sheet .result-hero { margin: 6px auto 2px; }
+      .result-sheet .result-block { margin-top: 10px; }
+      .result-sheet .result-strip { margin-top: 6px; }
+      .result-sheet .result-reflect-wrap { margin-top: 8px; }
+      .result-sheet .result-trade-wrap { margin-top: 4px; }
+      .result-sheet .result-reflect { margin-top: 4px; }
+      .result-sheet .sheet-actions { margin-top: 8px; }
+    }
+    /* 再矮一階（820）：晶片與問句一起收，弧讓到 140（資訊仍然一條都不砍）。
+       🔴 弧一旦離開 176 就必須配 12px 的環心文字 —— 那是**量出來的配對**，
+          證據在下面 ≤740 那一塊的長註解（128px 弧 + 13px 文字只剩 0.2px 淨空）。
+          這幾條字級規則只寫一份：≤740 也匹配 ≤820，會自動繼承。
+       ⚠️ 140 是量出來的落點，不是挑的：150 在 776 還差 6px、176 差 32px。 */
+    @media (max-height: 820px) {
+      .result-sheet { --result-arc: 140px; }
+      .result-sheet .result-chip { padding: 6px 4px; font-size: 11px; }
+      .result-sheet .result-reflect-q { font-size: 12px; }
+      .result-sheet .result-outcome { font-size: 12px; }
+      /* 🔴 弧 140 這一階的內距要比 128 那階**更大**，不是更小 ——
+         140 的內寬讓「判定成立 · 已進場」少折一行，單行變長、四個角反而更貼環線
+         （實測 22px 內距下只剩 0.9px，低於 2px 的底線）。26px 把換行逼回兩行。
+         ⚠️ 這條是「弧變大反而更危險」的實例，內插推不出來，只能量。 */
+      .result-sheet .result-arc-center { padding: 0 26px; }
+      .result-sheet .result-arc-time { font-size: 11px; margin-top: 3px; }
+      .result-sheet .result-recap-row { padding: 4px 0; }
+    }
     @media (max-height: 740px) {
       .result-sheet { --result-arc: 128px; }
       .result-sheet .result-hero { margin: 6px auto 2px; }
@@ -276,10 +313,8 @@
       .result-sheet .result-strip { margin-top: 6px; }
       .result-sheet .result-reflect-wrap { margin-top: 8px; }
       .result-sheet .result-trade-wrap { margin-top: 4px; }
-      /* 兩列晶片一起壓，不是只壓新的那一列 —— 只壓新的會讓兩列高度不一致，
-         看起來像其中一列壞掉。 */
-      .result-sheet .result-chip { padding: 6px 4px; font-size: 11px; }
-      .result-sheet .result-reflect-q { font-size: 12px; }
+      /* ⚠️ 晶片／問句／環心文字那幾條搬到上面 ≤820 那一塊了（它也匹配這裡）——
+         下面那段 0.2px / 3.1px 的實測就是它們的依據，留在這裡沒有搬走。 */
       .result-sheet .result-reflect { margin-top: 4px; }
       .result-sheet .sheet-actions { margin-top: 8px; }
       /* 弧縮小之後中央文字要跟著縮，否則「判定成立 · 已進場」會擠成兩行貼住環。
@@ -294,12 +329,9 @@
          成立 2 行 `[55,36]` 餘裕 6.2、未判定 1 行 `[72]` 餘裕 5.4。
          再往下調到 11px 可以買到 7.1px，但那是收束頁的**結論**那一行，
          11px 太小 —— 停在 12px。 */
-      .result-sheet .result-outcome { font-size: 12px; }
       /* 弧縮到 128px 之後，環線的內側淨寬只剩約 90px（r = size/2 - 14、線寬 10）。
          內距要夠大才逼得動換行 —— 給太小的話文字不是溢出，是**壓在環線上**
          （量過：文字 103px、容器 128px，看起來像溢出其實是撞線）。 */
-      .result-sheet .result-arc-center { padding: 0 22px; }
-      .result-sheet .result-arc-time { font-size: 11px; margin-top: 3px; }
       /* 決策軌跡在短視窗再密一格。⚠️ 這是**買空間**不是隨手調：
          2026-09-05 把軌跡從散文改成欄位表（多了「等待」一列 + hairline），
          660px 實測 sheet 561 → 578，而上限是 88dvh = 580 —— 只剩 2px。

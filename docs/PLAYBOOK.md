@@ -374,6 +374,21 @@ bash scripts/verify.sh        # lint + 4 套件 tsc + root 測試 + mobile tsc/�
   不會變就是沒在驗它。⚠️ 這是「用單一參數點驗證一條門檻」的同一個家族，
   只是那條講的是數值軸，這條講的是**哪一端**。
 
+- **🔴 量測值要勝過推導值之前，先確認字型金絲雀是綠的**（2026-11-09）。
+  `SYMBOL_ROW_PX` 從版面常數推是 **33**（15 ＋ 18）。我「實測」成 **34** 並據此
+  改掉常數、還在註解裡寫「行高不等於字級」—— 而那次量測跑在一個 `sans-serif`
+  解析到 **Inter** 的容器上（基準是 Liberation Sans，`Neutral@36px` 124 vs 127）。
+  字型對齊之後它就是 33。**我用一個壞環境下的量測推翻了正確的推導。**
+  **規則**：①任何量文字／版面的結論，先跑金絲雀（`checkFontCanary`）；
+  ②金絲雀紅的時候**那一輪的所有版面數字都不算數**，包含「我剛剛量到的」；
+  ③修環境不要改產品 —— 這個容器是 `/etc/fonts/local.conf` 把
+  `-apple-system` / `BlinkMacSystemFont` / `system-ui` / `sans-serif`
+  指到 `Liberation Sans`（DejaVu 是 152px，差更遠，不要選它）。
+  ⚠️ 同一天同一個容器還吃掉兩樣東西：`node_modules` 整個空了（`npm ci` 救回來），
+  而 `npm ci` 裝回 repo 釘的 playwright 之後**所有 harness 一起紅**
+  （它找不到容器預裝的瀏覽器）—— 移掉 `node_modules/playwright{,-core}`
+  讓 `getChromium()` 退回容器那份就好。
+
 - **🔴 `cmd | tail; echo $?` 回報的是 `tail` 的退出碼 —— 不是 cmd 的**
   （2026-11-03）。我今天兩次用 `npm run lint 2>&1 | tail -6; echo "exit=$?"`
   判斷 lint 過了，兩次都印 `exit=0`，而 lint 其實是 **1**（我自己新寫的測試裡
