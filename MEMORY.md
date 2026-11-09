@@ -72,11 +72,39 @@ iOS 的 `touch-action` / `-webkit-overflow-scrolling` 硬化照實標註為**假
 收束頁的斷言少了底部 34px、Session 的探針少了頂部 59px —— 兩邊都在一個
 **比真機寬鬆的預算**上宣告沒事。補回去之後，founder 的症狀當場重現。
 
+## ④ Session 首屏壓緊（founder 答「壓緊一點」）
+頂部 194px → 157px，不捲看得到的完整紀錄 852 上 **6 → 7 筆**（932: 7→8、810: 5→6）。
+壓的全是留白，三格統計與 insight 的**資訊一個字沒動**。
+⚠️ 我原本估「多露 1–2 筆」，第一輪只省到 23px（**不到一張卡 70px**）、852 還是 6 筆，
+再壓一輪才真的跨過去 —— 估計是估計，量完才算數。再往下會吃到觸控區，所以停在這裡。
+
+## 🔴 併完之後的坑：PR 綠了、main 對了、正式站沒換
+#302 併進 main（`76f7b85`），CI 五項全綠，我跟 founder 說「production 部署完就生效」。
+**那句話是推論，而它是錯的。** 去查才發現 `target: "production"` 最新一筆還是
+`dfa56f8`（#301，11-04）—— 正式站的收束頁只有 `max-height: 740px`，新的 930／820
+兩階**根本不在上面**，三件 founder 報的事一件都沒生效。
+
+成因是我自己做的那一步：**merge 完把分支 reset 到 merge commit 再推**（PLAYBOOK §4
+教的，為了不撞 dirty）。Vercel 以 commit SHA 去重 → `76f7b85` 先以**分支 preview**
+（`target: null`）的身分建起來，main 的 production 建置被當成重複而不產生。
+補法：`create_deployment`（`target: production`、`gitSource` main + 那個 sha、`forceNew: 1`）
+→ `dpl_A8dn4qA1…` READY、別名回到 `tenki-emotion-app.vercel.app`，
+正式站 grep 到 930／820／`--result-arc: 140px`、`SYMBOL_ROW_PX = 33`、`syncSessionMore` 才算完。
+
+**這跟今天前面三樣環境故障是同一個形狀**：我又一次拿「看起來正常的那一面」當結論 ——
+部署列表裡有那個 SHA、CI 全綠、main 是對的，**三個都真，而結論是假的**。
+規則已進 PLAYBOOK §4（合併強化既有那一列）：併完要比對 production 那筆的
+`githubCommitSha`，而且「已生效」只能靠去正式站 grep 一個這一刀才有的字串來說。
+
 **下次接手點**
-- 🔴 `CRON_SECRET` 還沒設（L2 收束提醒在那之前不會動）。
-- Session 清單「完全捲不動」那一半沒有重現，已經把一個精確的問題丟回 founder。
-- 頂部統計／洞察吃掉約 370px，第一屏只看得到 3–4 筆紀錄 —— 要不要壓縮
-  讓資產多露出來，是視覺決定，一併問了。
+- 🔴 `CRON_SECRET` 還沒設（L2 收束提醒在那之前不會動）。驗法：匿名打 `/api/digest`
+  從 `503 CRON_SECRET not provisioned` 變成 `401 unauthorized`。
+- 🟡 **等 founder 實走回報**：Session 那頁現在用手指拖得動嗎？拖不動就改成整頁捲動的
+  結構（比較大的改動，founder 已先同意那個方向）。
+- 還欠實走：Runner 帳本兩列晶片、收束頁現在放不放得下、掃描框位置、「用時」改名、
+  「我剛下單了」。
+- 加碼攤平（Runner 帳本第三軸）仍待 founder 裁決；三格統計做成一行是「改形狀」，
+  也等他的話。
 
 # 2026-11-03 Session Update（收束頁：按鈕列蓋住最後兩列 —— founder「是不是有點裁到」）
 
