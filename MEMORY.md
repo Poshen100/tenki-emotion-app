@@ -28,6 +28,77 @@
      勿刪、勿移動、勿複製第二份：`scripts/verify.sh` 驗它恰好出現一次、
      而且排在所有條目之前。它的存在理由見協議第 1 條。 -->
 
+# 2026-11-09 Session Update（去設 CRON_SECRET，挖到 /api/alert 在正式站崩了 10 天）
+
+**founder 說「CRON_SECRET 你可以幫我完成嗎？我授權」。結果兩件事都不是原本以為的樣子。**
+
+## ① 我設不了 —— 權限範圍不給
+Vercel 連接器寫 production 環境變數回 **403**（`Additional permissions are
+required to create production environment variables`），列出變數也 403。容器裡
+沒有 `vercel` CLI、也沒有獨立 token → 沒有繞路。這件事只能 founder 自己在
+dashboard 做，已照實回報。
+⚠️ 我**有**先產生一組候選密鑰，所以它存在於這個 session 的 transcript 裡 ——
+已明確告訴 founder 不要用它，請自己產生一組。
+
+## 🔴 ② 去量對照組的時候，發現端點根本到不了那一行
+我要量「設之前應該回 503」，結果：
+
+    GET /api/digest → 500 FUNCTION_INVOCATION_FAILED
+    GET /api/alert  → 500 FUNCTION_INVOCATION_FAILED
+
+`get_runtime_logs` 的原話：`Cannot find module 'web-push'`，
+Require stack 指著 `/var/task/api/_lib/push.js`。
+
+成因：`web-push` 只宣告在**根** package.json，而 `api/` 在 #293（10-30）變成
+workspace、有了自己那份、裡面沒有 `dependencies` → 函式 bundle 以最近的
+package.json 當邊界，套件沒被打進 lambda。
+
+**嚴重的不是 L2，是 L1。** `_lib/push.ts` 是 `alert.ts` 與 `digest.ts` 共用的，
+所以 TradingView 打進來的那條從 **10-30 起一直回 500，整整 10 天**。
+沒人會發現，因為發現它的唯一方法是真的送一次快訊。
+
+控制組（做了才敢說範圍）：`/api/channel` → **200**，它不 import web-push。
+所以是「這兩條壞了」，不是「整個 API 壞了」—— 兩者修法完全不同。
+
+修法 #304：讓真的 import 它的那個 workspace 自己宣告它。lockfile 用
+`--package-lock-only` 更新，**沒碰 node_modules**（容器裡 playwright 是刻意移掉的）。
+驗收先寫死條件再去打部署：preview 與正式站都拿到 `/api/alert` → **405**、
+`/api/digest` → **503**（本地證明不了這一刀，只有部署能）。
+
+## 🔴 ③ 真正的教訓：整份 merge gate 對這件事是瞎的
+守門 `scripts/check-api-deps.mjs`（verify §6a ＋ CI workspaces job）。
+反向驗證 4 次：拿掉宣告→紅、搬到 `devDependencies`→紅（lambda 只拿得到
+`dependencies`，這個區別是承重的）、執行期檔案加未宣告 import→紅、
+**測試檔**加同樣的 import→**綠**（刻意：測試檔不進 lambda，jest 會自己大聲紅）。
+
+最有說服力的那一次是把 sabotage 放進去跑整套 verify：
+**24 步全綠、含 `tsc api`，只有新守門一條紅** —— 那正是 #304 當天的狀態，
+整個 merge gate 說「可以上」而正式站在回 500。
+
+⚠️ 範圍刻意只有 `api/`。量過（不是推論）：`packages/shared/src/components` 漏
+react／three／framer-motion、`domain/contracts/ILocalStorage.ts` 漏
+`@tenki/engine` —— 但那些檔案都在各自 tsc program 之外（shared 的 tsconfig 還
+明文註解「their deps are not installed」），漏宣告會大聲失敗。把它們圈進來只會
+讓守門一出生就是紅的，而紅燈久了就會被關掉。
+
+⚠️ 工具教訓：第一版用 `grep -oE "from ['\"]..."` 掃 import，掃出一堆英文散文
+（字串字面值裡的 `from 'this is not your HRV now'`）。正則分不出程式與散文 ——
+改用 TypeScript 自己的 `ts.preProcessFile`。
+
+## 我講錯的兩句話（照實記）
+1. 「設好 CRON_SECRET 的徵兆是 503 變 401」—— 那個徵兆建立在一個**連 503 都
+   回不了**的端點上。現在它才站得住。
+2. 把 L2 的唯一阻塞說成 CRON_SECRET。真正的阻塞還有這一個，而且它順手弄壞了 L1。
+
+**下次接手點**
+- 🔴 `CRON_SECRET` 仍待 founder 自己設（連接器 403）。設好後 `/api/digest`
+  從 `503` 變 `401`。
+- 🔴 **值得請 founder 真的觸發一次 TradingView 快訊** —— `405` 只證明函式載得
+  起來，證明不了推播整條（收得到 → 送出 → 手機響）。
+- 🟡 守門這一刀改了 `scripts/verify.sh` 與 CI → 屬 🟡，PR 標 `[制度變更]`
+  **留給 founder merge，不自己併**。
+- 🟡 Session 那頁拖不拖得動的實走回報仍然欠著。
+
 # 2026-11-09 Session Update（founder 實走三件事：掃描框偏下、收束頁被裁、Session 清單被遮）
 
 **三件都是「畫面在說謊」，而三件都靠同一招找到：把真機的條件補回 Chromium。**
