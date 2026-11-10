@@ -6831,12 +6831,32 @@ function syncSessionMore(){
 
 // 捲動時跟著收 —— 不綁的話它只會在開頁那一刻算一次，捲到底仍然掛著一條
 // 「下面還有」，那就從事實變成裝飾了。
+//
+// 🔴 **而「開頁那一刻」算出來的值是假的。** 2026-11-10 實測（12 筆、393×852）：
+//    載入後 `hidden=true`，而同一瞬間 `left` 是 **326px** —— 版面還沒定案時
+//    `clientHeight` 還不是最終值，於是它判定「沒有東西在下面」就收起來，
+//    而**之後沒有任何事件會再叫它**（scroll 不會發生、resize 不會發生）。
+//    後果是一個死結：**要先捲動才會出現那條「可以捲動」的提示**。
+//    founder 2026-11-10 第二次回報「Session 不能滑動」，這就是其中一半。
+//
+// 🔴 這條也是我自己的 harness 放過去的：#302 那支在斷言**之前**先
+//    `dispatchEvent(new Event('resize'))` —— 它自己製造了讓斷言成立的條件。
+//    空的閘門比沒有閘門更糟，因為它還會發綠燈。
+//
+// 修法是讓它跟著**版面**走而不是跟著事件走：ResizeObserver 盯容器與清單，
+// 任何一次尺寸變動（含第一次定案）都重算。
 (function bindSessionMore(){
   function bind(){
     const body = document.querySelector('#session-screen .session-body');
     if(!body) return;
     body.addEventListener('scroll', syncSessionMore, { passive: true });
     window.addEventListener('resize', syncSessionMore);
+    if(typeof ResizeObserver === 'function'){
+      const ro = new ResizeObserver(() => syncSessionMore());
+      ro.observe(body);
+      const list = document.getElementById('sessionList');
+      if(list) ro.observe(list);
+    }
   }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
   else bind();
@@ -6893,7 +6913,10 @@ function renderSessionScreen(){
   document.getElementById('sessionListHead').querySelector('.session-section')
     .style.display = empty ? 'none' : '';
   document.getElementById('sessionList').style.display = empty ? 'none' : '';
+  // 這一次是「渲染完」，下一幀那次才是「版面定案後」—— 兩次都要，
+  // 因為 ResizeObserver 在尺寸剛好沒變的路徑上不會發。
   syncSessionMore();
+  requestAnimationFrame(syncSessionMore);
 
   if(!empty){
     // 🔴 這一行逐類講出來，而不是算一個比率 —— 比率會把「2 進場 / 1 不成立」

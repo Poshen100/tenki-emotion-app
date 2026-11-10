@@ -2253,7 +2253,13 @@ console.log('\n── Session 清單的「下面還有」──');
     st.textContent = ':root{--top-safe:calc(59px + 14px)}';   // iPhone 瀏海
     document.head.appendChild(st);
   });
-  await sp.evaluate(() => window.dispatchEvent(new Event('resize')));
+  // 🔴 這裡原本有一行 `dispatchEvent(new Event('resize'))`，而它正是讓下面
+  //    「提示要在」那條**空轉**的原因：`syncSessionMore()` 在渲染當下算出來的
+  //    `clientHeight` 還不是最終值，於是提示被收起來，而**沒有任何事件會再叫
+  //    它** —— 除了這支 harness 自己補的那一下 resize。
+  //    也就是說：斷言測到的是「resize 之後會對」，而使用者永遠不會 resize。
+  //    2026-11-10 實測（12 筆）：載入後 hidden=true，而同一瞬間還剩 326px。
+  //    拿掉這一行之後它當場紅 → 才是真的在量 founder 會遇到的那件事。
   await sp.waitForTimeout(400);
 
   const read = () => sp.evaluate(() => {
@@ -2320,8 +2326,15 @@ console.log('\n── Session 清單的「下面還有」──');
   await sp.reload({ waitUntil: 'domcontentloaded' });
   await sp.waitForTimeout(2000);
   await sp.evaluate(() => document.getElementById('tenki-splash')?.remove());
-  await sp.evaluate(() => window.dispatchEvent(new Event('resize')));
-  await sp.waitForTimeout(300);
+  // ⚠️ reload 把上面注入的瀏海樣式沖掉了 —— 不補回來，這一條就是在一個
+  //    比真機寬鬆 59px 的世界裡宣告「沒東西可捲」。
+  await sp.evaluate(() => {
+    const st = document.createElement('style');
+    st.textContent = ':root{--top-safe:calc(59px + 14px)}';
+    document.head.appendChild(st);
+  });
+  // 🔴 同上：這裡也不再補 resize，提示必須在**載入當下**就說實話。
+  await sp.waitForTimeout(400);
   const few = await read();
   check(`🔴 沒東西可捲時提示不得出現（還剩 ${few.left}px）`, [few.left <= 4, few.more], [true, false]);
   check('這一頁沒有 page error', spErrors, []);
