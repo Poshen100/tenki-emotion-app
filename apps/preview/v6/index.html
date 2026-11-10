@@ -613,9 +613,21 @@ body{
         **加高買不到圖表空間，只賣掉浮層的淨空。**
      ⚠️ 上一版註解把理由寫成「會動到 Energy 長條圖的高度推導」——
         那是**錯的**（量過，它完全不受影響）。真正的理由是浮層淨空。 */
-  justify-content:center;
+  /* 🔴 置中用 auto margin，**不要**用 `justify-content:center`。
+     兩者在「放得下」時逐像素相同；差別只在**放不下**的時候：
+     `center` 會把溢出平均分到上下兩端 —— 而上面那一截被 `overflow:hidden`
+     裁掉，且因為這個容器不捲，它永遠拿不回來。auto margin 在空間為負時
+     自動塌成 0，於是溢出只往下長（下面本來就有底座的保留區）。
+     實測 393×800（含瀏海、strain + 信心低 → 文案最長那一版）：
+     教練卡上緣被切 **20px → 0px**。
+     ⚠️ 照實說：852 在這個容器的字型下排得比較短、不會溢出，所以這個數字
+        是在 800 量到的；founder 的 SF Pro 在 852 就排成 3 行。缺陷與修法
+        都成立，但量到它的高度不是他的高度（字型金絲雀的已知邊界）。 */
+  justify-content:flex-start;
   overflow:hidden;
 }
+.snap > *:first-child{margin-top:auto}
+.snap > *:last-child{margin-bottom:auto}
 /* Card entrance stagger animation */
 .snap > *{
   opacity:0;transform:translateY(20px);
