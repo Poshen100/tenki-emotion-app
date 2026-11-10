@@ -1072,7 +1072,18 @@ body{
 .session-item.neut .tmpl-ic{background:rgba(142,142,147,0.15);color:#aaa}
 .session-item .info{flex:1;min-width:0}
 .session-item .nm{font-size:13px;font-weight:500;color:#fff;margin-bottom:2px}
-.session-item .meta{font-size:11px;color:var(--n-400);display:flex;gap:8px;font-variant-numeric:tabular-nums}
+/* 🔴 這一列**不准折行**。折行的後果不是醜，是卡片變高 —— founder 2026-11-10
+   實走：第 5、6 筆的 meta 折成兩行（`11/2`↵`23:52`、`快訊決`↵`策`），把第 7 筆
+   擠到底座下面。而「最下面那筆看不到」正是他回報的症狀。
+   量出來的成因是餘裕本來就幾乎是 0（393 寬、容器字型）：
+     「10/29 12:27·快訊決策·0:31」 可用 165 需要 163 → **餘裕 +2px**
+   而 `可用` 會在 165／177 之間跳，因為「判定不成立」那顆晶片比「判定成立」寬
+   —— 所以**折行的永遠是判定不成立那幾列**，跟 founder 的截圖完全對得上。
+   SF Pro 比這個容器的字型寬，+2px 到他那裡就是負的。
+   修法兩層：gap 8→4 買回 16px（四個間隔，純留白，一個字都沒動），
+   再加 `nowrap` 當保證 —— 這樣就算哪天字型再變寬，變的也是它自己被切，
+   **不會是卡片高度**。高度穩定才是這一列要守的東西。 */
+.session-item .meta{font-size:11px;color:var(--n-400);display:flex;gap:4px;white-space:nowrap;font-variant-numeric:tabular-nums}
 .session-item .meta span.sep{color:var(--n-500)}
 /* 🔴 「這一列還在等結果」的記號。
    機制（§9b 結果回填）早就做好了，但**列表上一個字都沒講** —— founder 2026-10-09
