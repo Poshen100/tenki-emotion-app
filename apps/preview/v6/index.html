@@ -613,9 +613,21 @@ body{
         **加高買不到圖表空間，只賣掉浮層的淨空。**
      ⚠️ 上一版註解把理由寫成「會動到 Energy 長條圖的高度推導」——
         那是**錯的**（量過，它完全不受影響）。真正的理由是浮層淨空。 */
-  justify-content:center;
+  /* 🔴 置中用 auto margin，**不要**用 `justify-content:center`。
+     兩者在「放得下」時逐像素相同；差別只在**放不下**的時候：
+     `center` 會把溢出平均分到上下兩端 —— 而上面那一截被 `overflow:hidden`
+     裁掉，且因為這個容器不捲，它永遠拿不回來。auto margin 在空間為負時
+     自動塌成 0，於是溢出只往下長（下面本來就有底座的保留區）。
+     實測 393×800（含瀏海、strain + 信心低 → 文案最長那一版）：
+     教練卡上緣被切 **20px → 0px**。
+     ⚠️ 照實說：852 在這個容器的字型下排得比較短、不會溢出，所以這個數字
+        是在 800 量到的；founder 的 SF Pro 在 852 就排成 3 行。缺陷與修法
+        都成立，但量到它的高度不是他的高度（字型金絲雀的已知邊界）。 */
+  justify-content:flex-start;
   overflow:hidden;
 }
+.snap > *:first-child{margin-top:auto}
+.snap > *:last-child{margin-bottom:auto}
 /* Card entrance stagger animation */
 .snap > *{
   opacity:0;transform:translateY(20px);
@@ -1060,7 +1072,18 @@ body{
 .session-item.neut .tmpl-ic{background:rgba(142,142,147,0.15);color:#aaa}
 .session-item .info{flex:1;min-width:0}
 .session-item .nm{font-size:13px;font-weight:500;color:#fff;margin-bottom:2px}
-.session-item .meta{font-size:11px;color:var(--n-400);display:flex;gap:8px;font-variant-numeric:tabular-nums}
+/* 🔴 這一列**不准折行**。折行的後果不是醜，是卡片變高 —— founder 2026-11-10
+   實走：第 5、6 筆的 meta 折成兩行（`11/2`↵`23:52`、`快訊決`↵`策`），把第 7 筆
+   擠到底座下面。而「最下面那筆看不到」正是他回報的症狀。
+   量出來的成因是餘裕本來就幾乎是 0（393 寬、容器字型）：
+     「10/29 12:27·快訊決策·0:31」 可用 165 需要 163 → **餘裕 +2px**
+   而 `可用` 會在 165／177 之間跳，因為「判定不成立」那顆晶片比「判定成立」寬
+   —— 所以**折行的永遠是判定不成立那幾列**，跟 founder 的截圖完全對得上。
+   SF Pro 比這個容器的字型寬，+2px 到他那裡就是負的。
+   修法兩層：gap 8→4 買回 16px（四個間隔，純留白，一個字都沒動），
+   再加 `nowrap` 當保證 —— 這樣就算哪天字型再變寬，變的也是它自己被切，
+   **不會是卡片高度**。高度穩定才是這一列要守的東西。 */
+.session-item .meta{font-size:11px;color:var(--n-400);display:flex;gap:4px;white-space:nowrap;font-variant-numeric:tabular-nums}
 .session-item .meta span.sep{color:var(--n-500)}
 /* 🔴 「這一列還在等結果」的記號。
    機制（§9b 結果回填）早就做好了，但**列表上一個字都沒講** —— founder 2026-10-09
@@ -4745,7 +4768,44 @@ setTimeout(() => { resizeCanvas(); initParticles(); requestAnimationFrame(drawPa
 // ═════════════════════════════════════════════════
 const STATES = ['idle','ready','running','complete'];
 let stateIdx = 0;
-let currentTmpl = 'HEALTH_STRESS';
+
+/**
+ * 上次真的用過的模板。
+ *
+ * 🔴 舊版是寫死的 `'HEALTH_STRESS'`。founder 2026-11-10 實走：底座顯示
+ * 「Health Stress」，而他的**七筆紀錄全部是 `ES1! · Mancini FBD`** ——
+ * 他的原話是「他的模式顯示是健康模式 會比較適合?」。不適合：那個預設值
+ * 從來沒有看過使用者做了什麼。
+ *
+ * 🔴 它報的是**事實（你上次用了什麼）**，不是我們替他猜一個偏好 ——
+ * 沒有用過任何模板的人（全新使用者）才落回 Health Stress。
+ * ⚠️ 也因此不得從「紀錄裡最多的那個模板」去推：那是統計，不是他上次的選擇，
+ *    而且會讓一次例外永遠改不回來。
+ */
+const LAST_TMPL_KEY_V6 = 'tenki.v6.lastTemplate.v1';
+/**
+ * 記住這一次用的模板。未知 id 一律忽略（storage 是使用者可改的，
+ * 讀回來的東西不能當成一定存在的鍵）。
+ *
+ * @param {string} id 模板 id
+ */
+function rememberTmpl(id){
+  if(!TEMPLATES[id]) return;
+  try { localStorage.setItem(LAST_TMPL_KEY_V6, id); } catch(e){}
+}
+/**
+ * 開機時的模板：上次用過的，沒有或認不得就 Health Stress。
+ *
+ * @returns {string} 模板 id
+ */
+function initialTmpl(){
+  try {
+    const id = localStorage.getItem(LAST_TMPL_KEY_V6);
+    if(id && TEMPLATES[id]) return id;
+  } catch(e){}
+  return 'HEALTH_STRESS';
+}
+let currentTmpl = initialTmpl();
 let runningInterval = null;
 let elapsed = 0;
 
@@ -5297,6 +5357,7 @@ function selectTmpl(el){
   document.querySelectorAll('.tmpl-item').forEach(x => x.classList.remove('selected'));
   el.classList.add('selected');
   currentTmpl = el.dataset.id;
+  rememberTmpl(currentTmpl);
   const t = TEMPLATES[currentTmpl];
   renderTmplChip();
   document.documentElement.style.setProperty('--tmpl', t.color);
@@ -5474,7 +5535,10 @@ function acceptHandoff(){
   // 過期就不自動起跑 —— 昨天的快訊今天不該自己開始一個決策。
   if(!(typeof h.ts === 'number') || Date.now() - h.ts > HANDOFF_TTL_MS) return false;
 
+  // 🔴 founder 的七筆**全部**走這條（source:'alert'），不是選單。
+  //    只在 selectTmpl 記 ＝ 對他完全沒有效果。
   currentTmpl = h.templateId;
+  rememberTmpl(currentTmpl);
   const t = TEMPLATES[currentTmpl];
   document.documentElement.style.setProperty('--tmpl', t.color);
   setState('running');
@@ -5551,6 +5615,7 @@ function resumeActiveDecision(){
   const overdue = elapsedSec >= ceilingSec || now >= m.expiresAtMs;
 
   currentTmpl = m.templateId;
+  rememberTmpl(currentTmpl);
   document.documentElement.style.setProperty('--tmpl', tmpl.color);
   setState('running');
   if(!sess){ clearActiveDecision(); return false; }
@@ -6558,6 +6623,28 @@ function selectSource(el){
   el.classList.add('active');
 }
 
+// 🔴 開機把「上次用過的模板」同步到**三個**地方。少同步任何一個，畫面就會
+//    自己跟自己打架：底座寫 Mancini FBD、選單的勾還在 Health Stress、
+//    強調色還是粉紅。三者講的是同一件事，就必須一起更新。
+//    （`renderTmplChip()` 走 setState 那條路，所以名字那格不在這裡。）
+(function syncTmplAtBoot(){
+  // 🔴 記住的模板**不一定現在還選得到**：交易者模板住在 `#tmplDisciplineGroup`
+  //    裡，而決策紀律模式關掉時那一整組會被 `syncDisciplineTemplates()` 從 DOM
+  //    移除。那時若底座還寫著 Mancini FBD，畫面就在指一個選單裡根本不存在的
+  //    東西 —— 使用者看得到卻改不掉。所以選不到就退回 Health Stress。
+  //    （這條是自己寫的斷言紅出來的：第一版只同步名字與勾，沒想到勾的那個
+  //      節點可能不在 DOM 裡。）
+  //    ⚠️ 退回只改**這次用哪個**，不洗掉記住的值 —— 使用者把紀律模式開回來，
+  //       他上次的模板要還在。
+  if(DISCIPLINE_TEMPLATES.includes(currentTmpl) && !disciplineOn()) currentTmpl = 'HEALTH_STRESS';
+  const t = TEMPLATES[currentTmpl];
+  if(!t) return;
+  document.documentElement.style.setProperty('--tmpl', t.color);
+  document.querySelectorAll('.tmpl-item').forEach((x) => {
+    x.classList.toggle('selected', x.dataset.id === currentTmpl);
+  });
+})();
+
 // 開機走 setState 而不是直接 renderFdcb()：高度／保留區與 state 是同一條路徑，
 // 少走一段就會出現「畫面是 idle、保留區還按 58px 算」這種只差一次載入的偏差。
 setState('idle');
@@ -6744,12 +6831,32 @@ function syncSessionMore(){
 
 // 捲動時跟著收 —— 不綁的話它只會在開頁那一刻算一次，捲到底仍然掛著一條
 // 「下面還有」，那就從事實變成裝飾了。
+//
+// 🔴 **而「開頁那一刻」算出來的值是假的。** 2026-11-10 實測（12 筆、393×852）：
+//    載入後 `hidden=true`，而同一瞬間 `left` 是 **326px** —— 版面還沒定案時
+//    `clientHeight` 還不是最終值，於是它判定「沒有東西在下面」就收起來，
+//    而**之後沒有任何事件會再叫它**（scroll 不會發生、resize 不會發生）。
+//    後果是一個死結：**要先捲動才會出現那條「可以捲動」的提示**。
+//    founder 2026-11-10 第二次回報「Session 不能滑動」，這就是其中一半。
+//
+// 🔴 這條也是我自己的 harness 放過去的：#302 那支在斷言**之前**先
+//    `dispatchEvent(new Event('resize'))` —— 它自己製造了讓斷言成立的條件。
+//    空的閘門比沒有閘門更糟，因為它還會發綠燈。
+//
+// 修法是讓它跟著**版面**走而不是跟著事件走：ResizeObserver 盯容器與清單，
+// 任何一次尺寸變動（含第一次定案）都重算。
 (function bindSessionMore(){
   function bind(){
     const body = document.querySelector('#session-screen .session-body');
     if(!body) return;
     body.addEventListener('scroll', syncSessionMore, { passive: true });
     window.addEventListener('resize', syncSessionMore);
+    if(typeof ResizeObserver === 'function'){
+      const ro = new ResizeObserver(() => syncSessionMore());
+      ro.observe(body);
+      const list = document.getElementById('sessionList');
+      if(list) ro.observe(list);
+    }
   }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
   else bind();
@@ -6806,7 +6913,10 @@ function renderSessionScreen(){
   document.getElementById('sessionListHead').querySelector('.session-section')
     .style.display = empty ? 'none' : '';
   document.getElementById('sessionList').style.display = empty ? 'none' : '';
+  // 這一次是「渲染完」，下一幀那次才是「版面定案後」—— 兩次都要，
+  // 因為 ResizeObserver 在尺寸剛好沒變的路徑上不會發。
   syncSessionMore();
+  requestAnimationFrame(syncSessionMore);
 
   if(!empty){
     // 🔴 這一行逐類講出來，而不是算一個比率 —— 比率會把「2 進場 / 1 不成立」
