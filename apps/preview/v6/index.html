@@ -4768,7 +4768,44 @@ setTimeout(() => { resizeCanvas(); initParticles(); requestAnimationFrame(drawPa
 // ═════════════════════════════════════════════════
 const STATES = ['idle','ready','running','complete'];
 let stateIdx = 0;
-let currentTmpl = 'HEALTH_STRESS';
+
+/**
+ * 上次真的用過的模板。
+ *
+ * 🔴 舊版是寫死的 `'HEALTH_STRESS'`。founder 2026-11-10 實走：底座顯示
+ * 「Health Stress」，而他的**七筆紀錄全部是 `ES1! · Mancini FBD`** ——
+ * 他的原話是「他的模式顯示是健康模式 會比較適合?」。不適合：那個預設值
+ * 從來沒有看過使用者做了什麼。
+ *
+ * 🔴 它報的是**事實（你上次用了什麼）**，不是我們替他猜一個偏好 ——
+ * 沒有用過任何模板的人（全新使用者）才落回 Health Stress。
+ * ⚠️ 也因此不得從「紀錄裡最多的那個模板」去推：那是統計，不是他上次的選擇，
+ *    而且會讓一次例外永遠改不回來。
+ */
+const LAST_TMPL_KEY_V6 = 'tenki.v6.lastTemplate.v1';
+/**
+ * 記住這一次用的模板。未知 id 一律忽略（storage 是使用者可改的，
+ * 讀回來的東西不能當成一定存在的鍵）。
+ *
+ * @param {string} id 模板 id
+ */
+function rememberTmpl(id){
+  if(!TEMPLATES[id]) return;
+  try { localStorage.setItem(LAST_TMPL_KEY_V6, id); } catch(e){}
+}
+/**
+ * 開機時的模板：上次用過的，沒有或認不得就 Health Stress。
+ *
+ * @returns {string} 模板 id
+ */
+function initialTmpl(){
+  try {
+    const id = localStorage.getItem(LAST_TMPL_KEY_V6);
+    if(id && TEMPLATES[id]) return id;
+  } catch(e){}
+  return 'HEALTH_STRESS';
+}
+let currentTmpl = initialTmpl();
 let runningInterval = null;
 let elapsed = 0;
 
@@ -5320,6 +5357,7 @@ function selectTmpl(el){
   document.querySelectorAll('.tmpl-item').forEach(x => x.classList.remove('selected'));
   el.classList.add('selected');
   currentTmpl = el.dataset.id;
+  rememberTmpl(currentTmpl);
   const t = TEMPLATES[currentTmpl];
   renderTmplChip();
   document.documentElement.style.setProperty('--tmpl', t.color);
@@ -5497,7 +5535,10 @@ function acceptHandoff(){
   // 過期就不自動起跑 —— 昨天的快訊今天不該自己開始一個決策。
   if(!(typeof h.ts === 'number') || Date.now() - h.ts > HANDOFF_TTL_MS) return false;
 
+  // 🔴 founder 的七筆**全部**走這條（source:'alert'），不是選單。
+  //    只在 selectTmpl 記 ＝ 對他完全沒有效果。
   currentTmpl = h.templateId;
+  rememberTmpl(currentTmpl);
   const t = TEMPLATES[currentTmpl];
   document.documentElement.style.setProperty('--tmpl', t.color);
   setState('running');
@@ -5574,6 +5615,7 @@ function resumeActiveDecision(){
   const overdue = elapsedSec >= ceilingSec || now >= m.expiresAtMs;
 
   currentTmpl = m.templateId;
+  rememberTmpl(currentTmpl);
   document.documentElement.style.setProperty('--tmpl', tmpl.color);
   setState('running');
   if(!sess){ clearActiveDecision(); return false; }
@@ -6580,6 +6622,28 @@ function selectSource(el){
   document.querySelectorAll('.source-toggle .src').forEach(x => x.classList.remove('active'));
   el.classList.add('active');
 }
+
+// 🔴 開機把「上次用過的模板」同步到**三個**地方。少同步任何一個，畫面就會
+//    自己跟自己打架：底座寫 Mancini FBD、選單的勾還在 Health Stress、
+//    強調色還是粉紅。三者講的是同一件事，就必須一起更新。
+//    （`renderTmplChip()` 走 setState 那條路，所以名字那格不在這裡。）
+(function syncTmplAtBoot(){
+  // 🔴 記住的模板**不一定現在還選得到**：交易者模板住在 `#tmplDisciplineGroup`
+  //    裡，而決策紀律模式關掉時那一整組會被 `syncDisciplineTemplates()` 從 DOM
+  //    移除。那時若底座還寫著 Mancini FBD，畫面就在指一個選單裡根本不存在的
+  //    東西 —— 使用者看得到卻改不掉。所以選不到就退回 Health Stress。
+  //    （這條是自己寫的斷言紅出來的：第一版只同步名字與勾，沒想到勾的那個
+  //      節點可能不在 DOM 裡。）
+  //    ⚠️ 退回只改**這次用哪個**，不洗掉記住的值 —— 使用者把紀律模式開回來，
+  //       他上次的模板要還在。
+  if(DISCIPLINE_TEMPLATES.includes(currentTmpl) && !disciplineOn()) currentTmpl = 'HEALTH_STRESS';
+  const t = TEMPLATES[currentTmpl];
+  if(!t) return;
+  document.documentElement.style.setProperty('--tmpl', t.color);
+  document.querySelectorAll('.tmpl-item').forEach((x) => {
+    x.classList.toggle('selected', x.dataset.id === currentTmpl);
+  });
+})();
 
 // 開機走 setState 而不是直接 renderFdcb()：高度／保留區與 state 是同一條路徑，
 // 少走一段就會出現「畫面是 idle、保留區還按 58px 算」這種只差一次載入的偏差。
