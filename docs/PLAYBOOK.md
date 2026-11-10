@@ -701,6 +701,8 @@ bash scripts/verify.sh        # lint + 4 套件 tsc + root 測試 + mobile tsc/�
 
 | 情境 | 規則 |
 |------|------|
+| **`api/` 的程式新 import 一個外部套件** | 🔴 **宣告在根 `package.json` 不算 —— 要宣告在 `api/package.json` 的 `dependencies`**（而且不能只在 `devDependencies`：lambda 只拿得到 `dependencies`）。本機分辨不出來：根 `node_modules` 解析得到，所以 `tsc api` 綠、jest 綠、**整份 `verify.sh` 綠** ——而函式的 bundle 以最近的 package.json 當邊界，沒宣告的套件不會被打進去。實例（#304）：`web-push` 只宣告在根，於是 `/api/alert`（TradingView 快訊的入口）與 `/api/digest` 在正式站回了 **10 天的 `500 FUNCTION_INVOCATION_FAILED`**，而發現它的唯一方法是真的打一次那條端點。守門 `scripts/check-api-deps.mjs`（verify §6a ＋ CI workspaces job）現在擋這件事。⚠️ 它的範圍刻意只有 `api/`：其他 workspace 也有漏宣告（`packages/shared/src/components` 的 react／three、`domain/contracts/` 的 `@tenki/engine`），但那些檔案都在各自的 tsc program 之外，漏宣告會**大聲**失敗；這條守的是沉默的那一半 |
+| 函式在正式站 500、而本機與 CI 全綠 | **先讀 `get_runtime_logs`，不要先懷疑設定或保護機制。** `Cannot find module X` ＋ `Require stack` 會直接把漏宣告指出來。診斷要做控制組：挑一個**不** import 那個套件的端點（#304 用 `/api/channel` → 200），才分得出「這兩條壞了」與「整個 API 壞了」—— 兩者的修法完全不同 |
 | 改 `biome.json` | **不能寫註解**（整份設定會靜默失效、退回全 repo 掃描）；要註解改用 `.jsonc` |
 | 排一個 cron（`vercel.json` 的 `crons`）| 🔴 **時間要同時滿足兩個時區的約束，而且 `vercel.json` 寫不進註解 —— 理由寫到 handler 檔頭**。2026-11-02 實例：收束提醒要「ET 收市後、而且還是同一個 ET 交易日」（伺服器判準用的是 ET 交易日 key），最直覺的 UTC 21:05（ET 16:05/17:05）同時也是 UTC+8 的**凌晨 5 點**。選 `0 1 * * *`（ET 20:00/21:00、台北 09:00），**四個日期跨兩個 DST 季實測過**才寫下去，不是推論。⚠️ schedule 是 UTC；Hobby 方案一天只能一次而且觸發時刻有一小時誤差 → 門檻要留足餘裕（這裡 `16 ≤ etHour < 24` 留了 4 小時）|
 | `biome-ignore` | 只覆蓋「下一行」；JSX 多行屬性要貼在該屬性正上方 |

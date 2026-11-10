@@ -54,6 +54,13 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # 🔴 tsc 綠**證明不了**這件事：根 node_modules 有那個套件，所以本機與 CI
+      # 都解析得到，而 lambda 的 bundle 以 api/package.json 當邊界。#304 就是這樣
+      # 讓 /api/alert 在正式站回了 10 天的 500。排在 typecheck 之前，因為它比
+      # typecheck 便宜而且它擋的東西 typecheck 永遠看不到。
+      - name: api/ 的執行期 import 必須宣告在 api/package.json
+        run: node scripts/check-api-deps.mjs
+
       - name: Typecheck (engine, scan, shared, domain, api)
         run: |
           npx tsc --noEmit -p packages/engine

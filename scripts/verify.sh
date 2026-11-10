@@ -79,6 +79,13 @@ run_step "preview syntax (node --check)" check_preview
 # ── 6. 禁用詞彙（TEI/PR99 不得進新代碼）──────────────────
 run_step "banned vocab (check-vocab)" bash scripts/check-vocab.sh
 
+# ── 6a. api/ 的執行期 import 必須宣告在 api/package.json ──
+# 🔴 這條守的是一個**本機永遠看不到**的東西：根 node_modules 有那個套件，所以
+#    tsc 綠、jest 綠、這份腳本其餘每一步都綠 —— 而 lambda 的 bundle 以
+#    api/package.json 當邊界。#304 實例：`web-push` 只宣告在根，於是
+#    /api/alert 與 /api/digest 在正式站回了 10 天的 500。
+run_step "api deps 宣告 (check-api-deps)" node scripts/check-api-deps.mjs
+
 # ── 6b. MEMORY.md 的插入點標記 ──────────────────────────
 # 協議第 1 條說「新條目加在協議正下方」，但那是一個**位置**，而位置需要一個
 # 機械上唯一的 anchor 才找得準。`# YYYY-MM-DD` 標題與 `---` 都不唯一
