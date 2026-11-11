@@ -1217,6 +1217,26 @@ body{
   margin-bottom:4px;
 }
 .empty-plate .ui-ic{width:24px;height:24px;stroke-width:1.5}
+/* 幽靈列：空狀態用「紀錄的形狀」說話。
+   尺寸刻意照抄 `.session-item`（30px 圖示盤、兩行、同樣的圓角與間距），
+   顏色全部取自中性階 —— 不自己發明灰。 */
+/* 🔴 寬度必須跟真紀錄**一模一樣**（滿版，不設 max-width）。
+   第一版給了 300px 上限，渲染出來比真列窄 53px —— 那等於把整個前提
+   「它站在真紀錄會出現的位置」弄丟了，只剩一張裝飾插圖。 */
+.sess-ghost{display:flex;flex-direction:column;gap:7px;width:100%;margin-bottom:6px}
+.sess-ghost .g-row{
+  /* 🔴 這四個值逐一抄自 `.session-item`（padding / radius / gap）與
+     `.tmpl-ic`（36px / radius 10）。抄錯任何一個，它就只是一張像卡片的插圖，
+     而不是「那一列的骨架」。實測要對得上真列的 353×62。 */
+  display:flex;align-items:center;gap:12px;
+  padding:12px 14px;border-radius:14px;
+  border:1px dashed var(--n-700);
+}
+.sess-ghost .g-row.faint{border-color:var(--n-800);opacity:0.5}
+.sess-ghost .g-ic{width:36px;height:36px;border-radius:10px;flex:none;background:var(--n-900)}
+.sess-ghost .g-lines{display:flex;flex-direction:column;gap:5px;flex:1;min-width:0}
+.sess-ghost .g-l{height:7px;border-radius:4px;background:var(--n-800)}
+.sess-ghost .g-l.s{height:6px;background:var(--n-900)}
 /* 既有的圖示盤本來是用 `font-size` 撐 emoji 的 —— 換成 svg 之後要改用盒子尺寸。
    32px 的盤配 18px 的圖，跟 `.session-item .tmpl-ic`（36/20）同一個比例。 */
 .sd-insight .ic > .ui-ic,
@@ -1233,7 +1253,9 @@ body{
 
 .session-empty{
   display:none;flex-direction:column;align-items:center;text-align:center;
-  padding:40px 20px 20px;gap:8px;
+  /* 🔴 左右不留 padding —— 幽靈列要跟真紀錄**切齊**。留 20px 的話它會窄 40px，
+     而「站在真紀錄會出現的位置」就不成立了（文字自己有 max-width 管行寬）。 */
+  padding:40px 0 20px;gap:8px;
 }
 .session-empty.show{display:flex}
 .session-empty .ttl{font-size:15px;font-weight:600;color:#fff}
@@ -1242,7 +1264,7 @@ body{
    第三行才是結尾。一個孤字行在付費產品上看起來就是沒有人校過。
    改用固定的行寬讓它自己平均斷（`text-wrap:balance` 有就更好，沒有也不會壞）。 */
 .session-empty .sub,
-.tl-empty .sub{font-size:12px;color:var(--n-400);line-height:1.6;max-width:262px;text-wrap:balance}
+.tl-empty .sub{font-size:12px;color:var(--n-400);line-height:1.6;max-width:306px;text-wrap:balance}
 
 /* 進場：清單卡片依序浮現（克制）*/
 @keyframes sessRise{ from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
@@ -3303,16 +3325,25 @@ a.lab-wide{text-decoration:none}
         <div id="sessionList"></div>
 
         <div class="session-empty" id="sessionEmpty">
-          <!-- 一條基準線 + 三根遞增的刻度，**最後一根是淡的** ＝ 還沒發生的那一筆。
-               六個候選在真實尺寸（44/32px 兩種盤）排在一起比過才挑的：
-               脈搏波形讀起來是生命徵象（語意錯，而且擦到醫療意象）、
-               實心長條圖讀起來「已經有資料了」、方框+兩列讀起來是一張便條。
-               只有「遞增刻度＋最後一根淡」同時說得出「會累積」與「還沒到」。 -->
-          <div class="empty-plate" aria-hidden="true">
-            <svg class="ui-ic" viewBox="0 0 24 24"><path d="M4 19h16"/><path d="M8 19v-5"/><path d="M12.5 19v-9"/><path d="M17 19v-4" stroke-opacity="0.38"/></svg>
+          <!-- 🔴 空狀態畫的是**紀錄的形狀**，不是一顆圖示。
+               它唯一的工作是降低第一次的門檻 —— 而「還沒有決策紀錄」只說了「沒有」。
+               兩列虛線幽靈卡就站在真紀錄會出現的那個位置（同樣的 30px 圖示盤、
+               同樣的兩行結構），所以使用者不必想像那是什麼。
+               ⚠️ 虛線＋低對比是刻意的：它**不可以**被誤讀成一筆真的紀錄
+               （同 §9b「不得把不知道講成沒做到」那條線）。aria-hidden ＝ 它是
+               示意圖，意思由下面的文字承擔，讀螢幕的人不會聽到兩次。 -->
+          <div class="sess-ghost" aria-hidden="true">
+            <div class="g-row">
+              <div class="g-ic"></div>
+              <div class="g-lines"><div class="g-l" style="width:70%"></div><div class="g-l s" style="width:46%"></div></div>
+            </div>
+            <div class="g-row faint">
+              <div class="g-ic"></div>
+              <div class="g-lines"><div class="g-l" style="width:56%"></div><div class="g-l s" style="width:36%"></div></div>
+            </div>
           </div>
-          <div class="ttl">還沒有決策紀錄</div>
-          <div class="sub">跑一次決策計時器，或走完一次 TradingView 快訊流程，這裡就會出現你的節奏。</div>
+          <div class="ttl">你的第一筆會長這樣</div>
+          <div class="sub">跑一次決策計時器，或走完一次 TradingView 快訊流程。</div>
         </div>
       </div>
     </div>
@@ -4075,11 +4106,11 @@ a.lab-wide{text-decoration:none}
       <div class="bf-title-hero">建立你的生理基線</div>
       <div class="bf-title-sub">TENKI 需要認識你的身體節律，<br>才能精準判斷你的即時狀態</div>
       <div class="bf-bullets">
-        <div class="bf-bullet"><div class="b-ic"><svg class="ui-ic" viewBox="0 0 24 24"><path d="M12 20s-7-4.6-7-9.3A4.2 4.2 0 0 1 12 8a4.2 4.2 0 0 1 7 2.7C19 15.4 12 20 12 20Z"/></svg></div><div class="b-txt">用手指覆蓋鏡頭 <b>30 秒</b></div></div>
+        <div class="bf-bullet"><div class="b-ic"><svg class="ui-ic" viewBox="0 0 24 24"><path d="M3.5 13h3.6l2-4.6 2.7 9 2.1-5.4h6.6"/></svg></div><div class="b-txt">用手指覆蓋鏡頭 <b>30 秒</b></div></div>
         <div class="bf-bullet"><div class="b-ic"><svg class="ui-ic" viewBox="0 0 24 24"><path d="M5 20v-5M12 20V9M19 20V4"/></svg></div><div class="b-txt">立即建立 <b>HR / HRV / RR</b> 個人基線</div></div>
-        <div class="bf-bullet"><div class="b-ic"><svg class="ui-ic" viewBox="0 0 24 24"><path d="M4 18L12 6l4 6 4-8"/><path d="M16 4h4v4"/></svg></div><div class="b-txt">之後每次掃描都會 <b>越來越準</b></div></div>
+        <div class="bf-bullet"><div class="b-ic"><svg class="ui-ic" viewBox="0 0 24 24"><path d="M3.5 19h17" stroke-opacity="0.3"/><path d="M5 16l4.5-5 3.5 3.5L19 7"/><circle cx="19" cy="7" r="1.6"/></svg></div><div class="b-txt">之後每次掃描都會 <b>越來越準</b></div></div>
       </div>
-      <button class="bf-btn bf-btn-primary" onclick="bfGo('sensor')"><span class="bf-btn-ic"><svg class="ui-ic" viewBox="0 0 24 24"><path d="M13 3 5 14h6l-1 7 8-11h-6l1-7Z"/></svg></span>開始校準</button>
+      <button class="bf-btn bf-btn-primary" onclick="bfGo('sensor')"><span class="bf-btn-ic"><svg class="ui-ic" viewBox="0 0 24 24"><path d="M3.5 12h5"/><path d="M15.5 12h5"/><path d="M12 5.5v13"/><circle cx="12" cy="12" r="2.4"/></svg></span>開始校準</button>
       <button class="bf-btn bf-btn-ghost" onclick="closeBaseline()">稍後再說</button>
     </div>
 
@@ -4166,7 +4197,7 @@ a.lab-wide{text-decoration:none}
         <div class="bf-meter"><div class="lbl">訊號</div><div class="bar"><div class="fill" style="width:82%"></div></div><div class="val">82</div></div>
       </div>
       <div class="bf-hint">✓ 訊號優良，準備開始掃描</div>
-      <button class="bf-btn bf-btn-primary" onclick="bfGo('scan')"><span class="bf-btn-ic"><svg class="ui-ic" viewBox="0 0 24 24"><path d="M13 3 5 14h6l-1 7 8-11h-6l1-7Z"/></svg></span>開始掃描</button>
+      <button class="bf-btn bf-btn-primary" onclick="bfGo('scan')"><span class="bf-btn-ic"><svg class="ui-ic" viewBox="0 0 24 24"><path d="M3.5 8V5.5a2 2 0 0 1 2-2H8M16 3.5h2.5a2 2 0 0 1 2 2V8M20.5 16v2.5a2 2 0 0 1-2 2H16M8 20.5H5.5a2 2 0 0 1-2-2V16"/><path d="M8.5 9.5v5M12 9.5v5M15.5 9.5v5"/></svg></span>開始掃描</button>
       <div class="bf-auto-cd"><span>自動開始倒數</span><span class="num" id="bfAutoNum">3</span><span>秒</span></div>
     </div>
 
@@ -4209,7 +4240,7 @@ a.lab-wide{text-decoration:none}
         <div class="bf-analyze-title">正在分析你的生理指紋</div>
         <div class="bf-analyze-sub">Computing Baseline</div>
         <div class="bf-analyze-item processing" id="bfA1">
-          <div class="ic"><svg class="ui-ic" viewBox="0 0 24 24"><path d="M12 20s-7-4.6-7-9.3A4.2 4.2 0 0 1 12 8a4.2 4.2 0 0 1 7 2.7C19 15.4 12 20 12 20Z"/></svg></div>
+          <div class="ic"><svg class="ui-ic" viewBox="0 0 24 24"><path d="M3.5 13h3.6l2-4.6 2.7 9 2.1-5.4h6.6"/></svg></div>
           <div class="info"><div class="nm">心率 HR</div><div class="st">從 38 次心跳提取平均...</div></div>
           <div class="val">68<span class="u">bpm</span></div>
         </div>
@@ -4241,7 +4272,7 @@ a.lab-wide{text-decoration:none}
           <div class="bf-summary-cell"><div class="lbl">RR</div><div class="val">14<span class="u">brpm</span></div></div>
         </div>
       </div>
-      <div class="bf-accuracy"><span class="ic"><svg class="ui-ic" viewBox="0 0 24 24"><path d="M4 18L12 6l4 6 4-8"/><path d="M16 4h4v4"/></svg></span>Edge Score 已啟用 · 之後每次掃描都會比對這條基線</div>
+      <div class="bf-accuracy"><span class="ic"><svg class="ui-ic" viewBox="0 0 24 24"><path d="M3.5 19h17" stroke-opacity="0.3"/><path d="M5 16l4.5-5 3.5 3.5L19 7"/><circle cx="19" cy="7" r="1.6"/></svg></span>Edge Score 已啟用 · 之後每次掃描都會比對這條基線</div>
       <button class="bf-btn bf-btn-primary" onclick="bfFinish()">進入 TENKI</button>
     </div>
 
