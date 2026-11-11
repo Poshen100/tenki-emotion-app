@@ -23,6 +23,13 @@
   <title>TENKI — 外部快訊 → 決策入口（Demo）</title>
   <link rel="stylesheet" href="tokens.css" />
   <style>
+/* 🔴 使用者看得到的圖示走**筆畫**，不用 emoji —— emoji 由作業系統畫，
+   同一個字在 iOS／Android／Windows 長得不一樣，一個賣給全球使用者的訂閱
+   產品不能讓自己的圖示「看使用者的手機而定」。詳見 v6 的同名註解。 */
+.ui-ic{width:16px;height:16px;display:block;flex:none;fill:none;stroke:currentColor;
+  stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.btn-ic{display:inline-flex;align-items:center;justify-content:center;margin-right:7px;vertical-align:-0.2em}
+
     * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     html, body {
       height: 100vh; height: 100dvh;
@@ -779,7 +786,7 @@
             <div class="live-push-hint" id="liveSelfTestResult">用 TradingView 的身分（不帶登入 cookie）打一次這條連結，當場知道通不通。</div>
           </div>
           <div class="live-push" id="livePushRow" hidden>
-            <button class="btn btn-ghost live-push-btn" id="livePushBtn" type="button">🔔 開啟手機推播</button>
+            <button class="btn btn-ghost live-push-btn" id="livePushBtn" type="button"><span class="btn-ic"><svg class="ui-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 1 0-12 0c0 5-2 6-2 6h16s-2-1-2-6"/><path d="M10.3 20a2 2 0 0 0 3.4 0"/></svg></span><span id="livePushLabel">開啟手機推播</span></button>
             <div class="live-push-hint" id="livePushStatus">關掉網頁也能收到快訊 — 先用分享鈕「加入主畫面」，再回來開啟（iOS 16.4+）。</div>
           </div>
         </div>

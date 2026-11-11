@@ -1189,14 +1189,60 @@ body{
 .insight-card .body{font-size:13px;color:rgba(255,255,255,0.88);line-height:1.5}
 .insight-card .body b{color:var(--primary);font-weight:600;font-variant-numeric:tabular-nums}
 
+/* 🔴 使用者看得到的圖示一律走**筆畫**，不用 emoji。
+   三個理由，都不是品味問題：
+   ① emoji 由**作業系統**畫 —— 同一個字在 iOS 是 Apple 的 3D 彩色圖、Android 是
+      Noto、Windows 又是另一套。一個要賣給全球使用者的訂閱產品，它的圖示不能
+      長得「看使用者的手機而定」，那等於沒有品牌。
+   ② 彩色 emoji 吃不到這個產品的顏色語意（§3：gold=SECURED、cyan=ACTIVE、
+      燒橙=Strain）。一顆紅色 🎯 在一張講「還沒有資料」的畫面上，顏色本身就在說謊。
+   ③ 這個 repo 本來就有筆畫圖示系統（`ICON_SVG`：24×24、fill:none、
+      currentColor、round cap）—— emoji 是唯一的例外，不是慣例。
+   founder 2026-11-11 實走 Session 空狀態：「會顯示 AI 的小圖示(emoji)
+   這會降低商業價值」。 */
+.ui-ic{
+  width:22px;height:22px;display:block;flex:none;
+  fill:none;stroke:currentColor;stroke-width:1.6;
+  stroke-linecap:round;stroke-linejoin:round;
+}
+/* 空狀態的圖示盤：**刻意跟 `.session-item .tmpl-ic` 同一個形狀與色票**
+   （36px 圓角方、青色 12% 底）—— 空狀態因此長得像「那一列紀錄的位置」，
+   而不是一張「找不到東西」的插圖。使用者看到的是即將出現的東西的形狀。 */
+.empty-plate{
+  width:44px;height:44px;border-radius:13px;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(0,180,216,0.10);
+  border:1px solid rgba(0,180,216,0.18);
+  color:var(--primary);
+  margin-bottom:4px;
+}
+.empty-plate .ui-ic{width:24px;height:24px;stroke-width:1.5}
+/* 既有的圖示盤本來是用 `font-size` 撐 emoji 的 —— 換成 svg 之後要改用盒子尺寸。
+   32px 的盤配 18px 的圖，跟 `.session-item .tmpl-ic`（36/20）同一個比例。 */
+.sd-insight .ic > .ui-ic,
+.baseline-flow .bf-bullet .b-ic > .ui-ic,
+.baseline-flow .bf-analyze-item .ic > .ui-ic{width:18px;height:18px}
+/* 行內的兩個：跟著文字走，不能是 block（會把那一行拆成兩行）。 */
+.insight-card .head .hd-ic,
+.baseline-flow .bf-accuracy .ic,
+.bf-btn-ic{display:inline-flex;align-items:center;justify-content:center;vertical-align:-0.18em}
+.insight-card .head .hd-ic > .ui-ic{width:13px;height:13px;stroke-width:2}
+.baseline-flow .bf-accuracy .ic > .ui-ic{width:13px;height:13px;stroke-width:1.9}
+.bf-btn-ic{margin-right:7px}
+.bf-btn-ic > .ui-ic{width:16px;height:16px;stroke-width:1.9}
+
 .session-empty{
   display:none;flex-direction:column;align-items:center;text-align:center;
   padding:40px 20px 20px;gap:8px;
 }
 .session-empty.show{display:flex}
-.session-empty .ic{font-size:34px;opacity:0.85;margin-bottom:2px}
 .session-empty .ttl{font-size:15px;font-weight:600;color:#fff}
-.session-empty .sub{font-size:12px;color:var(--n-400);line-height:1.6}
+/* 🔴 不要用 `<br>` 斷句。硬斷點跟自然換行會打架 —— 實測 393 寬，
+   「…走完一次流程，」第一行就滿了，`<br>` 把「程，」兩個字單獨丟到第二行，
+   第三行才是結尾。一個孤字行在付費產品上看起來就是沒有人校過。
+   改用固定的行寬讓它自己平均斷（`text-wrap:balance` 有就更好，沒有也不會壞）。 */
+.session-empty .sub,
+.tl-empty .sub{font-size:12px;color:var(--n-400);line-height:1.6;max-width:262px;text-wrap:balance}
 
 /* 進場：清單卡片依序浮現（克制）*/
 @keyframes sessRise{ from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
@@ -1275,9 +1321,9 @@ body{
 
 .tl-empty{display:none;flex-direction:column;align-items:center;text-align:center;padding:36px 20px 16px;gap:8px}
 .tl-empty.show{display:flex}
-.tl-empty .ic{font-size:32px;opacity:0.85}
+
 .tl-empty .ttl{font-size:15px;font-weight:600;color:#fff}
-.tl-empty .sub{font-size:12px;color:var(--n-400);line-height:1.6}
+
 
 /* Event log 進場 stagger（複用 sessRise）*/
 .tl-event.tl-enter{animation:sessRise 0.42s var(--ease-calm) both}
@@ -3245,7 +3291,7 @@ a.lab-wide{text-decoration:none}
         </div>
 
         <div class="insight-card" id="sessionInsight">
-          <div class="head"><span>📊</span> Decision Insight</div>
+          <div class="head"><span class="hd-ic"><svg class="ui-ic" viewBox="0 0 24 24"><path d="M5 20v-5M12 20V9M19 20V4"/></svg></span> Decision Insight</div>
           <div class="body" id="sessionInsightBody">完成一次決策後，這裡會出現你的節奏統計。</div>
         </div>
 
@@ -3257,9 +3303,16 @@ a.lab-wide{text-decoration:none}
         <div id="sessionList"></div>
 
         <div class="session-empty" id="sessionEmpty">
-          <div class="ic">🎯</div>
+          <!-- 一條基準線 + 三根遞增的刻度，**最後一根是淡的** ＝ 還沒發生的那一筆。
+               六個候選在真實尺寸（44/32px 兩種盤）排在一起比過才挑的：
+               脈搏波形讀起來是生命徵象（語意錯，而且擦到醫療意象）、
+               實心長條圖讀起來「已經有資料了」、方框+兩列讀起來是一張便條。
+               只有「遞增刻度＋最後一根淡」同時說得出「會累積」與「還沒到」。 -->
+          <div class="empty-plate" aria-hidden="true">
+            <svg class="ui-ic" viewBox="0 0 24 24"><path d="M4 19h16"/><path d="M8 19v-5"/><path d="M12.5 19v-9"/><path d="M17 19v-4" stroke-opacity="0.38"/></svg>
+          </div>
           <div class="ttl">還沒有決策紀錄</div>
-          <div class="sub">跑一次決策計時器，或收到 TradingView 快訊走完一次流程，<br>這裡就會出現你的節奏。</div>
+          <div class="sub">跑一次決策計時器，或走完一次 TradingView 快訊流程，這裡就會出現你的節奏。</div>
         </div>
       </div>
     </div>
@@ -3315,9 +3368,13 @@ a.lab-wide{text-decoration:none}
         </div>
 
         <div class="tl-empty" id="tlEmpty">
-          <div class="ic">🕓</div>
+          <!-- 同一套筆畫，但刻度**掛在軸線下方** ＝ 時間軸，不是筆數。
+               兩顆放在一起要分得出來，否則兩個空狀態會長得一模一樣。 -->
+          <div class="empty-plate" aria-hidden="true">
+            <svg class="ui-ic" viewBox="0 0 24 24"><path d="M3 10h18"/><path d="M7 10v4"/><path d="M12.5 10v4"/><path d="M18 10v4" stroke-opacity="0.38"/></svg>
+          </div>
           <div class="ttl">還沒有決策紀錄</div>
-          <div class="sub">跑一次決策，或走完一次 TradingView 快訊流程，<br>這裡就會畫出你一天的決策節奏。</div>
+          <div class="sub">跑一次決策，或走完一次 TradingView 快訊流程，這裡就會畫出你一天的節奏。</div>
         </div>
       </div>
     </div>
@@ -3621,7 +3678,7 @@ a.lab-wide{text-decoration:none}
 
       <!-- Insight（事實語言）-->
       <div class="sd-insight">
-        <div class="ic">📊</div>
+        <div class="ic"><svg class="ui-ic" viewBox="0 0 24 24"><path d="M5 20v-5M12 20V9M19 20V4"/></svg></div>
         <div class="body">
           <div class="head">Pattern Insight</div>
           <span id="sdInsight"></span>
@@ -4018,11 +4075,11 @@ a.lab-wide{text-decoration:none}
       <div class="bf-title-hero">建立你的生理基線</div>
       <div class="bf-title-sub">TENKI 需要認識你的身體節律，<br>才能精準判斷你的即時狀態</div>
       <div class="bf-bullets">
-        <div class="bf-bullet"><div class="b-ic">🫀</div><div class="b-txt">用手指覆蓋鏡頭 <b>30 秒</b></div></div>
-        <div class="bf-bullet"><div class="b-ic">📊</div><div class="b-txt">立即建立 <b>HR / HRV / RR</b> 個人基線</div></div>
-        <div class="bf-bullet"><div class="b-ic">🎯</div><div class="b-txt">之後每次掃描都會 <b>越來越準</b></div></div>
+        <div class="bf-bullet"><div class="b-ic"><svg class="ui-ic" viewBox="0 0 24 24"><path d="M12 20s-7-4.6-7-9.3A4.2 4.2 0 0 1 12 8a4.2 4.2 0 0 1 7 2.7C19 15.4 12 20 12 20Z"/></svg></div><div class="b-txt">用手指覆蓋鏡頭 <b>30 秒</b></div></div>
+        <div class="bf-bullet"><div class="b-ic"><svg class="ui-ic" viewBox="0 0 24 24"><path d="M5 20v-5M12 20V9M19 20V4"/></svg></div><div class="b-txt">立即建立 <b>HR / HRV / RR</b> 個人基線</div></div>
+        <div class="bf-bullet"><div class="b-ic"><svg class="ui-ic" viewBox="0 0 24 24"><path d="M4 18L12 6l4 6 4-8"/><path d="M16 4h4v4"/></svg></div><div class="b-txt">之後每次掃描都會 <b>越來越準</b></div></div>
       </div>
-      <button class="bf-btn bf-btn-primary" onclick="bfGo('sensor')"><span>⚡</span> 開始校準</button>
+      <button class="bf-btn bf-btn-primary" onclick="bfGo('sensor')"><span class="bf-btn-ic"><svg class="ui-ic" viewBox="0 0 24 24"><path d="M13 3 5 14h6l-1 7 8-11h-6l1-7Z"/></svg></span>開始校準</button>
       <button class="bf-btn bf-btn-ghost" onclick="closeBaseline()">稍後再說</button>
     </div>
 
@@ -4109,7 +4166,7 @@ a.lab-wide{text-decoration:none}
         <div class="bf-meter"><div class="lbl">訊號</div><div class="bar"><div class="fill" style="width:82%"></div></div><div class="val">82</div></div>
       </div>
       <div class="bf-hint">✓ 訊號優良，準備開始掃描</div>
-      <button class="bf-btn bf-btn-primary" onclick="bfGo('scan')">⚡ 開始掃描</button>
+      <button class="bf-btn bf-btn-primary" onclick="bfGo('scan')"><span class="bf-btn-ic"><svg class="ui-ic" viewBox="0 0 24 24"><path d="M13 3 5 14h6l-1 7 8-11h-6l1-7Z"/></svg></span>開始掃描</button>
       <div class="bf-auto-cd"><span>自動開始倒數</span><span class="num" id="bfAutoNum">3</span><span>秒</span></div>
     </div>
 
@@ -4152,7 +4209,7 @@ a.lab-wide{text-decoration:none}
         <div class="bf-analyze-title">正在分析你的生理指紋</div>
         <div class="bf-analyze-sub">Computing Baseline</div>
         <div class="bf-analyze-item processing" id="bfA1">
-          <div class="ic">❤</div>
+          <div class="ic"><svg class="ui-ic" viewBox="0 0 24 24"><path d="M12 20s-7-4.6-7-9.3A4.2 4.2 0 0 1 12 8a4.2 4.2 0 0 1 7 2.7C19 15.4 12 20 12 20Z"/></svg></div>
           <div class="info"><div class="nm">心率 HR</div><div class="st">從 38 次心跳提取平均...</div></div>
           <div class="val">68<span class="u">bpm</span></div>
         </div>
@@ -4184,7 +4241,7 @@ a.lab-wide{text-decoration:none}
           <div class="bf-summary-cell"><div class="lbl">RR</div><div class="val">14<span class="u">brpm</span></div></div>
         </div>
       </div>
-      <div class="bf-accuracy"><span class="ic">✨</span>Edge Score Decision Edge 已啟用 · 系統將持續優化</div>
+      <div class="bf-accuracy"><span class="ic"><svg class="ui-ic" viewBox="0 0 24 24"><path d="M4 18L12 6l4 6 4-8"/><path d="M16 4h4v4"/></svg></span>Edge Score 已啟用 · 之後每次掃描都會比對這條基線</div>
       <button class="bf-btn bf-btn-primary" onclick="bfFinish()">進入 TENKI</button>
     </div>
 

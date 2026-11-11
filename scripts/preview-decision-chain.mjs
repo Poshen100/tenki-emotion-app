@@ -2341,6 +2341,50 @@ console.log('\n── Session 清單的「下面還有」──');
   await sp.close();
 }
 
+// ═══════════════════════════════════════════════════
+// 使用者看得到的地方不得出現彩色 emoji
+//
+// 🔴 這不是品味問題，是三件可以講清楚的事：
+//   ① emoji 由**作業系統**畫 —— 同一個字在 iOS 是 Apple 的 3D 彩圖、Android 是
+//      Noto、Windows 又另一套。一個賣給全球使用者的訂閱產品，它的圖示不能
+//      「看使用者的手機而定」，那等於沒有品牌。
+//   ② 彩色 emoji 吃不到這個產品的顏色語意（gold=SECURED、cyan=ACTIVE、
+//      燒橙=Strain）。一顆紅色 🎯 放在「還沒有資料」的畫面上，顏色本身就在說謊。
+//   ③ 這個 repo 本來就有筆畫圖示系統（24×24、fill:none、currentColor）——
+//      emoji 是例外不是慣例。
+// founder 2026-11-11 實走 Session 空狀態：「會顯示 AI 的小圖示(emoji)
+// 這會降低商業價值」。當時全 app 有 24 處，他只看到其中一處。
+//
+// ⚠️ 只掃**使用者看得到的字串**：註解不算（🔴/⚠️ 是給讀 code 的人看的標記，
+//    而且它們是這份 codebase 的語彙）。判準＝該行去掉註解前綴後仍有彩色象形字。
+console.log('\n── 使用者看得到的地方不得有彩色 emoji ──');
+{
+  // 彩色象形區段；刻意**不含** ✓✗▾›─═ 這類排版記號（它們是單色字型字符，
+  // 跨平台長得一樣，不是 emoji）。
+  const PICTO = /[\u{1F300}-\u{1FAFF}\u{2728}\u{26A1}\u{2764}\u{1F000}-\u{1F0FF}]/u;
+  const SKIP = new Set(['🔴', '🟢', '🟡', '⚠']);
+  const targets = ['apps/preview/v6/index.html', 'apps/preview/decision-alert.html',
+                   'apps/preview/decision-alert.js'];
+  // 🔴 **先把註解整段挖掉，再掃** —— 不能只看行首。
+  //    第一版用「這一行是不是以 // 或 * 開頭」判斷，結果區塊註解的**續行**
+  //    （中文註解常常這樣換行）被當成使用者字串，兩個自己寫的註解立刻誤報。
+  //    閘門的形狀要跟證據的形狀對齊：註解是**區段**，不是行。
+  //    換成空白保留行號，這樣報出來的位置還是對的。
+  const stripComments = (src) => src
+    .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '))
+    .replace(/<!--[\s\S]*?-->/g, (m) => m.replace(/[^\n]/g, ' '))
+    .replace(/(^|[^:])\/\/[^\n]*/g, (m, p1) => p1 + ' '.repeat(m.length - p1.length));
+  const offenders = [];
+  for (const rel of targets) {
+    const text = stripComments(readFileSync(join(repoRoot, rel), 'utf8'));
+    text.split('\n').forEach((line, i) => {
+      const found = [...line].filter((ch) => PICTO.test(ch) && !SKIP.has(ch));
+      if (found.length > 0) offenders.push(`${rel}:${i + 1} ${found.join('')} → ${line.trim().slice(0, 60)}`);
+    });
+  }
+  check(`🔴 三個主要畫面的使用者字串沒有彩色 emoji（掃到 ${offenders.length} 處）`, offenders, []);
+}
+
 check('整條鏈走完沒有任何 page error', pageErrors, []);
 
 await browser.close();

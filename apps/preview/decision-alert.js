@@ -53,7 +53,7 @@
   // Mirror of packages/engine/src/session/templates.ts TRADER_TEMPLATES
   var TEMPLATES = {
     FBD: {
-      id: 'FBD', nameZh: 'Mancini 假跌破流程', icon: '🎯', durationSec: 180,
+      id: 'FBD', nameZh: 'Mancini 假跌破流程', durationSec: 180,
       segments: [
         { startSec: 0, endSec: 60, color: '#5E3A87', label: 'Ground' },
         { startSec: 60, endSec: 120, color: '#00B4D8', label: 'Execute' },
@@ -62,7 +62,7 @@
       readinessWindow: { startSec: 60, endSec: 120 },
     },
     CANSLIM: {
-      id: 'CANSLIM', nameZh: 'Canslim GS 流程', icon: '📋', durationSec: 300,
+      id: 'CANSLIM', nameZh: 'Canslim GS 流程', durationSec: 300,
       segments: [
         { startSec: 0, endSec: 60, color: '#FF6B35', label: 'Observe' },
         { startSec: 60, endSec: 180, color: '#00B4D8', label: 'Readiness' },
@@ -71,7 +71,7 @@
       readinessWindow: { startSec: 60, endSec: 180 },
     },
     MODE_2: {
-      id: 'MODE_2', nameZh: '高 RS 突破流程', icon: '⚡', durationSec: 240,
+      id: 'MODE_2', nameZh: '高 RS 突破流程', durationSec: 240,
       segments: [
         { startSec: 0, endSec: 45, color: '#FF6B35', label: 'Quick Read' },
         { startSec: 45, endSec: 150, color: '#00B4D8', label: 'Readiness' },
@@ -417,7 +417,7 @@
     'liveSetup', 'liveReady', 'liveGenerate', 'liveUrl', 'liveUrlWarn', 'liveCopy', 'liveReset',
     'liveResetWarn',
     'liveSymbol', 'liveTimeframe', 'liveStrategy',
-    'livePushRow', 'livePushBtn', 'livePushStatus',
+    'livePushRow', 'livePushBtn', 'livePushLabel', 'livePushStatus',
     'liveSelfTest', 'liveSelfTestResult',
     'setToggle', 'setStatus', 'setChevron', 'setBody', 'setCooldown', 'setAggregation',
     'setStrainSilent', 'setSessionQuiet', 'setQuietWindow', 'setCadenceCollapse', 'setReset',
@@ -2158,7 +2158,8 @@
     // 留著並說出原因與下一步，跟自我測試那句紅字同一條規則（要講出範圍）。
     if (!pushSupported()) {
       el.livePushBtn.disabled = true;
-      el.livePushBtn.textContent = '🔔 手機推播（這個瀏覽器不支援）';
+      // 🔴 只改文字那一格 —— 寫 `livePushBtn.textContent` 會把筆畫圖示一起洗掉。
+      if (el.livePushLabel) el.livePushLabel.textContent = '手機推播（這個瀏覽器不支援）';
       setPushStatus('iOS 只有「加入主畫面」後、從主畫面那顆圖示開啟的 App 才有網頁推播'
         + '（Safari 分頁與 App 內建瀏覽器都沒有）。⚠️ 主畫面 App 有自己的儲存空間，'
         + '會產生一條新的專屬連結 —— 開啟推播後記得回來「複製連結」重貼進 TradingView，'
@@ -2173,7 +2174,7 @@
           // 🔴 按鈕講的是**瀏覽器**的狀態（這支瀏覽器訂閱了嗎），
           //    底下那行講的是**頻道**的狀態（這條連結推得到你嗎）。
           //    兩件不同的事，所以兩句話 —— 合成一句的話，其中一條路一定被講錯。
-          el.livePushBtn.textContent = '🔔 手機推播已開啟';
+          if (el.livePushLabel) el.livePushLabel.textContent = '手機推播已開啟';
           setPushStatus('正在把推播接到這條連結…', true);
           rebindPush(sub).then(function (ok) {
             setPushStatus(
@@ -2212,7 +2213,7 @@
         }).then(function (r) {
           if (!r.ok) throw new Error('伺服器 ' + r.status);
           localStorage.setItem(PUSH_FLAG_KEY, '1');
-          el.livePushBtn.textContent = '🔔 手機推播已開啟';
+          if (el.livePushLabel) el.livePushLabel.textContent = '手機推播已開啟';
           setPushStatus('搞定 — 關掉網頁、ES1! 觸發也會跳通知。', true);
         });
       })
