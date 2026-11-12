@@ -366,6 +366,25 @@ function quietSegmentNote(log) {
     if (rescued > 0) {
         return `安靜段讀數 救起 ${rescued}/${tried.length} 次`;
     }
+    // 🔴 補光燈開與關是**兩個不同的實驗**，不是同一個量的兩個樣本。跨著它們取
+    // 中位數，得到的數字哪一邊都不描述 —— n=2 時 medianOf 取的是兩個中間值的
+    // **平均**，所以 2026-11-12 的報告把「4.5 秒」和「60 秒」印成「32.25 秒」，
+    // 而那次擷取真正的發現正是「關掉補光燈之後，相機整整 60 秒沒有來打擾」。
+    // 那個發現被平均掉了，要靠反推才拿得回來。
+    // 曝光那一行早就分開印（torchSplitNote），這一行是同一個道理 ——
+    // 而它才是決定下一步的那一行。
+    const lit = tried.filter((c) => c.torchOn === true);
+    const dark = tried.filter((c) => c.torchOn === false);
+    if (lit.length > 0 && dark.length > 0) {
+        return [
+            `安靜段讀數 0/${tried.length}`,
+            `    補光燈開 —— ${quietSegmentFacts(lit)}`,
+            `    補光燈關 —— ${quietSegmentFacts(dark)}`,
+        ].join('\n');
+    }
+    return `安靜段讀數 0/${tried.length} —— ${quietSegmentFacts(tried)}`;
+}
+function quietSegmentFacts(tried) {
     const longest = medianOf(tried.map((c) => c.quietSegments.longestSec));
     const windows = medianOf(tried.map((c) => c.quietSegments.usableWindowCount));
     const rhythm = medianOf(tried
@@ -395,7 +414,7 @@ function quietSegmentNote(log) {
     const rhythmText = unnameable === tried.length
         ? `估不出來（${unnameable}/${tried.length} 次主成分不在心搏帶內）`
         : fmt(rhythm);
-    return (`安靜段讀數 0/${tried.length} —— 可用視窗 ${fmt(windows)}（需要 3）· ` +
+    return (`可用視窗 ${fmt(windows)}（需要 3）· ` +
         `最長安靜段 ${fmt(longest)} 秒 · 脈動光 AC/DC ${fmt(pulsatile)}（指尖約 0.005–0.02）· ` +
         `節律 ${rhythmText}` +
         (noPulsatileLight

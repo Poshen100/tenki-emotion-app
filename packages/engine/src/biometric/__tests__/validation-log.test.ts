@@ -208,6 +208,49 @@ describe('🔴 log 是跨版本存下來的 —— 舊紀錄不得讓報告整�
     expect(report).not.toContain('多數是');
   });
 
+  it('🔴 補光燈開／關是兩個實驗 —— 安靜段的數字要各印一份，不得跨著平均', () => {
+    // 🔴 2026-11-12 實機：開的那次最長安靜段 4.5 秒、關的那次 60 秒，而報告
+    // 印出來的是「32.25 秒」—— n=2 時 medianOf 取兩個中間值的**平均**，所以
+    // 那次擷取真正的發現（關掉補光燈之後相機整整 60 秒沒來打擾）被平均掉了，
+    // 要靠反推才拿得回來。曝光那一行早就分開印，這一行是同一個道理。
+    const report = formatValidationReport([
+      capture({
+        torchOn: true,
+        quietSegments: {
+          bpm: null, foundCount: 3, usableWindowCount: 1, longestSec: 4.5,
+          longestPeriodicity: 0.36, longestPerfusion: 0.0167, spreadBpm: null,
+        },
+      }),
+      capture({
+        torchOn: false,
+        quietSegments: {
+          bpm: null, foundCount: 1, usableWindowCount: 0, longestSec: 60,
+          longestPeriodicity: 0.36, longestPerfusion: 0.0033, spreadBpm: null,
+        },
+      }),
+    ]);
+    expect(report).toContain('安靜段讀數 0/2');
+    expect(report).toContain('補光燈開 —— 可用視窗 1（需要 3）· 最長安靜段 4.5 秒');
+    expect(report).toContain('補光燈關 —— 可用視窗 0（需要 3）· 最長安靜段 60 秒');
+    // 🔴 平均值一個字都不准出現 —— 它哪一邊都不描述。
+    expect(report).not.toContain('32.25');
+    expect(report).not.toContain('0.5（需要 3）');
+  });
+
+  it('只有一種補光燈狀態時不分開印（分開會變成一邊空著）', () => {
+    const report = formatValidationReport([
+      capture({
+        torchOn: true,
+        quietSegments: {
+          bpm: null, foundCount: 3, usableWindowCount: 1, longestSec: 4.5,
+          longestPeriodicity: 0.36, longestPerfusion: 0.0167, spreadBpm: null,
+        },
+      }),
+    ]);
+    expect(report).toContain('安靜段讀數 0/1 —— 可用視窗 1（需要 3）');
+    expect(report).not.toContain('補光燈開 ——');
+  });
+
   it('🔴 脈動光低於下限時，直接說光裡沒有血流訊號', () => {
     // 🔴 這是整條診斷鏈的終點，而判準是**脈動光的原始 AC/DC**，不是節律。
     // 「找不到節律」不等於「沒有脈動光」—— 節律估不出來可能是別的東西在蓋，
