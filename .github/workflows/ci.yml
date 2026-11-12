@@ -161,6 +161,19 @@ jobs:
       # 三次都失敗、job 紅掉，log 裡仍然有「這台 runner 本來就有哪些字型」——
       # 那份清單是判斷「能不能乾脆不裝、直接用 runner 既有字型」的唯一依據。
       # 沒有它，下一個人只能再猜一次。
+      #
+      # 🔴 **它已經回答過一次了（2026-11-12 量的，run 43134169026）：
+      # 這台 ubuntu-24.04 runner 的 CJK 字型是 0 個**，`fc-match sans-serif`
+      # 是 DejaVu Sans。所以「不裝、用既有字型」這條路**不存在**，不要再試。
+      #
+      # ⚠️ **空白不是一個答案。** 盤點原本寫成 `fc-list … || echo "(一個都沒有)"`，
+      # 而 `fc-list` 空輸出也回 0 → fallback 永遠不觸發。於是第一次量到的結果是
+      # log 上一塊**什麼都沒有的區域** —— 它剛好就是「0 個」，但下一個讀的人
+      # 分不出「真的沒有」跟「這個診斷自己壞了」。現在顯式數行數並印出 0。
+      # 同一科的錯：把「沒量到」畫成跟「量到沒有」一樣。
+      # ⚠️ 修的時候又踩了一次同一個坑：第一版的修法在 `fc-list` **跑失敗**時
+      # 也印「沒有任何 CJK 字型」。所以現在是三種狀態各一句話 ——
+      # 列出來／0 個／盤點自己失敗。前兩個是量到的結果，第三個不是。
       # ⚠️ 盤點一律包 `|| true`：`set -o pipefail` 下 `… | head` 會因為
       # head 提早關閉管線而讓整段非零離開（實測：後面那行 echo 根本沒跑到）。
       # 一個為了診斷而加的指令把 job 殺掉，是這一刀最容易自己製造的笑話。
@@ -168,7 +181,17 @@ jobs:
         run: |
           set -euo pipefail
           echo "--- 安裝前：這台 runner 本來就有的 CJK 字型 ---"
-          { fc-list :lang=zh-tw family | sort -u; } || echo "(一個都沒有)"
+          if before_cjk=$(fc-list :lang=zh-tw family 2>/dev/null); then
+            before_cjk=$(printf '%s\n' "$before_cjk" | sort -u | sed '/^$/d')
+            if [ -z "$before_cjk" ]; then
+              echo "(0 個：這台 runner 沒有任何 CJK 字型)"
+            else
+              printf '%s\n' "$before_cjk"
+              printf '(共 %s 個)\n' "$(printf '%s\n' "$before_cjk" | wc -l)"
+            fi
+          else
+            echo "(盤點自己失敗：fc-list 跑不起來或回非零。這**不等於**「沒有字型」—— 底下那個數字不存在，不要當成 0 讀。)"
+          fi
           echo "--- 安裝前：sans-serif 目前解析到 ---"
           { fc-match sans-serif; } || true
           for i in 1 2 3; do
@@ -197,8 +220,37 @@ jobs:
 
       # ⚠️ 這一步是 CI 專屬。PLAYBOOK 有一條「不要 playwright install」——
       # 那是**開發容器**的規則（瀏覽器已預裝在 /opt/pw-browsers），不適用於 runner。
+      #
+      # 🔴 **這一步也跑 apt，而它才是必須成功的那一個。**
+      # `--with-deps` 會自己 `apt-get install` 一串套件，而 playwright 的 chromium
+      # 相依清單**本來就含 `fonts-wqy-zenhei`**（playwright-core nativeDeps，與
+      # fonts-liberation / fonts-noto-color-emoji 並列）。2026-11-12 的 log 裡那句
+      # `fonts-wqy-zenhei is already the newest version` 就是它在講上一步裝過了。
+      #
+      # 兩個後果，都跟直覺反過來：
+      #   ① 刪掉上面那個 Pin fonts **不會**讓 apt 離開關鍵路徑 —— #308 照樣會死，
+      #      只是晚一步死在這裡。那條「乾脆不裝」的路因此是假的。
+      #   ② 只給 Pin fonts 加重試，等於保護了**可有可無**的那個 apt，
+      #      而把必須成功的這個留著裸奔。所以同一套重試要蓋這裡。
+      #
+      # 上面那個 Pin fonts 仍然留著，理由是顯式：repo 自己說出它需要這個字型，
+      # 不靠「playwright 剛好也會裝」。哪天 playwright 換掉清單，金絲雀會紅，
+      # 不會安靜地換成 DejaVu 去量版面。
       - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+        run: |
+          set -euo pipefail
+          for i in 1 2 3; do
+            if npx playwright install --with-deps chromium; then
+              echo "Chromium + 系統相依安裝成功（第 $i 次嘗試）"
+              break
+            fi
+            if [ "$i" = 3 ]; then
+              echo "::error::連續三次裝不起 Chromium 與它的系統相依。這一步會跑 apt（也會下載瀏覽器），所以先看上面是 apt mirror 解析失敗、還是 cdn.playwright.dev 下載失敗 —— 兩者都不是版面問題。"
+              exit 1
+            fi
+            echo "第 $i 次失敗，等 $((i * 15))s 再試"
+            sleep $((i * 15))
+          done
 
       - name: FDCB + Turning Point harness
         run: node scripts/preview-fdcb.mjs
