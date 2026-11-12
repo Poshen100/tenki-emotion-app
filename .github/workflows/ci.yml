@@ -140,10 +140,49 @@ jobs:
         run: npm ci
 
       # 跟開發容器同一套字型 —— 不釘的話版面斷言會假紅（見上方註解）
+      #
+      # 🔴 **這一步會把整個 job 殺掉，而且是在任何一條測試跑之前。**
+      # 2026-11-11 實例（#308）：runner 解不到 azure.archive.ubuntu.com，
+      # `apt-get install` 回 100，`shell: bash -e` → job 當場結束。
+      # 畫面上看起來像 harness 壞了，實際上 Playwright 連啟動都沒有，
+      # 而那個 PR 只動了一個 preview 的 html 檔。那次故障**持續超過一小時**
+      # （14:07 與 15:15 兩次 run 的 log 一模一樣）。
+      #
+      # ⚠️ **重試擋的是短暫失敗，不是那一次。** 三次 15/30s 退避總共撐 45 秒 ——
+      # 對一小時的故障無效。放它進來是因為短暫失敗本來就更常見，而且便宜；
+      # **不要**把它當成「那個故障修好了」。
+      #
+      # ⚠️ **不可以改成「失敗也繼續」**（`|| true`、`continue-on-error`）。
+      # 字型裝不起來的話 harness 會在**錯的字型**下量文字寬度與行數 ——
+      # 那正是假綠與假紅的來源，字型金絲雀（scripts/lib/playwright.mjs 檔頭）
+      # 就是為了擋這件事。所以只加重試，不加容忍。
+      #
+      # 🔴 **失敗的路徑也要留下資料。** 下面的盤點印在安裝**之前**，所以就算
+      # 三次都失敗、job 紅掉，log 裡仍然有「這台 runner 本來就有哪些字型」——
+      # 那份清單是判斷「能不能乾脆不裝、直接用 runner 既有字型」的唯一依據。
+      # 沒有它，下一個人只能再猜一次。
+      # ⚠️ 盤點一律包 `|| true`：`set -o pipefail` 下 `… | head` 會因為
+      # head 提早關閉管線而讓整段非零離開（實測：後面那行 echo 根本沒跑到）。
+      # 一個為了診斷而加的指令把 job 殺掉，是這一刀最容易自己製造的笑話。
       - name: Pin fonts (match the dev container)
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq fonts-wqy-zenhei
+          set -euo pipefail
+          echo "--- 安裝前：這台 runner 本來就有的 CJK 字型 ---"
+          { fc-list :lang=zh-tw family | sort -u; } || echo "(一個都沒有)"
+          echo "--- 安裝前：sans-serif 目前解析到 ---"
+          { fc-match sans-serif; } || true
+          for i in 1 2 3; do
+            if sudo apt-get update -qq && sudo apt-get install -y -qq fonts-wqy-zenhei; then
+              echo "字型安裝成功（第 $i 次嘗試）"
+              break
+            fi
+            if [ "$i" = 3 ]; then
+              echo "::error::連續三次裝不到 fonts-wqy-zenhei。這不是版面問題，是 runner 的 apt mirror（2026-11-11 實例：azure.archive.ubuntu.com 解析失敗超過一小時）。上面「安裝前本來就有的 CJK 字型」那份清單可以判斷要不要改走不經 apt 的路。"
+              exit 1
+            fi
+            echo "第 $i 次失敗，等 $((i * 15))s 再試"
+            sleep $((i * 15))
+          done
           fc-cache -f
           echo "--- sans-serif 解析到 ---"
           fc-match sans-serif
