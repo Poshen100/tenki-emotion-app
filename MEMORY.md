@@ -28,6 +28,57 @@
      勿刪、勿移動、勿複製第二份：`scripts/verify.sh` 驗它恰好出現一次、
      而且排在所有條目之前。它的存在理由見協議第 1 條。 -->
 
+# 2026-11-12 Session Update（CI 的字型步驟：重試蓋錯了地方，診斷的空白不是答案）
+
+## What was done
+- **#308 的紅不是版面問題。** `Pin fonts` 跑在 `bash -e` 下，runner 解不到
+  `azure.archive.ubuntu.com` → `apt-get` 回 100 → preview job 在**任何一條測試跑之前**
+  就結束，Playwright 連啟動都沒有。那個 PR 只動了一個 preview html 檔。
+  那次故障**持續超過一小時**（14:07 與 15:15 兩次 run 的 log 一模一樣），
+  所以我先前寫的 3 次重試修法對它無效 —— 當場自己撤掉，等 #308 併了才以
+  `[制度變更]` 單獨開 PR #309（🟡 級，founder 自己 merge）。
+- PR #309 做三件刻意分開的事：① 重試（短暫失敗）② 不容忍（沒有 `|| true`）
+  ③ **失敗的路徑也要留下資料**（字型盤點印在安裝之前）。
+
+## 教訓（兩個都是第一版推上去之後，被自己的 log 推翻的）
+- 🔴 **重試蓋在可有可無的那個呼叫上。** `npx playwright install --with-deps chromium`
+  **自己也跑 apt**，而 playwright 的 chromium 相依清單**本來就含 `fonts-wqy-zenhei`**
+  （`playwright-core` nativeDeps，與 `fonts-liberation` 並列）。證據：log 裡 playwright
+  那步的 `fonts-wqy-zenhei is already the newest version`。兩個後果都跟直覺反過來 ——
+  (a) **刪掉 `Pin fonts` 不會讓 apt 離開關鍵路徑**（#308 照樣死，只是晚一步），
+  我原本把它列為「更強的做法」，那條路是假的；(b) 我保護了可省的那個 apt。
+  → 同一套重試補到 `Install Chromium`；`Pin fonts` 留著的理由改成**顯式**
+  （repo 自己說它要這個字型，不靠 playwright 剛好會裝；換清單時金絲雀會紅）。
+- 🔴 **空白不是一個答案。** 盤點寫成 `fc-list … || echo "(一個都沒有)"`，而
+  `fc-list` **空輸出也回 0** → fallback 是死碼，log 上只剩一塊什麼都沒有的區域。
+  它剛好就是對的答案（runner 的 CJK 字型真的是 0 個），但下一個讀的人
+  **分不出「真的沒有」跟「這個診斷自己壞了」**。
+  ⚠️ 而且修的時候又犯一次同一個錯：第一版修法在 `fc-list` **跑失敗**時也印
+  「沒有任何 CJK 字型」—— 那是把「沒量到」講成「量到沒有」。現在三種狀態各一句話。
+- ⚠️ **為了診斷而加的指令自己不能殺 job。** `set -o pipefail` 下 `… | head` 會因為
+  `head` 提早關管線而讓整段非零離開 —— 實測過，後面那行 `echo` 根本沒跑到。
+- ⚠️ 這四條已提煉進 `docs/PLAYBOOK.md` §5（情境 → 規則）。
+
+## 量到的事實（別再猜）
+- **ubuntu-24.04 runner 的 CJK 字型是 0 個**，`fc-match sans-serif` = DejaVu Sans
+  （2026-11-12，run 43134169026 / 43137607901）。所以「不裝、用既有字型」不存在。
+- 驗證方式：**從解析後的 YAML 抽真實 script**（不另抄一份），配假的
+  `apt-get`/`sudo`/`npx`/`sleep` 跑 0／2／3 次失敗 → `0 / 0 / 1`，兩步皆然；
+  盤點三態（列出來／0 個／盤點失敗）三句話不同且都不殺 step。
+  真實 runner 上也確認了 `(0 個：這台 runner 沒有任何 CJK 字型)` 這一行。
+
+## 下次接手點
+1. 🔴 **founder 自己 merge PR #309**（🟡 制度變更）。CI 四個 job 全綠、
+   `npm run verify -- --quick` 25 步全綠。
+2. 真正的修法還沒做：**把 `.deb` 快取起來**（`actions/cache`）讓 mirror 離開關鍵路徑。
+   ⚠️ 要蓋**兩個** apt 才有意義（`Pin fonts` ＋ `playwright --with-deps`）。
+3. 🔴 仍然只有 founder 能驗的那一段：**真的觸發一次 TradingView 快訊**
+   （收到 → 推送送出 → 手機響）。`/api/alert` 回 405、`/api/digest` 回 401
+   都只證明函式活著，不證明推送本身。
+4. founder 手機實走新圖示與幽靈列（Session 空狀態／有紀錄／Today 教練卡）。
+
+---
+
 # 2026-11-09 Session Update（去設 CRON_SECRET，挖到 /api/alert 在正式站崩了 10 天）
 
 **founder 說「CRON_SECRET 你可以幫我完成嗎？我授權」。結果兩件事都不是原本以為的樣子。**
