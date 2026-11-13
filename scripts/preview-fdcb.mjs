@@ -248,7 +248,8 @@ const outcomes = (page) => page.evaluate(() => {
 console.log('\n── 字型金絲雀 ──');
 {
   const page = await openV3(700);
-  const { drift, measured } = await checkFontCanary(page);
+  // /v3/ 的介面字是自架的 Geist（2026-11-13）；量系統字的基準在這一頁沒有意義。
+  const { drift, measured } = await checkFontCanary(page, 'geist');
   // 🔴 **無論過不過都把數字印出來** —— 容差訂得對不對，要靠各環境的真值來判斷，
   //    不是靠感覺。CI 的 log 裡從此就有 runner 的實測值。
   measured.forEach((m) => console.log('   ' + m));
@@ -1623,7 +1624,19 @@ console.log('\n── Hero 讀數不得爆版 ──');
         // 把 `.tab.active` 改成吃 `var(--tmpl)`（tabbar 在 .screen 與 #fdcb 之外）
         // **照樣全綠**。一條「名單以外都不准變」的斷言，範圍必須是「全部」，
         // 不是「我想得到的那幾個容器」。
+        // 🔴 模板圖示的**內部**不進名單（2026-11-13）。key 帶著節點序號，而
+        //    `#fdcbIcon` 裡的 svg 每個模板子節點數不同（舊圖示：Mancini 2 個、
+        //    Exercise 1 個）→ **它之後的每一個節點序號都錯開一格**，於是兩邊同一個
+        //    key 指到的不是同一個節點：class 不同的 `b[k] === undefined` 直接跳過，
+        //    class 相同的則是**拿隔壁那一個來比**。
+        //    ⚠️ 它不是完全失效 —— 實測在舊版把 `.tab.active` 改吃 `var(--tmpl)`
+        //    仍然會紅（svg 的 key 同名，錯位也撞得到）。漏的是「錯位後 class 對不上」
+        //    的那些：進度軌的 seg-obs／seg-sweet 冷暖兩族底色本來就不同，從沒被比到。
+        //    換成 Datum Glyphs 之後兩顆剛好都是 2 個子節點，序號對齊，才第一次比到。
+        //    把圖示內部排除，序號就不再取決於圖示怎麼畫。
+        //    圖示本身的顏色仍然由它的容器 `.ic` 那一格在比。
         const nodes = [...document.querySelectorAll('.phone *')].filter((n) => {
+          if (n.closest('#fdcbIcon') && n.id !== 'fdcbIcon') return false;
           const sc = n.closest('.screen');
           return !sc || sc.classList.contains('active');
         });
@@ -1660,10 +1673,23 @@ console.log('\n── Hero 讀數不得爆版 ──');
     'envWash',    // 環境層：整片深空隨模板染色（這一輪的主體）
     'fdcbFill',   // 倒數填充：這一格唯一真的在講「這一次決策」的東西
   ];
+  // 🔴 第二張名單，而且它講的是另一件事：**模式**，不是模板色。
+  // 冷族三個模板全是結構守望（一條 30 分鐘的軸，三段同一階），暖族是倒數
+  // （觀察段／甜蜜段各一階）。所以這兩段的底色在冷 vs 暖之間本來就不同 ——
+  // 那是 `.fdcb-prog.watch-axis` 的設計，不是哪個模板把顏色帶了進來。
+  // 這個差異一直都在，只是序號錯位讓上面那條從沒比到它（見 paintOf 的註解）。
+  // ⚠️ 放行有條件：兩邊都得是中性階。有人讓它吃 `var(--tmpl)` 這條照樣紅。
+  const MODE_RULER = ['seg-obs', 'seg-sweet'];
+  const NEUTRAL_RAMP = ['rgb(54, 65, 79)', 'rgb(75, 88, 106)', 'rgb(117, 133, 156)']; // --n-700 / --n-600 / --n-450
   const drift = [];
   for (const k of Object.keys(a)) {
     if (b[k] === undefined || a[k] === b[k]) continue;
     if (ALLOW.some((id) => k.endsWith(`:${id}`))) continue;
+    if (MODE_RULER.some((c) => k.endsWith(`:${c}`))) {
+      // 兩邊都必須是中性階，否則照樣算漂移 —— 這個例外放行的是「模式」，不是「顏色」。
+      const bgOf = (v) => v.split(' | ')[1];
+      if (NEUTRAL_RAMP.includes(bgOf(a[k])) && NEUTRAL_RAMP.includes(bgOf(b[k]))) continue;
+    }
     drift.push(`${k.replace(/\/\d+:/, '/')}  冷「${a[k]}」 vs 暖「${b[k]}」`);
   }
   if (drift.length) { console.log('   名單外卻跟著模板變色的：'); for (const d of drift.slice(0, 10)) console.log(`     ${d}`); }

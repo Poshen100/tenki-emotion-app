@@ -319,3 +319,7 @@ jobs:
       # 帶位色只上在帶位身上、以及那些「講排除了幾筆」的字讀不讀得動。
       - name: Lab harness
         run: node scripts/preview-lab.mjs
+      # Datum Glyphs（圖示系統 v4）＋自架 Geist：一顆圖示最多一個 datum、
+      # 佔位都被填了、底部導覽只有一個青色的點、字型不是靜靜退回系統字。
+      - name: Datum glyphs harness
+        run: node scripts/preview-datum.mjs
