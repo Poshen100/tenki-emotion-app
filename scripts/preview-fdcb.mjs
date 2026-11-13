@@ -248,7 +248,8 @@ const outcomes = (page) => page.evaluate(() => {
 console.log('\n── 字型金絲雀 ──');
 {
   const page = await openV3(700);
-  const { drift, measured } = await checkFontCanary(page);
+  // /v3/ 的介面字是自架的 Geist（2026-11-13）；量系統字的基準在這一頁沒有意義。
+  const { drift, measured } = await checkFontCanary(page, 'geist');
   // 🔴 **無論過不過都把數字印出來** —— 容差訂得對不對，要靠各環境的真值來判斷，
   //    不是靠感覺。CI 的 log 裡從此就有 runner 的實測值。
   measured.forEach((m) => console.log('   ' + m));
