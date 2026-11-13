@@ -440,7 +440,12 @@ body{
      斷言現在會在 CI 跑，假紅的代價比字小一點高得多。 */
   /* 上限同理跟著環在 385px 收手（見 .awaiting）：8.5% × 385 ≈ 32.7 → 32.5px。
      34px 的舊上限要到 400px 才封頂，而圓在 385 就不長了。 */
-  font-size:clamp(28px, 8.5vw, 32.5px);letter-spacing:-0.01em;line-height:1;
+  /* 字距 -0.01 → -0.05em（2026-11-13，換 Geist 時）：Geist 比原本的系統字寬，
+     而這條的角落餘裕只有 1.1px（基準下最差的一組超出 2.9px、容差 4px）。
+     量出來的：-0.01em 時四個寬度全紅；-0.03em 時 360/375 仍超出 4.4/4.6px；
+     -0.045em 剛好過（3.2px），-0.05em 才回到原本的餘裕。
+     ⚠️ 這是對 Geist 字寬的補償，不是品味：換字型就要重量。 */
+  font-size:clamp(28px, 8.5vw, 32.5px);letter-spacing:-0.05em;line-height:1;
   background:none;-webkit-text-fill-color:currentColor;
 }
 /* 🔴 沒有讀數時的樣子（2026-08-18）。
