@@ -59,8 +59,13 @@ export async function getChromium() {
 // ═══════════════════════════════════════════════════
 
 /** 頁面實際用的字型堆疊（apps/preview/v6/index.html:75）。 */
+// 2026-11-13：/v3/ 的介面字改成自架的 Geist（tokens.css `--font-sans`）。
+// 拉丁那一組因此**不再看環境** —— 字型檔跟著 repo 走，容器與 CI 量到同一個數字。
+// 中文那一組仍然落到系統字，所以金絲雀對 CJK 的意義沒變。
+// ⚠️ 這一串要跟 tokens.css 的 `--font-sans` 逐字一致；它量不到 Geist 就會退到
+//    後面的系統字，而那正是金絲雀要喊的事（字型檔沒載到）。
 const PAGE_FONT_STACK =
-  "-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text',sans-serif";
+  "Geist,-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text',sans-serif";
 
 /**
  * 基準值。
@@ -85,7 +90,9 @@ const PAGE_FONT_STACK =
  */
 const FONT_BASELINE = [
   { text: '尚未量測', px: 30, expect: 120, tol: 2 },
-  { text: 'Neutral', px: 36, expect: 124, tol: 2 },
+  // Geist 實測 128.3px（2026-11-13）。產品端用字距把它補回原本驗過的寬度，
+  // 見 v6 `.tl-edge-score.band`；這裡量的是**沒有字距**的字型本身。
+  { text: 'Neutral', px: 36, expect: 128, tol: 2 },
 ];
 
 /**
