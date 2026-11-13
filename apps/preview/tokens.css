@@ -8,6 +8,37 @@
    screen resolves the same brand color instead of re-declaring hex.
    ═══════════════════════════════════════════════════════════ */
 
+/* ── Type faces：Geist / Geist Mono（SIL OFL 1.1，授權全文在 fonts/OFL.txt）──
+   🔴 **自架，不走 Google Fonts。** 這是一個 privacy-first 的產品：開頁就向第三方
+   要字型檔等於把每一次開啟告訴別人。兩個檔合計 52 KB，只含拉丁字集。
+   `unicode-range` 只涵蓋拉丁 —— 中文一個字都不會問它，照舊落到系統字。
+   ⚠️ url 是相對於**這份 CSS** 的：tokens.css 在 /preview/、/v3/→/preview/、
+   /decision-alert/ 等每個路由下都解得到 fonts/（vercel.json 每條 rewrite 都是
+   `/x/(.*) → /apps/preview/$1`）。守門：scripts/preview-datum.mjs「沒有同源 404」。
+   來源：@fontsource-variable/geist 5.3.0、@fontsource-variable/geist-mono 5.3.0。
+
+   🔴 **這兩個檔的垂直度量被改過，不是上游原檔 —— 換新版時要重做，否則版面會動。**
+   Geist 原生行高 1.30（ascent 1005 / descent −295），SF Pro 是 1.193（952 / −241）。
+   這些頁面的版面是在 iPhone（SF Pro）上實走調出來的、餘裕以 px 計。
+   實測：直接用原檔時 Today 的頂列 37 → 39px，整頁往下 2px，iPhone SE 上
+   滑動提示與決策條之間原本 5px 的餘裕被吃掉（preview-today-layout 當場紅）。
+   → 把 hhea 與 OS/2 typo 的 ascent/descent/lineGap 改成 952 / −241 / 0。
+   換字只換字形，不換每一行的高度。重做方式見 fonts/README.md。
+   ⚠️ 為什麼不用 CSS 的 `ascent-override`：Safari 對它的支援不能指望，
+   而 iPhone 正是這個產品唯一要緊的瀏覽器。改檔案本身就不靠瀏覽器。 */
+@font-face {
+  font-family: "Geist";
+  font-style: normal; font-weight: 100 900; font-display: swap;
+  src: url("fonts/geist-latin-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Geist Mono";
+  font-style: normal; font-weight: 100 900; font-display: swap;
+  src: url("fonts/geist-mono-latin-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 :root {
   /* ── Brand spine (collapses the five drifted cyans) ── */
   --cyan-core:    #00B4D8; /* static brand cyan — Clear zone, resting */
@@ -180,7 +211,12 @@
      這一行同時是收斂：同一組堆疊本來散在 decision-alert.html（兩處）、
      soul-enroll.html、baseline-3d.html 各自硬寫一份
      （VISUAL-DIRECTION.md §2 破口 5「字體雙頭 source」的同一族）。 */
-  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  --mono: "Geist Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  /* 介面字：Geist 只接拉丁字母與數字（讀數、標籤），後面整串是原本的系統堆疊 ——
+     所以中文的長相**一個字都沒變**，變的只有數字與英文。
+     這一行同時收掉 VISUAL-DIRECTION §2 破口 5「字體雙頭 source」：
+     founder 2026-11-13 拍板採用 Geist。 */
+  --font-sans: "Geist", -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", sans-serif;
 
   /* ── Easing ── */
   --ease-calm:   cubic-bezier(0.22, 1, 0.36, 1);
