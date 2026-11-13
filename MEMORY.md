@@ -28,6 +28,54 @@
      勿刪、勿移動、勿複製第二份：`scripts/verify.sh` 驗它恰好出現一次、
      而且排在所有條目之前。它的存在理由見協議第 1 條。 -->
 
+# 2026-11-13 Session Update（Datum Glyphs 圖示系統＋自架 Geist 落進 /v3/；畫布上的錶盤做不了）
+
+## What was done
+- founder：「之前的 emoji 質感不夠，調用 Claude Design 設計視覺」→ 在 Claude Design 畫布出了
+  六張（圖示系統、Foundations、Today／掃描收束／Session 空狀態／Premium）→ founder「全依建議，Go」。
+- **圖示**：`apps/preview/datum-glyphs.js` 是 20 顆的單一來源；`/v3/` 22 個 `data-datum` 佔位
+  （導覽 5、Lab 8、模板 6、洞察卡）＋ ICON_SVG 改成對 registry 的對應表。
+  規則：中性結構＋最多一個 datum，只有 datum 帶顏色（`--datum`）。寫在 `docs/VISUAL-DIRECTION.md` §3.9。
+- **字型**：Geist／Geist Mono 自架在 `apps/preview/fonts/`（不走 Google Fonts），`--font-sans` 新增、
+  `--mono` 前面加 Geist Mono。**只有 `/v3/` 的 body 改吃 `--font-sans`**，其他頁面的介面字沒動。
+- **守門**：新增 `scripts/preview-datum.mjs`（接進 verify.sh 與 CI，那一筆標 `[制度變更]`）。
+
+## 教訓
+- 🔴 **設計稿畫了一個產品產不出來的數字。** 畫布的 Today 是 0–100 錶盤＋「74」，而 `/v3/` 的
+  readiness 流程契約上沒有 0–100 分（那個槽永遠是「—」，註解寫得很清楚）。我是出完稿、founder
+  說 Go 之後才去讀那段程式。**出視覺稿之前先讀它要落地的那個畫面現在印什麼、為什麼。**
+- 🔴 **換字型換掉的不只是字形，還有每一行的高度與每一個字的寬度 —— 兩個都有 px 級的餘裕在等它。**
+  ① 行高：Geist 1.30 vs SF Pro 1.193 → Today 頂列 37→39px、整頁下移 2px，iPhone SE 上滑動提示
+  疊到決策條。修法是**改字型檔的垂直度量**（hhea／OS2 typo → 952／−241／0），不是 CSS
+  `ascent-override`（Safari 的支援不能指望，而 iPhone 是唯一要緊的瀏覽器）。
+  ② 字寬：「Neutral」@36px 124 → 128.3px，環心讀數超出圓；`.tl-edge-score.band` 字距補到 −0.05em。
+  ⚠️ 兩者都是**量出來才知道的**，而且第二個是 fdcb 的字型金絲雀本身過期（它還在量舊的堆疊）才沒先喊。
+- 🔴 **我自己立的規則，第一輪就被我自己違反。** 時間軸空狀態換成帶 datum 的 `timeline`：
+  畫面寫「還沒有紀錄」、圖示上有一個「量到了」的點。實截才看到。已換回原本那顆。
+- 🔴 **`preview-fdcb` 那條「名單以外逐項比對」的 key 帶節點序號，而底座圖示的子節點數隨模板不同**
+  → 圖示之後的節點序號錯開一格，同一個 key 指到的不是同一個節點。它不是全失效（把 tab 改吃
+  `--tmpl` 在舊版仍會紅），漏的是錯位後 class 對不上的那些 —— seg-obs／seg-sweet 冷暖兩族
+  底色本來就不同（守望軸 vs 倒數），從沒被比到。換圖示讓序號對齊，才第一次紅。
+  修法：圖示內部不進序號；那兩段另立「模式」名單，放行條件是兩邊都得是中性階。
+  ⚠️ **我第一版的註解寫成「之後的節點一直是空過、含整條 tabbar」，反向驗證當場推翻** ——
+  寫下「一直是 X」之前要先去舊版把它弄壞一次。
+- ⚠️ `preview-datum` 第一版有一條「佔位 ≥ 20 個」，而 JS 重繪模板清單後 DOM 剩 19 個 ——
+  門檻卡在實際值上面（CLAUDE.md 那條的又一次）。改成點名。
+
+## 沒做的（刻意）
+- Today 的 0–100 錶盤（見上）；掃描收束的金色同心環（那一刻是星塵的，鎖定資產）。
+- `tenki-icons.js` 沒動 —— 它是 apps/mobile `TenkiIcons.tsx` 的鏡像。
+- Lab 的模板自訂／標記標籤／紀律模式／CSV 四顆與基線流程的圖示：20 顆裡沒有對得上的語意。
+
+## 下次接手點
+- founder 還沒實走。看的是 `/v3/` 底部導覽（只有一個青色的點）、Lab 圖示、數字字形。
+- 其他 preview 頁（decision-alert、drift、finger、story）要不要也吃 `--font-sans`：沒決定。
+  動之前先想到上面那兩條 —— 每一頁都有自己的 px 餘裕。
+- apps/mobile 要不要跟進 Datum Glyphs：沒談。
+- Claude Design 畫布是 founder 私有的；上面的 Today「74」是示意值，跟產品現況對不上。
+
+---
+
 # 2026-11-12 Session Update（CI 的字型步驟：重試蓋錯了地方，診斷的空白不是答案）
 
 ## What was done
