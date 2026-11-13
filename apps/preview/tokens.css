@@ -187,3 +187,27 @@
   --ease-breath: cubic-bezier(0.4, 0, 0.6, 1);
   --ease-secure: cubic-bezier(0.19, 1, 0.22, 1);
 }
+
+/* ═══════════════════════════════════════════════════════════
+   Datum Glyphs — 圖示系統 v4（path 的單一來源：datum-glyphs.js）
+
+   一顆圖示 = 中性結構 + 最多一個 datum（被量到的那一點）。
+   🔴 **只有 datum 可以帶世界規則的顏色**，而且由 `--datum` 決定，不寫在圖示裡：
+        沒設      → 跟結構同色（靜止）
+        cyan-400  → ACTIVE（進行中 / 你在這裡）
+        gold      → SECURED（跟 gold 的門檻同一條：信心中以上才給）
+      結構永遠吃 currentColor，而且應該是中性階 —— 形狀負責辨識，不靠顏色。
+   🔴 沒量到的東西用 `unmeasured` 那一顆（虛線、沒有 datum），不要拿一顆
+      有 datum 的圖示調暗來代替 —— 調暗的點仍然在說「這裡量到了東西」。
+
+   尺寸由使用端決定（`.x .ic svg{width;height}`）；這裡只給 24px 的預設。
+   ═══════════════════════════════════════════════════════════ */
+.dg {
+  width: 24px; height: 24px; display: block; flex: none;
+  fill: none; stroke: currentColor; stroke-width: 1.5;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.dg .d { fill: var(--datum, currentColor); stroke: none; }   /* datum 點 */
+.dg .a { stroke: var(--datum, currentColor); }               /* datum 色的筆畫（指針、勾） */
+.dg .f { opacity: 0.4; }                                     /* 退後的結構（基線帶、未走完的那段） */
+
