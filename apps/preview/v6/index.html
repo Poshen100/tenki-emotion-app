@@ -1216,8 +1216,7 @@ body{
   color:var(--primary);
   margin-bottom:4px;
 }
-.empty-plate .ui-ic,
-.empty-plate .dg{width:24px;height:24px;stroke-width:1.5}
+.empty-plate .ui-ic{width:24px;height:24px;stroke-width:1.5}
 /* 本頁的 datum 預設比結構亮一階（--n-100），讓「被量到的那一點」在靜止時也讀得出來。
    只有底部導覽選中的那一格把它換成青色（見 `.tab.active`）。 */
 .phone{--datum:var(--n-100)}
@@ -3397,7 +3396,12 @@ a.lab-wide{text-decoration:none}
         <div class="tl-empty" id="tlEmpty">
           <!-- 同一套筆畫，但刻度**掛在軸線下方** ＝ 時間軸，不是筆數。
                兩顆放在一起要分得出來，否則兩個空狀態會長得一模一樣。 -->
-          <div class="empty-plate" aria-hidden="true" data-datum="timeline"></div>
+          <!-- 🔴 這一顆刻意**不是** Datum Glyph。registry 的 `timeline` 帶一個 datum（被量到的點），
+               而這裡是「還沒有任何紀錄」—— 空狀態上畫一個量到的點等於圖示在說謊。
+               原本這顆（刻度掛在軸下、最後一根淡）說的正是「會累積、還沒到」。 -->
+          <div class="empty-plate" aria-hidden="true">
+            <svg class="ui-ic" viewBox="0 0 24 24"><path d="M3 10h18"/><path d="M7 10v4"/><path d="M12.5 10v4"/><path d="M18 10v4" stroke-opacity="0.38"/></svg>
+          </div>
           <div class="ttl">還沒有決策紀錄</div>
           <div class="sub">跑一次決策，或走完一次 TradingView 快訊流程，這裡就會畫出你一天的節奏。</div>
         </div>
