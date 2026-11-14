@@ -11,7 +11,7 @@
  * 啟用時只做兩層**靜態**質感，掛在掃描覆蓋層（`#tenki-readiness-scan`，
  * 由 readiness-scan.js 自己注入）的兩個 pseudo-element 上：
  *
- *   ::before  暗角 —— 邊緣壓向 `--bg-space`，z 在 stage 之下
+ *   ::before  暗角 —— 邊緣壓向純黑，z 在 stage 之下
  *   ::after   底片顆粒 —— 預生成的 128px 雜訊貼圖，z 在 stage 之上、不吃點擊
  *
  * 兩層都沒有任何每幀成本，也沒有動態，所以 reduced-motion 下長得一樣。
@@ -84,10 +84,12 @@
   style.textContent = [
     // 調參入口：Antigravity 只改這三個值，不要散落裸值。
     'html[data-cine]{--cine-vignette-strength:82%;--cine-vignette-inner:52%;',
-    '--cine-grain-opacity:0.05;}',
+    '--cine-grain-opacity:0.035;}',
     SEL + '::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:0;',
     'background:radial-gradient(ellipse 120% 90% at 50% 38%,transparent var(--cine-vignette-inner),',
-    'color-mix(in srgb,var(--bg-space) var(--cine-vignette-strength),transparent) 100%);}',
+    // ⚠️ 壓向純黑，不是 `--bg-space`：掃描底色是 #05060A，而 `--bg-space` #020617
+    //    比它**更藍也更亮** —— 第一版壓向它，截圖上四角反而浮出一層藍。
+    'color-mix(in srgb,black var(--cine-vignette-strength),transparent) 100%);}',
     SEL + '::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:2;',
     'background-image:var(--cine-grain,none);background-size:' + CINE_GRAIN_SIZE + 'px '
       + CINE_GRAIN_SIZE + 'px;opacity:var(--cine-grain-opacity);}',

@@ -50,7 +50,7 @@
 
 ## ✅ 骨架已就位（雲端 2026-11-14 做好，不要重做）
 
-- **`apps/preview/cinematic.js`**（已掛在 `v6/index.html` 與 `decision-alert.html`，`?v=cine1`）：
+- **`apps/preview/cinematic.js`**（已掛在 `v6/index.html` 與 `decision-alert.html`，`?v=cine2`）：
   - 只在 `?cine=1|2|3` 時動作；其他情況第一行 return，**不碰 DOM、不定義 global**。
   - 啟用時在掃描覆蓋層 `#tenki-readiness-scan` 掛兩層**靜態**質感：
     `::before` 暗角（z 0，在 stage 下）、`::after` 顆粒（z 2，在 stage 上，不吃點擊）。
@@ -58,7 +58,7 @@
   - take 分流讀 **`window.TENKI_CINE.take`**（唯讀，另有 `reducedMotion`）。你的效果一律先問它，不存在就什麼都不做。
 - **`scripts/preview-cinematic.mjs`**（已進 `verify.sh` 與 CI）：鎖住「不帶 / 不合法 `cine` ＝ 完全 inert」、
   兩層存在且不吃點擊、`cinematic.js` 裡沒有 gold。你加新效果時**往這支加斷言**，不要另開一支。
-- ⚠️ 改 `cinematic.js` 就跳 `?v=cine1` → `cine2`（兩個 html 都要改）。
+- ⚠️ 改 `cinematic.js` 就跳 `?v=cine2` → `cine3`（兩個 html 都要改）。
 
 所以你的工作從 **Take 1/2/3 的鏡頭、轉焦、光條、聲音**開始，Guardrail 1 的開關已經替你做好了。
 
@@ -128,7 +128,7 @@
 保留 founder 認可的「极速运算」flicker，光條疊在 snap 那一刻，不取代它。
 
 **E. 暗角 + 壓黑**
-靜態徑向漸層，邊緣壓到 `--bg-space`。零每幀成本，視線自然收到中央。
+靜態徑向漸層，邊緣壓向純黑（⚠️ 不是 `--bg-space`：它比掃描底色 #05060A 更藍更亮，壓過去四角反而浮藍）。零每幀成本，視線自然收到中央。
 
 **F. 底片顆粒**
 極低透明度的靜態雜訊貼圖（一張小 PNG / 預生成 canvas，不要每幀產生雜訊）。
