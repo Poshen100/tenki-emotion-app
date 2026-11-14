@@ -2604,6 +2604,7 @@ PR #260 是 **squash** merge，所以舊分支那 5 顆 commit 不是 main 的�
   （被裁掉等於沒做），但不是他要求的，要講。
 
 ---
+
 # 2026-09-28 Session Update (電影級視覺開工單交給 Antigravity)
 
 ## What was done
