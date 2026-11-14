@@ -48,6 +48,20 @@
 產品定調不變：**深空裡的精密儀器**（VISUAL-DIRECTION §1）。電影感要服務這句話：
 安靜、有縱深、有重量、最後一拍乾淨地鎖住。
 
+## ✅ 骨架已就位（雲端 2026-11-14 做好，不要重做）
+
+- **`apps/preview/cinematic.js`**（已掛在 `v6/index.html` 與 `decision-alert.html`，`?v=cine1`）：
+  - 只在 `?cine=1|2|3` 時動作；其他情況第一行 return，**不碰 DOM、不定義 global**。
+  - 啟用時在掃描覆蓋層 `#tenki-readiness-scan` 掛兩層**靜態**質感：
+    `::before` 暗角（z 0，在 stage 下）、`::after` 顆粒（z 2，在 stage 上，不吃點擊）。
+  - 調參入口只有三個 CSS 變數：`--cine-vignette-strength` / `--cine-vignette-inner` / `--cine-grain-opacity`。
+  - take 分流讀 **`window.TENKI_CINE.take`**（唯讀，另有 `reducedMotion`）。你的效果一律先問它，不存在就什麼都不做。
+- **`scripts/preview-cinematic.mjs`**（已進 `verify.sh` 與 CI）：鎖住「不帶 / 不合法 `cine` ＝ 完全 inert」、
+  兩層存在且不吃點擊、`cinematic.js` 裡沒有 gold。你加新效果時**往這支加斷言**，不要另開一支。
+- ⚠️ 改 `cinematic.js` 就跳 `?v=cine1` → `cine2`（兩個 html 都要改）。
+
+所以你的工作從 **Take 1/2/3 的鏡頭、轉焦、光條、聲音**開始，Guardrail 1 的開關已經替你做好了。
+
 ## 範圍與優先序
 
 | 優先 | 表面 | 檔案 | 本次可做 |
