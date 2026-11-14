@@ -28,6 +28,30 @@
      勿刪、勿移動、勿複製第二份：`scripts/verify.sh` 驗它恰好出現一次、
      而且排在所有條目之前。它的存在理由見協議第 1 條。 -->
 
+# 2026-11-14 Session Update (電影級視覺：雲端先做 ?cine dark-launch 骨架)
+
+## What was done
+- Antigravity 讀完開工單、建了本機 `feat/cinematic`，**在寫任何程式前就撞到額度**（Rule #0 的 push 也還沒做）。
+  founder 同意由雲端先做骨架，讓 Antigravity 的額度只花在手感。
+- `apps/preview/cinematic.js`（掛在 `v6/index.html`、`decision-alert.html`，`?v=cine2`）：
+  只在 `?cine=1|2|3` 動作；啟用時在 `#tenki-readiness-scan` 掛 `::before` 暗角＋`::after` 顆粒，
+  並給唯讀 `window.TENKI_CINE.take` 讓 take 分流。
+- `scripts/preview-cinematic.mjs`（57 條，進 verify 與 CI）：不帶／不合法 `cine` 完全 inert。
+  反向驗證：把 early return 改成預設 take=1 → 紅 35 條。
+- 開工單加了「骨架已就位」一節。
+
+## 教訓 / 注意
+- 🔴 **`--bg-space` 不是掃描覆蓋層的底色**：覆蓋層是 `#05060A`，`--bg-space` `#020617` 比它更藍更亮。
+  暗角第一版壓向 `--bg-space`，截圖上四角反而浮藍 —— 「壓黑」做成了「打亮」。改壓純黑。
+- 截圖腳本 `page.evaluate(() => begin(...))` 會**等整場掃描的 promise**而卡死；要寫成 `() => { begin(...); }`。
+  另外 v6 開頁時 splash 疊在覆蓋層上面，截圖前要把 z ≥ 9700 的其他元素藏掉。
+- 容器的 Playwright 1.56 要 headless_shell-1194，但 `/opt/pw-browsers` 只有 1243；本機跑 harness 時暫時
+  用 symlink 接上。`strip-color` 的字型金絲雀在這個組合下會紅 1 條（渲染器版本不同），CI 是準。
+
+## 下次接手點
+- Antigravity 恢復額度後：push `feat/cinematic`（從本分支切），從 Take 1 開始；新斷言加進 `preview-cinematic.mjs`。
+
+
 # 2026-11-13 Session Update（Datum Glyphs 圖示系統＋自架 Geist 落進 /v3/；畫布上的錶盤做不了）
 
 ## What was done
