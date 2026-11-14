@@ -299,6 +299,11 @@ jobs:
       - name: Scan lens-offset harness (儀器離鏡頭多近)
         run: node scripts/preview-scan-lens-offset.mjs
 
+      # 電影級視覺骨架（docs/prompts/antigravity-cinematic-kickoff.md）。
+      # 🔴 不帶 ?cine 時頁面必須跟現在一致；含反向驗證：拿掉 early return 會紅 35 條。
+      - name: Cinematic dark-launch harness (?cine 缺席＝不變)
+        run: node scripts/preview-cinematic.mjs
+
       - name: Token scale harness (色階系統守門)
         run: node scripts/preview-token-scale.mjs
 
