@@ -201,11 +201,31 @@ for (const vp of VIEWPORTS) {
     const sp = document.getElementById('tenki-splash');
     if (sp) { sp.setAttribute('data-hidden', 'true'); sp.style.display = 'none'; }
   });
+  // 🔴 頁面只在輪播**真的在畫面上**的時候才教那個手勢：
+  //      var onScreen = r.width>0 && r.top<innerHeight && r.bottom>0;
+  //      if(revealed && onScreen){ setTimeout(show, …) } else setTimeout(arm,200);
+  //    那是對的產品行為（看不到的東西不要教），但它讓這條斷言依賴一個**邊緣
+  //    條件**：在最矮的 375x667 上，輪播剛好卡在摺線附近，幾 px 的字高差就能
+  //    決定它在摺線上面還是下面。runner 上在下面、容器裡在上面 ——
+  //    於是同一份程式一邊綠一邊紅（2026-11-15 main 連紅兩次都是這條）。
+  //    所以先把前提**建立起來**再量，而不是碰運氣：捲到輪播可見。
+  //    守的東西沒變（提示不得疊到任何讀數），只是不再賭它剛好在摺線上面。
+  const trackVis = await page.evaluate(() => {
+    const t = document.getElementById('snapTrack');
+    if (!t) return null;
+    const before = t.getBoundingClientRect();
+    const wasOn = before.width > 0 && before.top < window.innerHeight && before.bottom > 0;
+    if (!wasOn) t.scrollIntoView({ block: 'center' });
+    return { wasOn, top: Math.round(before.top), innerH: window.innerHeight };
+  });
   const appeared = await page
     .waitForFunction(() => window.__tenkiHint !== null, null, { timeout: 12_000 })
     .then(() => true, () => false);
 
   console.log(`\n── ${vp.name} · 滑動提示 ──`);
+  if (trackVis && !trackVis.wasOn) {
+    console.log(`  · 輪播本來在摺線下（top=${trackVis.top} / 視窗高 ${trackVis.innerH}），已捲進畫面再量`);
+  }
   if (!appeared) {
     // 🔴 「沒出現」有三種完全不同的成因，而且修法不同 —— 不說是哪一種，
     //    下一次 CI 紅的時候還是只能猜（2026-11-15 在 runner 上就卡在這）。
@@ -226,6 +246,7 @@ for (const vp of VIEWPORTS) {
     }).catch(() => null);
     console.log('  ✗ 提示沒出現（?hint=1 應該要強制顯示）');
     console.log(`     診斷：${JSON.stringify(why)}`);
+    console.log(`     輪播可見性：${JSON.stringify(trackVis)}`);
     fail++; await page.close(); continue;
   }
 
