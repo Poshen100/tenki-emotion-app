@@ -160,7 +160,28 @@ for (const vp of VIEWPORTS) {
   const appeared = await page.waitForSelector('.snap-hint.on', { timeout: 12_000 }).then(() => true, () => false);
 
   console.log(`\n── ${vp.name} · 滑動提示 ──`);
-  if (!appeared) { console.log('  ✗ 提示沒出現（?hint=1 應該要強制顯示）'); fail++; await page.close(); continue; }
+  if (!appeared) {
+    // 🔴 「沒出現」有三種完全不同的成因，而且修法不同 —— 不說是哪一種，
+    //    下一次 CI 紅的時候還是只能猜（2026-11-15 在 runner 上就卡在這）。
+    //      a. 節點不在        → 這一版的 DOM 變了
+    //      b. 節點在、沒有 .on → 走到了 `if(cur!==0){…return}`（輪播已經不在第一頁），
+    //                           或已經被 4800ms 的 hideTimer 關掉
+    //      c. 輪播 scrollLeft 不是 0 → 就是上面那個 cur!==0 的成因本身
+    const why = await page.evaluate(() => {
+      const h = document.getElementById('snapHint');
+      const t = document.getElementById('snapTrack');
+      return {
+        exists: !!h,
+        cls: h ? h.className : null,
+        scrollLeft: t ? Math.round(t.scrollLeft) : null,
+        clientW: t ? Math.round(t.clientWidth) : null,
+        seen: (() => { try { return localStorage.getItem('tenki.snapHintSeen3'); } catch (e) { return 'n/a'; } })(),
+      };
+    }).catch(() => null);
+    console.log('  ✗ 提示沒出現（?hint=1 應該要強制顯示）');
+    console.log(`     診斷：${JSON.stringify(why)}`);
+    fail++; await page.close(); continue;
+  }
 
   const hits = await page.evaluate(() => {
     const hint = document.getElementById('snapHint').getBoundingClientRect();
