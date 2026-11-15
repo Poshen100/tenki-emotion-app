@@ -150,50 +150,6 @@ for (const vp of VIEWPORTS) {
     viewport: { width: vp.width, height: vp.height },
     deviceScaleFactor: 2, isMobile: true, hasTouch: true,
   });
-  // 🔴 提示只亮 **4.8 秒**（頁面的 `hideTimer=setTimeout(dismiss,4800)`），
-  //    而 `waitForSelector` 是去**輪詢一個會自己消失的狀態** —— 那本來就是在賭。
-  //    2026-11-15 在 runner 上三次 2 紅，而且只在最矮的 375x667；診斷印出
-  //    `{"exists":true,"cls":"snap-hint",…}`：節點在、`.on` 不在 —— 也就是
-  //    「它亮過又熄了，而我們沒接到」。
-  //    改成在頁面腳本跑之前就掛觀察器，`.on` 一上身就把那一刻的幾何**鎖住**。
-  //    守的東西一模一樣（提示不得疊到任何讀數），只是不再跟一個 4.8 秒的
-  //    窗口賽跑 —— 而且量到的是它真正亮著那一瞬間的座標，比事後再問更準。
-  await page.addInitScript(() => {
-    const TARGETS = [
-      ['可見的那張卡', '#snapTrack .vcard'],
-      ['示意註記', '.vitals-demo-note'],
-      ['輪播圓點', '#snapDots'],
-      ['FDCB dock', '#fdcb'],
-    ];
-    window.__tenkiHint = null;
-    const snap = () => {
-      const h = document.getElementById('snapHint');
-      if (!h || !h.classList.contains('on') || window.__tenkiHint) return;
-      const r = h.getBoundingClientRect();
-      window.__tenkiHint = {
-        top: +r.top.toFixed(1), bottom: +r.bottom.toFixed(1),
-        viewportH: window.innerHeight,
-        hit: TARGETS.filter(([, sel]) => {
-          const el = document.querySelector(sel);
-          if (!el) return false;
-          const b = el.getBoundingClientRect();
-          return !(b.right <= r.left || b.left >= r.right || b.bottom <= r.top || b.top >= r.bottom);
-        }).map(([n]) => n),
-      };
-    };
-    // ⚠️ addInitScript 跑在**任何 DOM 之前** —— 這時候 `document.documentElement`
-    //    還是 null，直接 observe 會丟例外，而那個例外會把整段觀察器吃掉
-    //    （第一版就是這樣：三個 viewport 全部「沒出現」）。等 DOM 在了再掛。
-    const install = () => {
-      if (!document.documentElement) return false;
-      new MutationObserver(snap).observe(document.documentElement, {
-        subtree: true, attributes: true, attributeFilter: ['class'], childList: true,
-      });
-      snap(); // 掛上去之前就已經 .on 的話，觀察器不會補報
-      return true;
-    };
-    if (!install()) document.addEventListener('DOMContentLoaded', install, { once: true });
-  });
   // ?hint=1 強制顯示（它平常只出現一次），這是頁面自己提供的重測開關。
   await page.goto(`${url}?hint=1`, { waitUntil: 'domcontentloaded', timeout: 30_000 }).catch(() => {});
   await page.waitForTimeout(600);
@@ -201,42 +157,25 @@ for (const vp of VIEWPORTS) {
     const sp = document.getElementById('tenki-splash');
     if (sp) { sp.setAttribute('data-hidden', 'true'); sp.style.display = 'none'; }
   });
-  const appeared = await page
-    .waitForFunction(() => window.__tenkiHint !== null, null, { timeout: 12_000 })
-    .then(() => true, () => false);
+  const appeared = await page.waitForSelector('.snap-hint.on', { timeout: 12_000 }).then(() => true, () => false);
 
   console.log(`\n── ${vp.name} · 滑動提示 ──`);
-  if (!appeared) {
-    // 🔴 「沒出現」有三種完全不同的成因，而且修法不同 —— 不說是哪一種，
-    //    下一次 CI 紅的時候還是只能猜（2026-11-15 在 runner 上就卡在這）。
-    //      a. 節點不在        → 這一版的 DOM 變了
-    //      b. 節點在、沒有 .on → 走到了 `if(cur!==0){…return}`（輪播已經不在第一頁），
-    //                           或已經被 4800ms 的 hideTimer 關掉
-    //      c. 輪播 scrollLeft 不是 0 → 就是上面那個 cur!==0 的成因本身
-    const why = await page.evaluate(() => {
-      const h = document.getElementById('snapHint');
-      const t = document.getElementById('snapTrack');
-      return {
-        exists: !!h,
-        cls: h ? h.className : null,
-        scrollLeft: t ? Math.round(t.scrollLeft) : null,
-        clientW: t ? Math.round(t.clientWidth) : null,
-        seen: (() => { try { return localStorage.getItem('tenki.snapHintSeen3'); } catch (e) { return 'n/a'; } })(),
-      };
-    }).catch(() => null);
-    console.log('  ✗ 提示沒出現（?hint=1 應該要強制顯示）');
-    console.log(`     診斷：${JSON.stringify(why)}`);
-    fail++; await page.close(); continue;
-  }
+  if (!appeared) { console.log('  ✗ 提示沒出現（?hint=1 應該要強制顯示）'); fail++; await page.close(); continue; }
 
-  // 🔴 讀的是**鎖住的那一刻**，不是事後再問一次 —— 事後問到的可能是已經熄掉
-  //    的提示，而那時候的座標不代表它亮著時疊到了什麼。
   const hits = await page.evaluate(() => {
-    const s = window.__tenkiHint;
+    const hint = document.getElementById('snapHint').getBoundingClientRect();
+    const overlaps = (r) => !(r.right <= hint.left || r.left >= hint.right
+      || r.bottom <= hint.top || r.top >= hint.bottom);
+    const targets = [
+      ['可見的那張卡', document.querySelector('#snapTrack .vcard')],
+      ['示意註記', document.querySelector('.vitals-demo-note')],
+      ['輪播圓點', document.getElementById('snapDots')],
+      ['FDCB dock', document.getElementById('fdcb')],
+    ];
     return {
-      hint: { top: s.top, bottom: s.bottom },
-      viewportH: s.viewportH,
-      hit: s.hit,
+      hint: { top: +hint.top.toFixed(1), bottom: +hint.bottom.toFixed(1) },
+      viewportH: window.innerHeight,
+      hit: targets.filter(([, el]) => el && overlaps(el.getBoundingClientRect())).map(([n]) => n),
     };
   });
 
