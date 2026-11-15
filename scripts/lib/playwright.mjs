@@ -58,9 +58,25 @@ export async function getChromium() {
 // （真實裝置是 SF Pro，Linux 永遠拿不到）。
 // ═══════════════════════════════════════════════════
 
-/** 頁面實際用的字型堆疊（apps/preview/v6/index.html:75）。 */
-const PAGE_FONT_STACK =
-  "-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text',sans-serif";
+/**
+ * 頁面實際用的字型堆疊 —— **兩份，因為兩種頁面真的用不同的字**（2026-11-13）。
+ *
+ *   system：`/decision-alert/` 等沒換字的頁面。看環境（CI 124、Inter 的容器 127）。
+ *   geist ：`/v3/`（tokens.css `--font-sans`，自架 Geist）。**不看環境** ——
+ *           字型檔跟著 repo 走，容器與 CI 量到同一個數字。
+ *
+ * 🔴 第一版只留一份、整個換成 Geist。結果 `preview-strip-color` 的金絲雀跑在
+ *    `/decision-alert/` 上（那一頁沒用 Geist → 字型檔根本沒被要求下載 → 量到的是
+ *    後面的系統字）：CI 量到 124、基準寫 128 → **CI 紅**；而這個容器的系統字是
+ *    Inter（127），剛好落在 128±2 裡，所以本地是綠的。
+ *    一個基準只能描述一種字。頁面用哪一種，就拿哪一種的基準去比。
+ *
+ * ⚠️ geist 那一串要跟 tokens.css 的 `--font-sans` 逐字一致。
+ */
+const FONT_STACKS = {
+  system: "-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text',sans-serif",
+  geist: "Geist,-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text',sans-serif",
+};
 
 /**
  * 基準值。
@@ -83,10 +99,18 @@ const PAGE_FONT_STACK =
  *    那比讓它去翻掉九條「讀數不在環心圓內」好得多。**那時候要修的是環境，
  *    不是去改產品的版面來迎合它。**
  */
-const FONT_BASELINE = [
-  { text: '尚未量測', px: 30, expect: 120, tol: 2 },
-  { text: 'Neutral', px: 36, expect: 124, tol: 2 },
-];
+const FONT_BASELINE = {
+  system: [
+    { text: '尚未量測', px: 30, expect: 120, tol: 2 },
+    { text: 'Neutral', px: 36, expect: 124, tol: 2 },
+  ],
+  // Geist 實測 128.3px（2026-11-13）。產品端用字距把它補回原本驗過的寬度，
+  // 見 v6 `.tl-edge-score.band`；這裡量的是**沒有字距**的字型本身。
+  geist: [
+    { text: '尚未量測', px: 30, expect: 120, tol: 2 },
+    { text: 'Neutral', px: 36, expect: 128, tol: 2 },
+  ],
+};
 
 /**
  * 在給定的 page 上量基準字串，回傳不符的項目（空陣列 = 環境對得上）。
@@ -105,10 +129,16 @@ const FONT_BASELINE = [
  * 印出來（CI 的 log 裡就會有 runner 的真值），**不要憑感覺縮容差**。
  *
  * @param {import('playwright').Page} page
+ * @param {'system'|'geist'} [face] - 這一頁的介面字是哪一種（預設 system）。
  * @returns {Promise<{drift: string[], measured: string[]}>}
  *   `drift` 空陣列 ＝ 環境對得上；`measured` 一律有值，給人看的實測數字。
  */
-export async function checkFontCanary(page) {
+export async function checkFontCanary(page, face = 'system') {
+  const stack = FONT_STACKS[face];
+  const baseline = FONT_BASELINE[face];
+  // web font 是「有人用到才下載」。先明確請它載，量到的才是它而不是後面的 fallback；
+  // 載不到就照樣往下量 —— 量到 fallback 的寬度正是金絲雀該喊的事。
+  if (face === 'geist') await page.evaluate(() => document.fonts.load('600 36px Geist').catch(() => []));
   const measured = await page.evaluate(([stack, samples]) => {
     const el = document.createElement('div');
     el.style.cssText =
@@ -121,15 +151,15 @@ export async function checkFontCanary(page) {
     });
     el.remove();
     return out;
-  }, [PAGE_FONT_STACK, FONT_BASELINE]);
+  }, [stack, baseline]);
 
   return {
-    drift: FONT_BASELINE.flatMap((s, i) => {
+    drift: baseline.flatMap((s, i) => {
       const got = measured[i];
       if (Math.abs(got - s.expect) <= s.tol) return [];
       return [`「${s.text}」@${s.px}px 量到 ${got}px，基準是 ${s.expect}±${s.tol}px`];
     }),
-    measured: FONT_BASELINE.map((s, i) =>
+    measured: baseline.map((s, i) =>
       `「${s.text}」@${s.px}px = ${measured[i]}px（基準 ${s.expect}±${s.tol}）`),
   };
 }

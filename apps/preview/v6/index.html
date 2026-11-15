@@ -115,7 +115,7 @@
 
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{background:#000;color:var(--txt);overflow:hidden;overscroll-behavior:none;
-  font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text',sans-serif;
+  font-family:var(--font-sans);
   -webkit-font-smoothing:antialiased;
 }
 body{
@@ -440,7 +440,12 @@ body{
      斷言現在會在 CI 跑，假紅的代價比字小一點高得多。 */
   /* 上限同理跟著環在 385px 收手（見 .awaiting）：8.5% × 385 ≈ 32.7 → 32.5px。
      34px 的舊上限要到 400px 才封頂，而圓在 385 就不長了。 */
-  font-size:clamp(28px, 8.5vw, 32.5px);letter-spacing:-0.01em;line-height:1;
+  /* 字距 -0.01 → -0.05em（2026-11-13，換 Geist 時）：Geist 比原本的系統字寬，
+     而這條的角落餘裕只有 1.1px（基準下最差的一組超出 2.9px、容差 4px）。
+     量出來的：-0.01em 時四個寬度全紅；-0.03em 時 360/375 仍超出 4.4/4.6px；
+     -0.045em 剛好過（3.2px），-0.05em 才回到原本的餘裕。
+     ⚠️ 這是對 Geist 字寬的補償，不是品味：換字型就要重量。 */
+  font-size:clamp(28px, 8.5vw, 32.5px);letter-spacing:-0.05em;line-height:1;
   background:none;-webkit-text-fill-color:currentColor;
 }
 /* 🔴 沒有讀數時的樣子（2026-08-18）。
@@ -1217,6 +1222,9 @@ body{
   margin-bottom:4px;
 }
 .empty-plate .ui-ic{width:24px;height:24px;stroke-width:1.5}
+/* 本頁的 datum 預設比結構亮一階（--n-100），讓「被量到的那一點」在靜止時也讀得出來。
+   只有底部導覽選中的那一格把它換成青色（見 `.tab.active`）。 */
+.phone{--datum:var(--n-100)}
 /* 幽靈列：空狀態用「紀錄的形狀」說話。
    尺寸刻意照抄 `.session-item`（30px 圖示盤、兩行、同樣的圓角與間距），
    顏色全部取自中性階 —— 不自己發明灰。 */
@@ -1246,7 +1254,8 @@ body{
 .insight-card .head .hd-ic,
 .baseline-flow .bf-accuracy .ic,
 .bf-btn-ic{display:inline-flex;align-items:center;justify-content:center;vertical-align:-0.18em}
-.insight-card .head .hd-ic > .ui-ic{width:13px;height:13px;stroke-width:2}
+.insight-card .head .hd-ic > .ui-ic,
+.insight-card .head .hd-ic > .dg{width:13px;height:13px;stroke-width:2}
 .baseline-flow .bf-accuracy .ic > .ui-ic{width:13px;height:13px;stroke-width:1.9}
 .bf-btn-ic{margin-right:7px}
 .bf-btn-ic > .ui-ic{width:16px;height:16px;stroke-width:1.9}
@@ -2451,7 +2460,7 @@ a.lab-wide{text-decoration:none}
 .tab{
   flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
   gap:3px;padding:4px 2px;cursor:pointer;
-  color:rgba(255,255,255,0.42);
+  color:var(--n-400);
   transition:color 0.3s var(--ease-calm);
   position:relative;
   max-width:78px;
@@ -2461,31 +2470,19 @@ a.lab-wide{text-decoration:none}
   display:flex;align-items:center;justify-content:center;
   transition:all 0.3s var(--ease-calm);
 }
-.tab .ic svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.tab .ic svg{width:24px;height:24px}
 .tab .lbl{
   font-size:10px;font-weight:500;letter-spacing:0.03em;
   transition:all 0.3s;
 }
-.tab.active{color:var(--primary)}
-.tab.active .ic{
-  filter:drop-shadow(0 0 8px rgba(0,180,216,0.6))
-         drop-shadow(0 0 16px rgba(0,180,216,0.3));
-}
-.tab.active .ic svg{
-  stroke-width:2.4;
-}
-.tab.active .lbl{font-weight:700}
+/* 選中的那一格：**結構變亮、datum 亮起青色**，不是整顆變色（Datum Glyphs 規則）。
+   一個畫面同時只有一個青色的點在說「你在這裡」—— 所以舊的頂端光條、
+   雙層外發光、加粗筆畫全部拿掉：那是用四種方式講同一件事。
+   守門：scripts/preview-datum.mjs（青色 datum 只有一個、結構不是青色）。 */
+.tab{--datum:var(--n-300)}
+.tab.active{color:var(--n-200);--datum:var(--cyan-active)}
+.tab.active .lbl{font-weight:600;color:var(--n-100)}
 .tab:active{transform:scale(0.92)}
-
-/* Active indicator — glowing dot */
-.tab::before{
-  content:'';position:absolute;top:2px;left:50%;transform:translateX(-50%);
-  width:22px;height:2px;border-radius:1px;
-  background:var(--primary);
-  opacity:0;transition:opacity 0.3s;
-  box-shadow:0 0 8px var(--primary);
-}
-.tab.active::before{opacity:1}
 
 /* Home indicator */
 .home{
@@ -3070,6 +3067,9 @@ a.lab-wide{text-decoration:none}
          那支在**頂層**就讀 window.TENKI_OUTCOME（OUTCOME_STORE_KEY_V6 / isDisciplinedV6），
          放到頁尾跟其他 script 一起載會來不及。絕對路徑：本頁同時掛在 /v3/ 與 /preview/v6/。 -->
     <script src="/preview/decision-outcome.js?v=do17"></script>
+    <!-- Datum Glyphs：圖示的單一來源。本頁的圖示一律是 `data-datum` 佔位，
+         由下面 ICON_SVG 旁的 hydrate() 填 —— 不要再把 path 抄進 HTML。 -->
+    <script src="/preview/datum-glyphs.js?v=dg1"></script>
     <!-- Stardust Scan Takeover Styles -->
     <link rel="stylesheet" href="stardust-scan-takeover.css?v=gyro_v6">
 </head>
@@ -3313,7 +3313,7 @@ a.lab-wide{text-decoration:none}
         </div>
 
         <div class="insight-card" id="sessionInsight">
-          <div class="head"><span class="hd-ic"><svg class="ui-ic" viewBox="0 0 24 24"><path d="M5 20v-5M12 20V9M19 20V4"/></svg></span> Decision Insight</div>
+          <div class="head"><span class="hd-ic" data-datum="records"></span> Decision Insight</div>
           <div class="body" id="sessionInsightBody">完成一次決策後，這裡會出現你的節奏統計。</div>
         </div>
 
@@ -3401,6 +3401,9 @@ a.lab-wide{text-decoration:none}
         <div class="tl-empty" id="tlEmpty">
           <!-- 同一套筆畫，但刻度**掛在軸線下方** ＝ 時間軸，不是筆數。
                兩顆放在一起要分得出來，否則兩個空狀態會長得一模一樣。 -->
+          <!-- 🔴 這一顆刻意**不是** Datum Glyph。registry 的 `timeline` 帶一個 datum（被量到的點），
+               而這裡是「還沒有任何紀錄」—— 空狀態上畫一個量到的點等於圖示在說謊。
+               原本這顆（刻度掛在軸下、最後一根淡）說的正是「會累積、還沒到」。 -->
           <div class="empty-plate" aria-hidden="true">
             <svg class="ui-ic" viewBox="0 0 24 24"><path d="M3 10h18"/><path d="M7 10v4"/><path d="M12.5 10v4"/><path d="M18 10v4" stroke-opacity="0.38"/></svg>
           </div>
@@ -3436,7 +3439,7 @@ a.lab-wide{text-decoration:none}
              ⚠️ 導覽的 `›` 用中性 `--n-400`，**不上可動層琥珀**
              （founder 2026-09-08：琥珀只給會改變狀態的，導覽與關閉走中性）。 -->
         <a class="lab-wide plain" id="labDriftRow" href="/drift/">
-          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg></div>
+          <div class="ic" data-datum="turning"></div>
           <div class="info">
             <div class="nm">偏移預警</div>
             <!-- 刻意留空：字一律由 renderLab() 寫。預設值等於期望值的話，
@@ -3457,7 +3460,7 @@ a.lab-wide{text-decoration:none}
              `PushManager` 就在（見 decision-alert.js 的 pushSupported）。
              ⚠️ 副標刻意留空，字一律由 renderAlertRow() 寫（同下一列的理由）。 -->
         <a class="lab-wide plain" id="labAlertRow" href="/decision-alert/">
-          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></div>
+          <div class="ic" data-datum="alert"></div>
           <div class="info">
             <div class="nm">決策快訊</div>
             <div class="sub" id="labAlertSub"></div>
@@ -3474,7 +3477,7 @@ a.lab-wide{text-decoration:none}
              founder 2026-11-04 實走：停在過期的 Today 上問「從哪裡可以連到？」
              ⚠️ 副標刻意留空，字一律由 renderPulseRow() 寫（同上面兩列的理由）。 -->
         <a class="lab-wide plain" id="labPulseRow" href="/finger/">
-          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 11v3"/><path d="M8.5 9.2a4 4 0 0 1 7 2.8v2"/><path d="M5.5 7.5a7.5 7.5 0 0 1 13 5v3.5"/><path d="M3 18c1.5-1.2 2.2-3 2.2-5.2"/><path d="M12 21c-1.4-1.6-2-3.4-2-5.5"/></svg></div>
+          <div class="ic" data-datum="pulse"></div>
           <div class="info">
             <div class="nm">指尖脈搏校準</div>
             <div class="sub" id="labPulseSub"></div>
@@ -3495,7 +3498,7 @@ a.lab-wide{text-decoration:none}
                帶位色現在只上在 `.band-dot` 上，副標由 renderLab() 從真的
                讀數 store 填。 -->
           <div class="lab-item" id="labBaselineTile" onclick="openBaseline()">
-            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="3" width="10" height="14" rx="2"/><circle cx="12" cy="10" r="2"/><path d="M12 17v4M9 21h6"/></svg></div>
+            <div class="ic" data-datum="baseline"></div>
             <div class="nm">Baseline</div>
             <div class="sub" id="labBaselineSub">重新校準或檢視</div>
           </div>
@@ -3536,17 +3539,17 @@ a.lab-wide{text-decoration:none}
         <div class="lab-soon-head">即將開放</div>
         <div class="lab-grid lab-soon">
           <div class="lab-item" onclick="labInfo('穿戴裝置整合','即將開放 — Apple Watch / BLE 胸帶 / Garmin 需原生 App 支援。')">
-            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="5" width="10" height="16" rx="2"/><circle cx="12" cy="17" r="1"/><path d="M9 9h6"/></svg></div>
+            <div class="ic" data-datum="wearable"></div>
             <div class="nm">穿戴裝置</div>
             <div class="sub">整合 Apple Watch<br>BLE 胸帶 / Garmin</div>
           </div>
           <div class="lab-item" onclick="labInfo('Edge Score Bucket','即將開放 — 按分數區間分析你的決策統計。')">
-            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v6l-5 9a2 2 0 002 3h12a2 2 0 002-3l-5-9V3"/><path d="M7 3h10"/></svg></div>
+            <div class="ic" data-datum="records"></div>
             <div class="nm">Edge Score Bucket</div>
             <div class="sub">按區間分析<br>你的決策統計</div>
           </div>
           <div class="lab-item" onclick="labInfo('情境行事曆','即將開放 — 同步日程節律、預排 session。')">
-            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
+            <div class="ic" data-datum="history"></div>
             <div class="nm">情境行事曆</div>
             <div class="sub">同步日程節律<br>預排 session</div>
           </div>
@@ -3557,7 +3560,7 @@ a.lab-wide{text-decoration:none}
              所以那個 `›` 第一次是真的（它導航到一個真的存在的東西）。
              ⚠️ 導航＝中性，不上可動層琥珀（founder 2026-09-08：琥珀只給會改變狀態的）。 -->
         <div class="lab-wide" onclick="openPremiumSheet()">
-          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.6 7.2L22 10l-5.8 4.4L18 22l-6-4-6 4 1.8-7.6L2 10l7.4-.8z"/></svg></div>
+          <div class="ic" data-datum="premium"></div>
           <div class="info">
             <div class="nm">Premium</div>
             <div class="sub">看看它解鎖什麼 · 以及 Free 永遠保留什麼</div>
@@ -3709,7 +3712,7 @@ a.lab-wide{text-decoration:none}
 
       <!-- Insight（事實語言）-->
       <div class="sd-insight">
-        <div class="ic"><svg class="ui-ic" viewBox="0 0 24 24"><path d="M5 20v-5M12 20V9M19 20V4"/></svg></div>
+        <div class="ic" data-datum="records"></div>
         <div class="body">
           <div class="head">Pattern Insight</div>
           <span id="sdInsight"></span>
@@ -3746,9 +3749,7 @@ a.lab-wide{text-decoration:none}
     <div class="fdcb-tmpl" onclick="openSheet()">
       <!-- ⚠️ 這裡曾經有 style="color:#34C759" —— inline style 把上面那條 CSS
            變成**永遠被蓋掉的死規則**。顏色現在由 CSS 講，markup 不再插手。 -->
-      <div class="ic" id="fdcbIcon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12C4 8 6 8 8 12C10 16 12 16 14 12C16 8 18 8 20 12C21 14 22 14 22 12"/></svg>
-      </div>
+      <div class="ic" id="fdcbIcon" data-datum="calibrate"></div>
       <div class="fdcb-tmpl-txt">
         <div class="fdcb-tmpl-name" id="fdcbName">Health Stress</div>
         <div class="fdcb-tmpl-dur" id="fdcbDur">3:00 ▾</div>
@@ -3781,38 +3782,23 @@ a.lab-wide{text-decoration:none}
   <!-- ═══════ TAB BAR ═══════ -->
   <nav class="tabbar" id="tabbar">
     <div class="tab active" data-tab="today" onclick="goTab('today')">
-      <div class="ic">
-        <!-- Today: 8-point sun/brightness icon -->
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.5" fill="currentColor" stroke="none"/><g stroke-width="2.2"><line x1="12" y1="2" x2="12" y2="4.5"/><line x1="12" y1="19.5" x2="12" y2="22"/><line x1="2" y1="12" x2="4.5" y2="12"/><line x1="19.5" y1="12" x2="22" y2="12"/><line x1="5" y1="5" x2="6.8" y2="6.8"/><line x1="17.2" y1="17.2" x2="19" y2="19"/><line x1="5" y1="19" x2="6.8" y2="17.2"/><line x1="17.2" y1="6.8" x2="19" y2="5"/></g></svg>
-      </div>
+      <div class="ic" data-datum="today"></div>
       <div class="lbl">Today</div>
     </div>
     <div class="tab" data-tab="scan" onclick="goTab('scan')">
-      <div class="ic">
-        <!-- Scan: bracket + barcode lines -->
-        <svg viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2" stroke-width="1.9"/><g stroke-width="1.8"><line x1="8" y1="9" x2="8" y2="15"/><line x1="11" y1="9" x2="11" y2="15"/><line x1="13.5" y1="9" x2="13.5" y2="15"/><line x1="16" y1="9" x2="16" y2="15"/></g></svg>
-      </div>
+      <div class="ic" data-datum="scan"></div>
       <div class="lbl">Scan</div>
     </div>
     <div class="tab" data-tab="session" onclick="goTab('session')">
-      <div class="ic">
-        <!-- Session: filled circle with play triangle -->
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-width="1.9"/><path d="M10 8.5v7l6-3.5z" fill="currentColor" stroke="none"/></svg>
-      </div>
+      <div class="ic" data-datum="session"></div>
       <div class="lbl">Session</div>
     </div>
     <div class="tab" data-tab="timeline" onclick="goTab('timeline')">
-      <div class="ic">
-        <!-- Timeline: list with bullets -->
-        <svg viewBox="0 0 24 24"><g stroke-width="1.9"><circle cx="5" cy="6.5" r="1" fill="currentColor"/><circle cx="5" cy="12" r="1" fill="currentColor"/><circle cx="5" cy="17.5" r="1" fill="currentColor"/><line x1="9.5" y1="6.5" x2="20" y2="6.5"/><line x1="9.5" y1="12" x2="20" y2="12"/><line x1="9.5" y1="17.5" x2="20" y2="17.5"/></g></svg>
-      </div>
+      <div class="ic" data-datum="timeline"></div>
       <div class="lbl">Timeline</div>
     </div>
     <div class="tab" data-tab="lab" onclick="goTab('lab')">
-      <div class="ic">
-        <!-- Lab: conical flask -->
-        <svg viewBox="0 0 24 24"><path d="M9 3v6l-5 9.5a1.8 1.8 0 001.6 2.5h12.8a1.8 1.8 0 001.6-2.5L15 9V3" stroke-width="1.9"/><line x1="7.5" y1="3" x2="16.5" y2="3" stroke-width="2.2"/><circle cx="10" cy="16" r="1" fill="currentColor" stroke="none"/><circle cx="14" cy="18" r="0.8" fill="currentColor" stroke="none"/></svg>
-      </div>
+      <div class="ic" data-datum="lab"></div>
       <div class="lbl">Lab</div>
     </div>
   </nav>
@@ -3971,17 +3957,17 @@ a.lab-wide{text-decoration:none}
     <div class="sheet-title">Select Template</div>
     <div class="sheet-cat">— 預設 · 日常情境 —</div>
     <div class="tmpl-item selected" data-id="HEALTH_STRESS" onclick="selectTmpl(this)">
-      <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12C4 8 6 8 8 12C10 16 12 16 14 12C16 8 18 8 20 12C21 14 22 14 22 12"/></svg></div>
+      <div class="ic" data-datum="calibrate"></div>
       <div class="info"><div class="nm">Health Stress</div><div class="sub">壓力舒緩 · Box breathing</div></div>
       <div class="dur">3:00</div>
     </div>
     <div class="tmpl-item" data-id="WORK_FOCUS" onclick="selectTmpl(this)">
-      <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V4H8M16 4H20V8M20 16V20H16M8 20H4V16"/><path d="M12 9L15 12L12 15L9 12Z"/></svg></div>
+      <div class="ic" data-datum="session"></div>
       <div class="info"><div class="nm">Work Focus</div><div class="sub">工作專注 · Deep work</div></div>
       <div class="dur">25:00</div>
     </div>
     <div class="tmpl-item" data-id="EXERCISE" onclick="selectTmpl(this)">
-      <div class="ic" style="color:#FF6B35"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12H6L8 8L11 16L14 6L16 12H18L19.5 9.5L21 12H22"/></svg></div>
+      <div class="ic" style="color:#FF6B35" data-datum="pulse"></div>
       <div class="info"><div class="nm">Exercise</div><div class="sub">運動 · Warm/Active/Cool</div></div>
       <div class="dur">10:00</div>
     </div>
@@ -3995,17 +3981,17 @@ a.lab-wide{text-decoration:none}
     <div id="tmplDisciplineGroup">
     <div class="sheet-cat">— 進階 · 決策紀律 —</div>
     <div class="tmpl-item" data-id="CANSLIM_GS" onclick="selectTmpl(this)">
-      <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V15M12 20V10M19 20V5"/></svg></div>
+      <div class="ic" data-datum="records"></div>
       <div class="info"><div class="nm">Canslim GS</div><div class="sub">一般設定 · Sweet Zone 60–180s</div></div>
       <div class="dur">5:00</div>
     </div>
     <div class="tmpl-item" data-id="CANSLIM_HIGH_RS" onclick="selectTmpl(this)">
-      <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18L12 6L16 12L20 4"/><path d="M16 4H20V8"/></svg></div>
+      <div class="ic" data-datum="edge"></div>
       <div class="info"><div class="nm">Canslim High RS</div><div class="sub">高RS · Quick Read 45s</div></div>
       <div class="dur">4:00</div>
     </div>
     <div class="tmpl-item" data-id="MANCINI_FBD" onclick="selectTmpl(this)">
-      <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/><path d="M12 11.5v1M12.5 12h-1"/></svg></div>
+      <div class="ic" data-datum="decision"></div>
       <div class="info"><div class="nm">Mancini FBD</div><div class="sub">失敗突破 · Entry Lock 60s</div></div>
       <div class="dur">3:00</div>
     </div>
@@ -4363,14 +4349,22 @@ const TP_PRESETS_DEFAULT = [
   {id:'DRIFT', text:'分心了'}, {id:'BODY', text:'身體有反應'},
 ];
 
+/**
+ * 模板身分圖示：鍵是模板的 icon 名，值是 Datum Glyphs（`/preview/datum-glyphs.js`）。
+ * 🔴 這裡只做「模板 → 哪一顆」的對應，**不放 path** —— path 的單一來源是 registry。
+ * registry 沒載到時回空字串：圖示消失，但頁面其餘照常（名字與左欄仍講得出是哪個模板）。
+ */
+const datumSvg = (name) => (window.TENKI_DATUM ? window.TENKI_DATUM.svg(name) : '');
 const ICON_SVG = {
-  gs:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V15M12 20V10M19 20V5"/></svg>',
-  rs:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18L12 6L16 12L20 4"/><path d="M16 4H20V8"/></svg>',
-  fbd:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/></svg>',
-  work:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V4H8M16 4H20V8M20 16V20H16M8 20H4V16"/><path d="M12 9L15 12L12 15L9 12Z"/></svg>',
-  heart:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12C4 8 6 8 8 12C10 16 12 16 14 12C16 8 18 8 20 12C21 14 22 14 22 12"/></svg>',
-  ex:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12H6L8 8L11 16L14 6L16 12H18L19.5 9.5L21 12H22"/></svg>'
+  gs: datumSvg('records'),     // 一般設定：累積中的紀錄
+  rs: datumSvg('edge'),        // 高 RS：走勢
+  fbd: datumSvg('decision'),   // 失敗突破：決策的分岔點
+  work: datumSvg('session'),   // 專注：有起點有終點的一段時間
+  heart: datumSvg('calibrate'),// 壓力舒緩：收回中心
+  ex: datumSvg('pulse'),       // 運動：脈搏
 };
+// 靜態 HTML 裡的 `data-datum` 佔位在這裡一次填完（本段 script 在所有佔位之後）。
+if (window.TENKI_DATUM) window.TENKI_DATUM.hydrate(document);
 
 // ═════════════════════════════════════════════════
 // Tab navigation

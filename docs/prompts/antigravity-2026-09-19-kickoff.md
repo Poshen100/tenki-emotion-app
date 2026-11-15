@@ -8,6 +8,67 @@
 
 ---
 
+## ⚠️ 2026-11-14 更新：這份仍然有效，但**先解環境，再談功能**
+
+**內容沒過期。** 從 9/19 到今天，`apps/mobile` 只收到**一個** commit（`cc2ca00`，
+加了 finger-baseline 的文案模組與裝置平台清單，route 從 25 變 26）。
+同期 `apps/preview` 收了 **55 個** —— 兩個月的動能全在瀏覽器那條線，
+mobile 近乎凍結。所以下面 P1／P2 的判斷原封不動成立。
+
+### 上一次（2026-09-19/20）為什麼零產出
+
+兩件環境問題吃掉整個 session，一行功能都沒寫：
+
+1. **`git push` 掛住三次（約 25 分鐘）。** 公用電腦沒有 GitHub 憑證，
+   Git Credential Manager 想彈 GUI，而 Antigravity 的 shell 看不到那個視窗。
+   `GIT_TERMINAL_PROMPT=0` **管不到它** —— 那只擋終端機內的 prompt。
+2. **Expo tunnel 開了又死**，founder 的手機拿到 `ERR_NGROK_3200 ... is offline`。
+   而第一次給他的連線網址是**拼出來的**（把 slug `tenki-core` 當成 scheme `tenki`，
+   又接上 `expo-development-client` —— 那條路是給 dev build 用的，founder 沒有）。
+
+### §0 環境（在寫任何程式碼之前，時限 45 分鐘）
+
+**a. 讓 git 認證失敗得快，而不是掛住**
+
+```powershell
+$env:GCM_INTERACTIVE = "never"
+```
+
+**b. 推一次空分支確認通了**（憑證由 founder 在 Antigravity 之外的終端機處理一次）。
+🔴 **推不上去之前不要寫任何程式碼**（Rule #0）。
+
+🔴 **公用電腦的憑證規則（取代舊 §8 的「記得清掉」）**：
+用**只給這個 repo、只給 Contents 讀寫、1 天到期**的 fine-grained token，
+離開前回 GitHub **revoke**。本機清理會忘、而且忘了也查不到；
+revoke 是遠端的、一鍵、可驗證的，而且 token 一撤，殘留在那台機器上的那串字就失效。
+
+**c. Expo tunnel：不要拼 URL**
+
+```powershell
+Invoke-RestMethod -Uri "http://localhost:4040/api/tunnels"
+```
+
+取 `public_url` 的**主機名**，前面加 `exp://`，**就這樣**。
+沒有 `exp+`、沒有 `https`、後面不接任何 query。深連加 `/--/<路由>`。
+給出網址前先確認 server 還活著 —— 它已經死過一次。
+
+**d. 時限到就停。** 45 分鐘內手機還連不上 app 就**停下來回報**，
+不要繼續鑽環境。founder 人在圖書館，第二次空手而回比沒去更貴。
+
+### 已知會紅屏（預期行為，§7 明文不要修）
+
+`BaselineCaptureNeutralScreen` 與 `EnvironmentCalibrationScreen` ——
+`CameraFeedView.native.tsx` 第 3 行靜態 import `react-native-vision-camera`，
+Expo Go 載不了自訂原生模組。截一張存證，跳過，繼續。
+（BLE 與 Health Connect 走的是動態 `await import()`，開機不會炸。）
+
+### 要 founder 當場確認的假設
+
+§1b 把 dev build 排除掉，依據是「沒有 Apple Developer 付費帳號、沒有 Android 機」。
+**若這兩件事之一已經改變，§1b 整段要重算** —— 那會讓 VisionCamera 擷取層重新變成可做。
+
+---
+
 ## 0. 先讀（house 制度，不可跳過）
 
 `CLAUDE.md` → `docs/PLAYBOOK.md`（§0 文件矛盾裁決、§1 任務路由、§6 preview 陷阱）

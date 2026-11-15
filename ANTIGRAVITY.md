@@ -1,35 +1,35 @@
-# 2026-09-19 ADDENDUM — 今天的工單在這裡（**先讀這一段再往下讀任何東西**）
+# 2026-11-14 ADDENDUM — 今天的工單（**先讀這一段**）
 
 **➡️ `docs/prompts/antigravity-2026-09-19-kickoff.md`**
+（日期是九月，但**內容仍然有效**，而且頁首有今天補的環境前置段 —— 先做那一段。）
 
-底下那幾份舊 ADDENDUM 仍寫著 "TOP PRIORITY" —— **那是歷史，不是待辦。**
-一路往下讀會讓你重做四件已經上線的事。
+## 一句話
+
+**先讓 founder 親眼看到現在的 mobile app（P1），再做 Soul Scan 相機掃描 UI（P2）。**
+兩件都在 Expo Go 跑得到，不需要 dev build／Mac／Apple 帳號。
+
+## 為什麼那份九月的工單沒過期
+
+9/19 至今 `apps/mobile` 只收到**一個** commit（`cc2ca00`，finger-baseline 文案模組
+＋裝置平台清單，route 25 → 26）。同期 `apps/preview` 收了 **55 個**。
+動能全在瀏覽器那條線，mobile 近乎凍結 —— 所以那份工單的判斷原封不動成立。
+
+## 🔴 上一次（2026-09-19/20）零產出，死因是環境不是功能
+
+`git push` 掛住三次（約 25 分鐘，GCM 想彈 GUI 而 shell 看不到），
+Expo tunnel 開了又死，而第一次給 founder 的連線網址是**拼出來的**。
+**今天先解環境，時限 45 分鐘，解不掉就停下來回報** —— 細節在工單頁首那一段。
 
 ## 已完成，不要重做
 
-| 舊工單 | 狀態 |
-|---|---|
-| Soul Lock 四拍儀式（2026-08-19 ADDENDUM）| ✅ #233 / #236 / #240，眨眼確認已在真機驗證 |
-| Hero「鏡頭感」進場（2026-08-01 ADDENDUM）| ✅ #229 / #235 |
-| #1-A 水晶球對標 IMG_8437（2026-07-09）| ✅ #234 |
-| #1-B 超立體盾牌（2026-07-09）| ✅ #229 |
+Soul Lock 四拍（#233/#236/#240）、Hero 相機（#229/#235）、水晶球（#234）、盾牌（#229）。
+底下那幾份舊 ADDENDUM 仍寫著 "TOP PRIORITY"，**那是歷史**。
 
-## 今天做得到的，與今天做不到的
+## 今天做不到（先決條件不在場）
 
-- **做得到**：①在 `main` 上跑 Expo Go，讓 founder 第一次看到現在的 mobile app；
-  ②把 Soul Scan 的相機掃描 UI 做出來（模式選擇、品質 reasons、
-  「擷取層還沒接上」的誠實阻擋態）—— 純 JS，Expo Go 看得到。
-- **做不到（先決條件不在場，不要耗）**：VisionCamera 擷取層與 HealthKit 橋接。
-  Expo Go 載不了自訂原生模組 → 需要 development build → 裝進 iPhone 需要
-  **Apple Developer 付費帳號**（沒有）；EAS 的 Android build 走得通但**沒有 Android 機**。
-
-## ⚠️ Expo 工單的分支那一段已過期
-
-`docs/prompts/antigravity-expo-go-kickoff.md` 叫你切到
-`claude/tenki-core-growth-arch-7teiqj`。那條分支最後一個程式碼 commit 停在
-**2026-08-19**、從 main 分叉在 **2026-08-11**，而 `main` 的 `apps/mobile`
-之後**又走了 17 個 commit**。切過去等於給 founder 看一個少掉整個九月的 app。
-**今天在 `main` 上跑**；那條分支要不要 rebase 回來，由 founder 看完截圖後拍板。
+VisionCamera 擷取層與 HealthKit —— Expo Go 載不了自訂原生模組，需要 development build；
+裝進 iPhone 要 Apple Developer 付費帳號，EAS 的 Android build 走得通但沒有 Android 機。
+⚠️ **這兩個前提若已改變，工單 §1b 整段要重算。**
 
 ---
 

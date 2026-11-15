@@ -28,6 +28,105 @@
      勿刪、勿移動、勿複製第二份：`scripts/verify.sh` 驗它恰好出現一次、
      而且排在所有條目之前。它的存在理由見協議第 1 條。 -->
 
+# 2026-11-13 Session Update（Datum Glyphs 圖示系統＋自架 Geist 落進 /v3/；畫布上的錶盤做不了）
+
+## What was done
+- founder：「之前的 emoji 質感不夠，調用 Claude Design 設計視覺」→ 在 Claude Design 畫布出了
+  六張（圖示系統、Foundations、Today／掃描收束／Session 空狀態／Premium）→ founder「全依建議，Go」。
+- **圖示**：`apps/preview/datum-glyphs.js` 是 20 顆的單一來源；`/v3/` 22 個 `data-datum` 佔位
+  （導覽 5、Lab 8、模板 6、洞察卡）＋ ICON_SVG 改成對 registry 的對應表。
+  規則：中性結構＋最多一個 datum，只有 datum 帶顏色（`--datum`）。寫在 `docs/VISUAL-DIRECTION.md` §3.9。
+- **字型**：Geist／Geist Mono 自架在 `apps/preview/fonts/`（不走 Google Fonts），`--font-sans` 新增、
+  `--mono` 前面加 Geist Mono。**只有 `/v3/` 的 body 改吃 `--font-sans`**，其他頁面的介面字沒動。
+- **守門**：新增 `scripts/preview-datum.mjs`（接進 verify.sh 與 CI，那一筆標 `[制度變更]`）。
+
+## 教訓
+- 🔴 **設計稿畫了一個產品產不出來的數字。** 畫布的 Today 是 0–100 錶盤＋「74」，而 `/v3/` 的
+  readiness 流程契約上沒有 0–100 分（那個槽永遠是「—」，註解寫得很清楚）。我是出完稿、founder
+  說 Go 之後才去讀那段程式。**出視覺稿之前先讀它要落地的那個畫面現在印什麼、為什麼。**
+- 🔴 **換字型換掉的不只是字形，還有每一行的高度與每一個字的寬度 —— 兩個都有 px 級的餘裕在等它。**
+  ① 行高：Geist 1.30 vs SF Pro 1.193 → Today 頂列 37→39px、整頁下移 2px，iPhone SE 上滑動提示
+  疊到決策條。修法是**改字型檔的垂直度量**（hhea／OS2 typo → 952／−241／0），不是 CSS
+  `ascent-override`（Safari 的支援不能指望，而 iPhone 是唯一要緊的瀏覽器）。
+  ② 字寬：「Neutral」@36px 124 → 128.3px，環心讀數超出圓；`.tl-edge-score.band` 字距補到 −0.05em。
+  ⚠️ 兩者都是**量出來才知道的**，而且第二個是 fdcb 的字型金絲雀本身過期（它還在量舊的堆疊）才沒先喊。
+- 🔴 **我自己立的規則，第一輪就被我自己違反。** 時間軸空狀態換成帶 datum 的 `timeline`：
+  畫面寫「還沒有紀錄」、圖示上有一個「量到了」的點。實截才看到。已換回原本那顆。
+- 🔴 **`preview-fdcb` 那條「名單以外逐項比對」的 key 帶節點序號，而底座圖示的子節點數隨模板不同**
+  → 圖示之後的節點序號錯開一格，同一個 key 指到的不是同一個節點。它不是全失效（把 tab 改吃
+  `--tmpl` 在舊版仍會紅），漏的是錯位後 class 對不上的那些 —— seg-obs／seg-sweet 冷暖兩族
+  底色本來就不同（守望軸 vs 倒數），從沒被比到。換圖示讓序號對齊，才第一次紅。
+  修法：圖示內部不進序號；那兩段另立「模式」名單，放行條件是兩邊都得是中性階。
+  ⚠️ **我第一版的註解寫成「之後的節點一直是空過、含整條 tabbar」，反向驗證當場推翻** ——
+  寫下「一直是 X」之前要先去舊版把它弄壞一次。
+- ⚠️ `preview-datum` 第一版有一條「佔位 ≥ 20 個」，而 JS 重繪模板清單後 DOM 剩 19 個 ——
+  門檻卡在實際值上面（CLAUDE.md 那條的又一次）。改成點名。
+
+## 沒做的（刻意）
+- Today 的 0–100 錶盤（見上）；掃描收束的金色同心環（那一刻是星塵的，鎖定資產）。
+- `tenki-icons.js` 沒動 —— 它是 apps/mobile `TenkiIcons.tsx` 的鏡像。
+- Lab 的模板自訂／標記標籤／紀律模式／CSV 四顆與基線流程的圖示：20 顆裡沒有對得上的語意。
+
+## 下次接手點
+- founder 還沒實走。看的是 `/v3/` 底部導覽（只有一個青色的點）、Lab 圖示、數字字形。
+- 其他 preview 頁（decision-alert、drift、finger、story）要不要也吃 `--font-sans`：沒決定。
+  動之前先想到上面那兩條 —— 每一頁都有自己的 px 餘裕。
+- apps/mobile 要不要跟進 Datum Glyphs：沒談。
+- Claude Design 畫布是 founder 私有的；上面的 Today「74」是示意值，跟產品現況對不上。
+
+---
+
+# 2026-11-12 Session Update（CI 的字型步驟：重試蓋錯了地方，診斷的空白不是答案）
+
+## What was done
+- **#308 的紅不是版面問題。** `Pin fonts` 跑在 `bash -e` 下，runner 解不到
+  `azure.archive.ubuntu.com` → `apt-get` 回 100 → preview job 在**任何一條測試跑之前**
+  就結束，Playwright 連啟動都沒有。那個 PR 只動了一個 preview html 檔。
+  那次故障**持續超過一小時**（14:07 與 15:15 兩次 run 的 log 一模一樣），
+  所以我先前寫的 3 次重試修法對它無效 —— 當場自己撤掉，等 #308 併了才以
+  `[制度變更]` 單獨開 PR #309（🟡 級，founder 自己 merge）。
+- PR #309 做三件刻意分開的事：① 重試（短暫失敗）② 不容忍（沒有 `|| true`）
+  ③ **失敗的路徑也要留下資料**（字型盤點印在安裝之前）。
+
+## 教訓（兩個都是第一版推上去之後，被自己的 log 推翻的）
+- 🔴 **重試蓋在可有可無的那個呼叫上。** `npx playwright install --with-deps chromium`
+  **自己也跑 apt**，而 playwright 的 chromium 相依清單**本來就含 `fonts-wqy-zenhei`**
+  （`playwright-core` nativeDeps，與 `fonts-liberation` 並列）。證據：log 裡 playwright
+  那步的 `fonts-wqy-zenhei is already the newest version`。兩個後果都跟直覺反過來 ——
+  (a) **刪掉 `Pin fonts` 不會讓 apt 離開關鍵路徑**（#308 照樣死，只是晚一步），
+  我原本把它列為「更強的做法」，那條路是假的；(b) 我保護了可省的那個 apt。
+  → 同一套重試補到 `Install Chromium`；`Pin fonts` 留著的理由改成**顯式**
+  （repo 自己說它要這個字型，不靠 playwright 剛好會裝；換清單時金絲雀會紅）。
+- 🔴 **空白不是一個答案。** 盤點寫成 `fc-list … || echo "(一個都沒有)"`，而
+  `fc-list` **空輸出也回 0** → fallback 是死碼，log 上只剩一塊什麼都沒有的區域。
+  它剛好就是對的答案（runner 的 CJK 字型真的是 0 個），但下一個讀的人
+  **分不出「真的沒有」跟「這個診斷自己壞了」**。
+  ⚠️ 而且修的時候又犯一次同一個錯：第一版修法在 `fc-list` **跑失敗**時也印
+  「沒有任何 CJK 字型」—— 那是把「沒量到」講成「量到沒有」。現在三種狀態各一句話。
+- ⚠️ **為了診斷而加的指令自己不能殺 job。** `set -o pipefail` 下 `… | head` 會因為
+  `head` 提早關管線而讓整段非零離開 —— 實測過，後面那行 `echo` 根本沒跑到。
+- ⚠️ 這四條已提煉進 `docs/PLAYBOOK.md` §5（情境 → 規則）。
+
+## 量到的事實（別再猜）
+- **ubuntu-24.04 runner 的 CJK 字型是 0 個**，`fc-match sans-serif` = DejaVu Sans
+  （2026-11-12，run 43134169026 / 43137607901）。所以「不裝、用既有字型」不存在。
+- 驗證方式：**從解析後的 YAML 抽真實 script**（不另抄一份），配假的
+  `apt-get`/`sudo`/`npx`/`sleep` 跑 0／2／3 次失敗 → `0 / 0 / 1`，兩步皆然；
+  盤點三態（列出來／0 個／盤點失敗）三句話不同且都不殺 step。
+  真實 runner 上也確認了 `(0 個：這台 runner 沒有任何 CJK 字型)` 這一行。
+
+## 下次接手點
+1. 🔴 **founder 自己 merge PR #309**（🟡 制度變更）。CI 四個 job 全綠、
+   `npm run verify -- --quick` 25 步全綠。
+2. 真正的修法還沒做：**把 `.deb` 快取起來**（`actions/cache`）讓 mirror 離開關鍵路徑。
+   ⚠️ 要蓋**兩個** apt 才有意義（`Pin fonts` ＋ `playwright --with-deps`）。
+3. 🔴 仍然只有 founder 能驗的那一段：**真的觸發一次 TradingView 快訊**
+   （收到 → 推送送出 → 手機響）。`/api/alert` 回 405、`/api/digest` 回 401
+   都只證明函式活著，不證明推送本身。
+4. founder 手機實走新圖示與幽靈列（Session 空狀態／有紀錄／Today 教練卡）。
+
+---
+
 # 2026-11-09 Session Update（去設 CRON_SECRET，挖到 /api/alert 在正式站崩了 10 天）
 
 **founder 說「CRON_SECRET 你可以幫我完成嗎？我授權」。結果兩件事都不是原本以為的樣子。**
