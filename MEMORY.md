@@ -28,6 +28,50 @@
      勿刪、勿移動、勿複製第二份：`scripts/verify.sh` 驗它恰好出現一次、
      而且排在所有條目之前。它的存在理由見協議第 1 條。 -->
 
+# 2026-11-16 Session Update（「全依建議」：定位同步＋留名單＋接線步驟＋使用摘要）
+
+> 承接同一天下面那條。founder 對三個問題回「全依建議」。
+> ⚠️ 下面那條寫的「CLAUDE.md／SYSTEM.md 都還沒同步」**已經不成立** —— 這次同步了。
+
+## What was done（一個 Todo 一個 commit）
+1. `docs(rules)`：進場策略寫進 `CLAUDE.md` 產品定位段與 `SYSTEM.md` §1.1（founder 同意）。
+   `docs/SOUL-SCAN-NORTH-STAR.md` 沒動 —— 它管掃描，這個裁決沒改掃描的任何一條。
+2. `feat(api)`：`/api/waitlist`。規則在 `domain/src/policies/waitlist.ts`；只存 email 與首次時間
+   （Upstash hash `tenki:waitlist:v1`，`HSETNX` 所以重送不會往後排），重複送出回同一個答案，
+   每網路每小時 10 次，counter 讀不到就關門。名單在 Upstash 主控台 Data Browser 看那把 key。
+3. `feat(preview)`：`/story/` **頁尾**的表單（Hero 是鎖定資產，沒碰）。四種回應各一句話。
+4. `feat(preview)`：`/decision-alert/` 連接卡裡內建 TradingView 接線三步驟
+   （`docs/TRADINGVIEW-SETUP.md` 只在 repo 裡，外面的人看不到）。
+5. `feat(preview)`：Lab「使用摘要」＋ `apps/preview/usage-summary.js`。
+
+## 三個判斷
+- 🔴 **「本機漏斗計數」沒有埋任何點。** 五個步驟全部能從裝置上既有的 key 推導
+  （onboarded／readiness history／alert channel／outcomes），所以沒有第二份狀態會漂。
+  北極星那個數字（最近 7 天「判定與結果都填完」）也是推導的。
+- 🔴 **摘要不上傳。** `docs/PRIVACY_ARCHITECTURE.md` 把匿名使用統計列為 opt-in only，
+  而這次沒有做 opt-in 流程 —— 所以它只顯示＋複製，要不要貼給 founder 是使用者自己按的。
+  代價照實說：**founder 看不到任何人的摘要，除非對方貼給他。** 要自動回報得先做 opt-in。
+- 「先不動」判定完就算填完（沒有結果可填）；「進場」要結果不是 pending 才算。
+
+## 坑
+- 表單第一版在 390 寬下輸入框塌成 20px 高（`flex:1` 在 column 方向變成高度 0 起算）。
+  **是截圖看到的，不是斷言抓到的** —— 補了一條「觸控高度 ≥ 44」，先確認它在壞的版本上會紅。
+- 乾淨容器：`npm ci` 之後要照 PLAYBOOK 移掉 `node_modules/playwright{,-core}`。
+
+## 沒做的（刻意）
+- 🟡 `scripts/preview-waitlist.mjs`、`scripts/preview-usage.mjs` **還沒接進 `verify.sh` 與 CI**
+  （那是制度變更，要標 `[制度變更]` 由 founder merge）。現在它們只有手動跑才會紅。
+- Hero 副標（「a single, honest number」）沒改：鎖定資產，而且文案語氣要 founder 選字。
+- 定價假門、`/api/alert` 每日合成探測：還沒開始。
+
+## 下次接手點
+- founder 還沒實走：`/story/` 頁尾表單、`/decision-alert/` 的三步驟、Lab「使用摘要」。
+- 🔴 真的送一筆 email 過正式站之前，`/api/waitlist` 只驗到「函式載得起來」（分支部署 GET → 405）。
+- 🔴 仍待 founder：`CRON_SECRET`、Apple Developer 年費。
+- 還沒開 PR（founder 沒要求）。
+
+---
+
 # 2026-11-16 Session Update（商業健檢 → founder 定調：先只打交易者，決策紀錄是主體、掃描是入口）
 
 > 這一條是**進場策略的錨**，承接並修正 2026-07-05「只有臉、功能極簡」那條。
