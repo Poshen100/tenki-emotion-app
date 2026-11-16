@@ -164,6 +164,14 @@
       "purpose": "收束提醒的排程端點(GET,Authorization: Bearer CRON_SECRET,2026-11-02)。Vercel Cron 每天 UTC 01:00(= ET 20:00/21:00,兩種 DST 下都是收市後的同一個交易日;也是 UTC+8 早上 9 點)。判準全在 domain/src/policies/digest-push.ts;一天最多一則,連續 3 天沒反應就停。深連結 /v3/#session。",
       "status": "active",
       "editable": true
+    },
+    {
+      "route": "/api/waitlist",
+      "url": "https://tenki-emotion-app.vercel.app/api/waitlist",
+      "source": "api/waitlist.ts",
+      "purpose": "搶先名單端點(POST,body {email},2026-11-16)。入口是 /story/ 頁尾的表單。只存地址與首次送出時間(Upstash hash tenki:waitlist:v1),旁邊不放頻道、讀數或來源位址;重複送出回同一個答案。每網路每小時 10 次。規則 domain/src/policies/waitlist.ts。",
+      "status": "active",
+      "editable": true
     }
   ],
   "mobileApp": {

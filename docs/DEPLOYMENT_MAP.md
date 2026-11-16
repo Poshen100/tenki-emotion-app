@@ -67,6 +67,7 @@ tenki-emotion-app.vercel.app
 | `https://tenki-emotion-app.vercel.app/api/subscribe` | `api/subscribe.ts`（serverless function） | Web Push 訂閱端點（POST 存、DELETE 移除，`?ch=`）。新快訊時 `api/alert.ts` 主動推播到已訂閱裝置。設定：`docs/TRADINGVIEW-SETUP.md §7`（需 VAPID env） | ✅ Active（需 Upstash + VAPID） |
 | `https://tenki-emotion-app.vercel.app/api/open-count` | `api/open-count.ts`（serverless function） | **裝置回報端點**（POST，`?ch=`，body `{ openCount }`，2026-10-30）— 今天還有幾筆決策沒填結果。🔴 這是關於決策**唯一**離開裝置的東西：一個整數＋一個時間戳，沒有標的／結果／判定。存在的理由是收束提醒必須「確知」而不是猜（`docs/DECISION-RECORD-LOOP.md` §4 L2） | ✅ Active（需 Upstash） |
 | `https://tenki-emotion-app.vercel.app/api/digest` | `api/digest.ts`（serverless function） | **收束提醒的排程端點**（GET，`Authorization: Bearer $CRON_SECRET`，2026-11-02）— Vercel Cron 每天 UTC 01:00 打一次（＝ ET 20:00／21:00，兩種 DST 下都是收市後的同一個交易日；也是 UTC+8 的早上 9 點）。判準全在 `domain/src/policies/digest-push.ts`；一天最多一則，連續 3 天沒反應就停。深連結 `/v3/#session` | ✅ Active（需 Upstash + VAPID + CRON_SECRET） |
+| `https://tenki-emotion-app.vercel.app/api/waitlist` | `api/waitlist.ts`（serverless function） | **搶先名單端點**（POST，body `{ email }`，2026-11-16）— 入口是 `/story/` 頁尾的表單。只存地址與首次送出時間（Upstash hash `tenki:waitlist:v1`），旁邊不放頻道、讀數或來源位址；重複送出回同一個答案。每網路每小時 10 次。規則：`domain/src/policies/waitlist.ts`。名單在 Upstash 主控台的 Data Browser 看那一把 key | ✅ Active（需 Upstash） |
 
 ## Routing (vercel.json)
 
