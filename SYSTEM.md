@@ -21,6 +21,21 @@ It helps users (traders and non-traders) detect, regulate, and recalibrate their
 - State deviation modeling (above baseline / at baseline / below baseline)
 - Behavioral timing and decision tracking
 
+### 1.1 Who it is built for first (founder decision, 2026-11-16)
+
+The first audience is **discretionary traders**. The body of the product is the
+**decision record loop** — alert → decision timer → judgement → outcome → close-of-day
+reminder. The scan is the **entry ritual** into that loop, not the value by itself.
+
+This narrows *who we build for first*; it does **not** change what the product is.
+Everything in Sections 2 and 5 still applies: it is not a trading tool, not a signal
+system, and it never says when to enter or exit. It records and reflects the user's own
+decisions and state — decision quality, not market calls.
+
+A 0–100 number appears only when a real HRV source exists. Without one, the default
+reading is a qualitative band plus its evidence. Refusing to invent a number is part
+of the product, not a gap in it.
+
 ## 2. What Tenki Core Is NOT
 
 - NOT a trading signal app
