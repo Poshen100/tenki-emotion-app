@@ -16,6 +16,11 @@ import {
   channelRateKey,
 } from '../../domain/src/policies/channel-rate-limit';
 import { DIGEST_REPORT_TTL_SEC } from '../../domain/src/policies/digest-push';
+import {
+  WAITLIST_KEY,
+  WAITLIST_WINDOW_SEC,
+  waitlistRateKey,
+} from '../../domain/src/policies/waitlist';
 import { isChannelId } from './http';
 
 /** Prefix for per-channel alert lists (newest first). */
@@ -524,4 +529,49 @@ export async function removePushSubscription(
       await command(config, ['lrem', key, '0', JSON.stringify(sub)]);
     }
   }
+}
+
+/**
+ * Counts one early-access sign-up attempt for `clientKey` in the current
+ * window. Counted **before** the write, like `countChannelCreation`.
+ *
+ * @param config - Upstash connection.
+ * @param clientKey - Caller bucket from `getClientKey`.
+ * @param nowMs - Current time in epoch milliseconds.
+ * @returns Attempts counted in this window, including this one.
+ */
+export async function countWaitlistSignup(
+  config: UpstashConfig,
+  clientKey: string,
+  nowMs: number,
+): Promise<number> {
+  const key = waitlistRateKey(clientKey, nowMs);
+  const counted = await command(config, ['incr', key]);
+  if (counted === 1) {
+    try {
+      await command(config, ['expire', key, String(WAITLIST_WINDOW_SEC)]);
+    } catch {
+      // Key still rolls with the window — see waitlistRateKey.
+    }
+  }
+  return typeof counted === 'number' ? counted : 0;
+}
+
+/**
+ * Adds an address to the early-access list.
+ *
+ * `HSETNX` keeps the **first** sign-up time: a visitor who submits twice
+ * does not move down the list, and the list cannot be reordered by replays.
+ * The address is stored alone — nothing about the caller sits next to it.
+ *
+ * @param config - Upstash connection.
+ * @param email - Address already normalised by `normalizeWaitlistEmail`.
+ * @param nowMs - Current time in epoch milliseconds.
+ */
+export async function saveWaitlistEmail(
+  config: UpstashConfig,
+  email: string,
+  nowMs: number,
+): Promise<void> {
+  await command(config, ['hsetnx', WAITLIST_KEY, email, String(nowMs)]);
 }

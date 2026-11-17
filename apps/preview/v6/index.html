@@ -3067,6 +3067,7 @@ a.lab-wide{text-decoration:none}
          那支在**頂層**就讀 window.TENKI_OUTCOME（OUTCOME_STORE_KEY_V6 / isDisciplinedV6），
          放到頁尾跟其他 script 一起載會來不及。絕對路徑：本頁同時掛在 /v3/ 與 /preview/v6/。 -->
     <script src="/preview/decision-outcome.js?v=do17"></script>
+    <script src="/preview/usage-summary.js?v=us1"></script>
     <!-- Datum Glyphs：圖示的單一來源。本頁的圖示一律是 `data-datum` 佔位，
          由下面 ICON_SVG 旁的 hydrate() 填 —— 不要再把 path 抄進 HTML。 -->
     <script src="/preview/datum-glyphs.js?v=dg1"></script>
@@ -3526,6 +3527,14 @@ a.lab-wide{text-decoration:none}
             <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></div>
             <div class="nm">CSV 匯出</div>
             <div class="sub">下載原始數據<br>供進階分析</div>
+          </div>
+          <!-- 使用摘要（2026-11-16）：走到哪一步、最近 7 天填完幾筆。
+               全部從裝置上既有的資料推導（usage-summary.js），不埋點、不上傳；
+               按下去只是顯示並複製，要不要貼給別人是使用者自己的事。 -->
+          <div class="lab-item is-control" id="labUsageTile" onclick="showUsageSummary()">
+            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V10M12 20V4M19 20v-7"/></svg></div>
+            <div class="nm">使用摘要</div>
+            <div class="sub">走到哪一步<br>只在這台裝置</div>
           </div>
         </div>
 
@@ -6200,6 +6209,36 @@ function labInfo(title, sub){
   t.classList.add('show');
   if(labToastTimer) clearTimeout(labToastTimer);
   labToastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ── 使用摘要：從既有的本機資料推導，不另外存任何東西（usage-summary.js）──
+/** 摘要要讀完才收，不沿用 labInfo 的 3 秒。點一下可以提早收。 */
+const USAGE_TOAST_MS = 9000;
+function showUsageSummary(){
+  const readJson = (key) => { try { return JSON.parse(localStorage.getItem(key)); } catch(e){ return null; } };
+  let onboarded = false, hasChannel = false;
+  try {
+    onboarded = localStorage.getItem('tenki.app.onboarded.v1') !== null;
+    hasChannel = !!localStorage.getItem('tenki.alert.channel');
+  } catch(e){}
+  const readings = readJson('tenki.readiness.history.v1');
+  const summary = TENKI_USAGE.summarize({
+    onboarded, hasChannel,
+    readingCount: Array.isArray(readings) ? readings.length : 0,
+    outcomes: readJson('tenki.alert.outcomes.v1'),
+    nowMs: Date.now(),
+  });
+  const text = TENKI_USAGE.describe(summary);
+  const show = (copied) => {
+    labInfo(text.title, text.detail + (copied ? '（已複製）' : ''));
+    clearTimeout(labToastTimer);
+    labToastTimer = setTimeout(() => document.getElementById('labToast').classList.remove('show'), USAGE_TOAST_MS);
+  };
+  const copy = navigator.clipboard && navigator.clipboard.writeText
+    ? navigator.clipboard.writeText('TENKI 使用摘要｜' + text.title + '｜' + text.detail)
+    : Promise.reject(new Error('clipboard unavailable'));
+  // 🔴 只有真的寫進剪貼簿才說「已複製」。
+  copy.then(() => show(true), () => show(false));
 }
 
 // ── CSV 匯出（真下載）：匯出決策收束紀錄（tenki.alert.outcomes.v1）──

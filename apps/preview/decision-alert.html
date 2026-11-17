@@ -148,6 +148,12 @@
        flex:1（basis 0）會輸給旁邊 flex-basis:auto 的說明文字 → 按鈕被壓成一條、
        字直排。這裡不用 flex，按鈕自己吃滿一行。 */
     .live-selftest-block { margin-top: 8px; }
+    /* 接線步驟（2026-11-16）：設定文件只在 repo 裡，外面的人看不到 —— 步驟要在他貼連結的那個畫面上。 */
+    .live-steps { margin: 12px 0 4px; padding: 10px 12px; border: 1px solid var(--n-800, rgba(255,255,255,0.08)); border-radius: 10px; }
+    .live-steps-title { font-size: 12px; font-weight: 600; color: var(--n-200, #e5e7eb); margin-bottom: 6px; }
+    .live-steps ol { margin: 0; padding-left: 18px; }
+    .live-steps li { font-size: 12px; color: var(--n-400, #9ca3af); line-height: 1.55; margin-bottom: 4px; }
+    .live-steps-note { font-size: 11px; color: var(--n-500); line-height: 1.5; margin-top: 4px; }
     .live-selftest-btn { display: block; width: 100%; padding: 10px 0; font-size: 13px; }
     .live-selftest-btn:disabled { opacity: 0.5; }
     .live-fields { display: flex; gap: 8px; margin-bottom: 8px; }
@@ -781,6 +787,15 @@
                按了重設、TradingView 沒重貼，快訊就此人間蒸發而兩邊都顯示正常）。
                ⚠️ 刻意不是 modal —— 這是一條就地的帶子，不奪取焦點、不擋任何操作。 -->
           <div class="live-warn" id="liveResetWarn" hidden></div>
+          <div class="live-steps" id="liveSteps">
+            <div class="live-steps-title">在 TradingView 接上（約 1 分鐘，手機就能做）</div>
+            <ol>
+              <li>開一條快訊 → 編輯 →「通知」分頁 → 勾「Webhook URL」→ 貼上剛複製的連結。</li>
+              <li>「訊息」欄寫一句你自己的話就好（例如「接近計畫區，先看結構」）—— 不用貼任何程式碼。</li>
+              <li>存檔後回到這裡，按下面的「測試這條連結」確認通了。</li>
+            </ol>
+            <div class="live-steps-note">Webhook 是 TradingView 付費方案的功能，並且要先開啟兩步驟驗證。</div>
+          </div>
           <div class="live-selftest-block">
             <button class="btn btn-ghost live-selftest-btn" id="liveSelfTest" type="button">測試這條連結</button>
             <div class="live-push-hint" id="liveSelfTestResult">用 TradingView 的身分（不帶登入 cookie）打一次這條連結，當場知道通不通。</div>

@@ -28,6 +28,91 @@
      勿刪、勿移動、勿複製第二份：`scripts/verify.sh` 驗它恰好出現一次、
      而且排在所有條目之前。它的存在理由見協議第 1 條。 -->
 
+# 2026-11-16 Session Update（「全依建議」：定位同步＋留名單＋接線步驟＋使用摘要）
+
+> 承接同一天下面那條。founder 對三個問題回「全依建議」。
+> ⚠️ 下面那條寫的「CLAUDE.md／SYSTEM.md 都還沒同步」**已經不成立** —— 這次同步了。
+
+## What was done（一個 Todo 一個 commit）
+1. `docs(rules)`：進場策略寫進 `CLAUDE.md` 產品定位段與 `SYSTEM.md` §1.1（founder 同意）。
+   `docs/SOUL-SCAN-NORTH-STAR.md` 沒動 —— 它管掃描，這個裁決沒改掃描的任何一條。
+2. `feat(api)`：`/api/waitlist`。規則在 `domain/src/policies/waitlist.ts`；只存 email 與首次時間
+   （Upstash hash `tenki:waitlist:v1`，`HSETNX` 所以重送不會往後排），重複送出回同一個答案，
+   每網路每小時 10 次，counter 讀不到就關門。名單在 Upstash 主控台 Data Browser 看那把 key。
+3. `feat(preview)`：`/story/` **頁尾**的表單（Hero 是鎖定資產，沒碰）。四種回應各一句話。
+4. `feat(preview)`：`/decision-alert/` 連接卡裡內建 TradingView 接線三步驟
+   （`docs/TRADINGVIEW-SETUP.md` 只在 repo 裡，外面的人看不到）。
+5. `feat(preview)`：Lab「使用摘要」＋ `apps/preview/usage-summary.js`。
+
+## 三個判斷
+- 🔴 **「本機漏斗計數」沒有埋任何點。** 五個步驟全部能從裝置上既有的 key 推導
+  （onboarded／readiness history／alert channel／outcomes），所以沒有第二份狀態會漂。
+  北極星那個數字（最近 7 天「判定與結果都填完」）也是推導的。
+- 🔴 **摘要不上傳。** `docs/PRIVACY_ARCHITECTURE.md` 把匿名使用統計列為 opt-in only，
+  而這次沒有做 opt-in 流程 —— 所以它只顯示＋複製，要不要貼給 founder 是使用者自己按的。
+  代價照實說：**founder 看不到任何人的摘要，除非對方貼給他。** 要自動回報得先做 opt-in。
+- 「先不動」判定完就算填完（沒有結果可填）；「進場」要結果不是 pending 才算。
+
+## 坑
+- 表單第一版在 390 寬下輸入框塌成 20px 高（`flex:1` 在 column 方向變成高度 0 起算）。
+  **是截圖看到的，不是斷言抓到的** —— 補了一條「觸控高度 ≥ 44」，先確認它在壞的版本上會紅。
+- 乾淨容器：`npm ci` 之後要照 PLAYBOOK 移掉 `node_modules/playwright{,-core}`。
+
+## 沒做的（刻意）
+- 🟡 `scripts/preview-waitlist.mjs`、`scripts/preview-usage.mjs` **還沒接進 `verify.sh` 與 CI**
+  （那是制度變更，要標 `[制度變更]` 由 founder merge）。現在它們只有手動跑才會紅。
+- Hero 副標（「a single, honest number」）沒改：鎖定資產，而且文案語氣要 founder 選字。
+- 定價假門、`/api/alert` 每日合成探測：還沒開始。
+
+## 下次接手點
+- founder 還沒實走：`/story/` 頁尾表單、`/decision-alert/` 的三步驟、Lab「使用摘要」。
+- 🔴 真的送一筆 email 過正式站之前，`/api/waitlist` 只驗到「函式載得起來」（分支部署 GET → 405）。
+- 🔴 仍待 founder：`CRON_SECRET`、Apple Developer 年費。
+- 還沒開 PR（founder 沒要求）。
+
+---
+
+# 2026-11-16 Session Update（商業健檢 → founder 定調：先只打交易者，決策紀錄是主體、掃描是入口）
+
+> 這一條是**進場策略的錨**，承接並修正 2026-07-05「只有臉、功能極簡」那條。
+> 只讀不改的一個 session：除了本條，沒有動任何檔案。
+
+## founder 裁決（2026-11-16，一句話「Ok」）
+- **先只打主觀交易者。** 產品主體是**決策紀錄閉環**（快訊 → 決策計時 → 判定 →
+  結果回填 → 收束提醒），**掃描是它的入口／儀式**，不是價值本體。
+- ⚠️ **這改的是「先賣給誰」，不是定位語言。** `SYSTEM.md` 的禁語照舊：不得稱
+  "trading tool" / "signal system"；一樣是 decision quality／state calibration。
+  也**不推翻**「日常掃描入口是臉」「不露臉」「phone-first」。
+- ⚠️ `CLAUDE.md`／`SYSTEM.md`／`docs/SOUL-SCAN-NORTH-STAR.md` **都還沒同步這個裁決**
+  （🔴 級，founder 只同意了方向，沒同意改那些檔）。要改請先問。
+
+## 健檢看到的事實（當天查的，不是推論的地方有標）
+1. Edge Score 0–100 沒有任何上線畫面產得出來（`/v3/` 分數槽恆為「—」、相機 HRV 預設關、
+   mobile 原生 0%），而 `/story/` Hero 副標承諾「a single, honest number」。
+2. 唯一有真實使用的閉環是決策紀錄，使用者只有 founder 一人
+   （⚠️ 這是從 MEMORY 只出現 founder 實走**推論**的，沒看 Vercel 流量）。
+3. 收款／獲客基建是零：沒有金流 SDK、沒有帳號、`/story/` 沒有留名單、沒有漏斗計數；
+   定價只存在於過期的 v2 `docs/PRD.md`。
+4. 原生卡的是 Expo 帳號 + Apple Developer 年費（2026-09-05 就查清），到今天沒動。
+5. `/api/alert` 壞 10 天沒人發現（2026-11-09 那條）；`CRON_SECRET` 仍待 founder 設。
+
+## 給 founder 的建議（已提出；除第 1 點外**都還沒被裁決**，不要當成已核准的待辦）
+2. 兩週內讓 5–10 個外部交易者用 PWA 走一週（補：好設的快訊接入、留名單、本機漏斗計數）。
+3. 付 Apple Developer、出第一個 EAS dev build（解 torch／曝光鎖定／HealthKit）。
+4. 承諾與能力的落差：帶位＋證據為預設，數字只在有真 HRV 來源時出現。
+   Hero 副標改不改 —— **founder 未答**（Hero 是鎖定資產）。
+5. 定價先用假門測，再談金流。
+6. 北極星：每位活躍使用者每週「判定與結果都填完」的決策數。
+7. 有外部使用者前凍結：瀏覽器端 PPG 精修、視覺打磨、新守門腳本
+   （例外：`/api/alert` 每日合成探測 + `CRON_SECRET`）。
+
+## 下次接手點
+- 選下一刀時先問「它對外部交易者的獲取／啟用／留存／收入是哪一項」。
+- 🔴 未決：Hero 副標；建議 2–7 哪幾項要做、順序。
+- 本 session 沒跑 `npm run verify` 全套，也沒實走任何頁面。
+
+---
+
 # 2026-11-13 Session Update（Datum Glyphs 圖示系統＋自架 Geist 落進 /v3/；畫布上的錶盤做不了）
 
 ## What was done

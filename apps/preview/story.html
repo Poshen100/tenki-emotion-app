@@ -326,6 +326,23 @@ section{position:relative}
 .footer-title{font-size:clamp(26px,4vw,40px);font-weight:700;letter-spacing:-0.02em;margin-bottom:24px}
 .footer-actions{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-bottom:48px}
 .footer-mark{font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:var(--ink-faint)}
+/* ── Early-access list（2026-11-16）— 在 footer，不在 Hero（Hero 是鎖定資產）。
+   刻意不進 GSAP 的進場時間軸：一張表單在動畫沒跑到時不該是隱形的。 ── */
+.waitlist{max-width:420px;margin:0 auto 48px;text-align:left}
+.waitlist-label{display:block;font-size:14px;font-weight:600;margin-bottom:10px;text-align:center}
+.waitlist-row{display:flex;gap:10px}
+.waitlist-input{
+  flex:1;min-width:0;height:48px;padding:0 16px;border-radius:999px;
+  border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.04);
+  color:var(--ink);font:inherit;font-size:16px; /* 16px：低於它 iOS 會在聚焦時放大整頁 */
+}
+.waitlist-input::placeholder{color:var(--ink-faint)}
+.waitlist-input:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.waitlist-btn{flex:none;height:48px;border:0;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.waitlist-btn[disabled]{opacity:0.5}
+.waitlist-note{margin-top:10px;font-size:12px;line-height:1.5;color:var(--ink-faint);text-align:center}
+.waitlist-status{margin-top:10px;min-height:18px;font-size:13px;line-height:1.4;color:var(--ink-dim);text-align:center}
+@media (max-width:420px){.waitlist-row{flex-direction:column}.waitlist-input{flex:none;width:100%}.waitlist-btn{width:100%}}
 
 @media (max-width:880px){
   .story-panel{height:auto;padding:80px 0}
@@ -533,10 +550,65 @@ section{position:relative}
     <a class="btn btn-primary" href="/preview/">Start Soul Scan</a>
     <a class="btn btn-secondary" href="/v3/">Open Dashboard</a>
   </div>
+  <form class="waitlist" id="waitlist" novalidate>
+    <label class="waitlist-label" for="waitlist-email">Get early access</label>
+    <div class="waitlist-row">
+      <input class="waitlist-input" id="waitlist-email" name="email" type="email" inputmode="email"
+             autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="you@example.com" required />
+      <button class="btn btn-primary waitlist-btn" id="waitlist-submit" type="submit">Join the list</button>
+    </div>
+    <p class="waitlist-note">We keep this address and nothing else. It is used only to tell you when a place opens.</p>
+    <p class="waitlist-status" id="waitlist-status" role="status" aria-live="polite"></p>
+  </form>
   <div class="footer-mark">TENKI CORE — Decision Edge Score</div>
 </footer>
 
 <script src="v6/stardust.js?v=sd8"></script>
 <script src="story.js"></script>
+<script>
+// Early-access list → POST /api/waitlist（規則在 domain/src/policies/waitlist.ts）。
+// 每一種結果各有一句話：成功、格式不對、太頻繁、送不出去 —— 不共用一句「稍後再試」。
+(function () {
+  var form = document.getElementById('waitlist');
+  if (!form) return;
+  var input = document.getElementById('waitlist-email');
+  var button = document.getElementById('waitlist-submit');
+  var status = document.getElementById('waitlist-status');
+  var MESSAGES = {
+    invalid: 'That does not look like an email address.',
+    ok: 'You are on the list. We will write when a place opens.',
+    busy: 'Too many sign-ups from this network. Try again in an hour.',
+    failed: 'That did not go through. Nothing was saved — please try again.'
+  };
+  form.addEventListener('submit', function (event) {
+    event.preventDefault();
+    var email = input.value.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      status.textContent = MESSAGES.invalid;
+      return;
+    }
+    button.disabled = true;
+    status.textContent = '';
+    fetch('/api/waitlist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email })
+    }).then(function (res) {
+      if (res.ok) {
+        status.textContent = MESSAGES.ok;
+        input.value = '';
+        return;
+      }
+      status.textContent = res.status === 429 ? MESSAGES.busy
+        : res.status === 400 ? MESSAGES.invalid
+        : MESSAGES.failed;
+    }).catch(function () {
+      status.textContent = MESSAGES.failed;
+    }).then(function () {
+      button.disabled = false;
+    });
+  });
+})();
+</script>
 </body>
 </html>
