@@ -28,6 +28,21 @@
      勿刪、勿移動、勿複製第二份：`scripts/verify.sh` 驗它恰好出現一次、
      而且排在所有條目之前。它的存在理由見協議第 1 條。 -->
 
+# 2026-11-21 Session Update（Welltory 拆解，研究筆記）
+
+## What was done
+- founder 轉了 Welltory 的 Threads 貼文要「擷取可用優點整合進 TENKI」。
+  寫成 `docs/research/WELLTORY.md`：機制表、§2 不能拿（撞硬規則）、§3 可以拿、§4 五個提案（A–E）等 founder 選。
+- **沒有寫任何程式**：五個提案都需要 founder 決定流程位置或商業承諾。
+
+## 坑
+- 這個環境擋 threads.com、help.welltory.com、screensdesign.com（WebFetch DNS 失敗、curl 403）；
+  `update_environment` 加 host 被服務拒絕。只有 WebSearch 能用 —— 研究全部來自搜尋摘要，文件開頭已標明。
+
+## 下次接手點
+- founder 選了哪個提案就從那個開。建議 A（自評 vs 讀數，並列＋進黑盒子，不照抄「相信保守那邊」—— 交易情境會變成金融建議）。
+
+
 # 2026-11-16 Session Update（「全依建議」：定位同步＋留名單＋接線步驟＋使用摘要）
 
 > 承接同一天下面那條。founder 對三個問題回「全依建議」。
