@@ -1972,6 +1972,7 @@
       localStorage.setItem(READING_STORE_KEY, JSON.stringify(reading));
     } catch (e) { /* Safari 無痕等 —— 讀數單純不留存，不影響本次回傳 */ }
     recordInHistory(reading);
+    recordAttempt('reading');
   }
 
   /**
@@ -1998,6 +1999,22 @@
       return;
     }
     history.record(reading);
+  }
+
+  /**
+   * 守門指標的原料：這次跑完的掃描有沒有拿到讀數（scan-attempts.js）。
+   * 跟 recordInHistory 同一個做法：模組沒載到就出聲、不自己存第二份。
+   * @param {'reading'|'no_reading'} outcome
+   */
+  function recordAttempt(outcome) {
+    var attempts = global.TENKI_SCAN_ATTEMPTS;
+    if (!attempts) {
+      if (global.console && global.console.error) {
+        global.console.error('[tenki] scan-attempts.js 沒載到 —— 這次掃描的成敗沒有被記錄。');
+      }
+      return;
+    }
+    attempts.record(outcome);
   }
 
   /** 進入揭示 —— 量測已結束，取消鈕收起（否則會出現「store 有讀數但回傳 null」）。 */
@@ -2134,6 +2151,7 @@
   /** 訊號不足就說沒有讀數 —— 不用低品質資料湊一個出來。 */
   function giveUp() {
     enterReveal();
+    recordAttempt('no_reading');
     // 不加 .secured：沒有讀數就不准上 gold。失敗更需要被看見，
     // 所以走同一個面板、同樣停著等點，不是一閃而過。
     revealTone(null, !securedEarned(null)); // 星塵同理：退彩度，不給一個看起來像結果的顏色

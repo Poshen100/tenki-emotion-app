@@ -394,6 +394,13 @@ for (const page of PAGES_LOADING_SCAN) {
       historyAt !== -1 && historyAt < scanAt,
       `history@${historyAt} scan@${scanAt} —— saveReading 會呼叫它，順序反了就記不到`
     );
+    // 守門指標的原料（2026-11-22）：同一個形狀 —— 沒載到或排在後面，成敗就靜靜地沒被記。
+    const attemptsAt = html.search(/<script[^>]+scan-attempts\.js/);
+    checkTruthy(
+      `${page} 的 scan-attempts 排在 scan 之前`,
+      attemptsAt !== -1 && attemptsAt < scanAt,
+      `attempts@${attemptsAt} scan@${scanAt} —— 首測與有效讀數會少記`
+    );
   }
 }
 
