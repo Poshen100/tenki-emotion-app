@@ -28,6 +28,38 @@
      勿刪、勿移動、勿複製第二份：`scripts/verify.sh` 驗它恰好出現一次、
      而且排在所有條目之前。它的存在理由見協議第 1 條。 -->
 
+# 2026-11-22 Session Update（「全依建議，開始」：分級修正＋守門指標＋胸帶對照＋例行實驗）
+
+> 承接同一天下面那條（商業價值提案）。founder 五條全部核准。
+
+## What was done（一個 Todo 一個 commit）
+1. `feat(shared)` T1：決策閉環整條免費 —— `externalAlertBridge` free: true、掃描不限、
+   `localHistoryDays` → `historyViewDays`（儲存不分級，Free 畫面 30 天）、拿掉 `edgePrediction`／`benchmarks`。
+   同步 v6 Premium 對照表、`/decision-alert/` 徽章、`api/channel.ts` 註解、ALERT-SPEC §11、App Store 文案。
+2. `docs(rules)`：CLAUDE.md／SYSTEM.md 寫入閉環免費、守門指標、「給驗證過的數字」、公平訂閱。
+3. `feat(preview)` R2：`scan-attempts.js`（只有時間與成敗）＋使用摘要加「首測／跑完幾次拿到讀數幾次」。
+4. `feat(engine)` R1：`ppg/prv-headline.ts` —— 胸帶對照 #27（靜坐 10 對跨 2 天、誤差中位數 ≤10%、P90 ≤17%），
+   通過＋該次過閘 → `/finger/` 頭條卡出現脈搏節律（標「算出」、不叫 HRV、不進分數）。
+5. `feat(engine)` R3：`intelligence/routines.ts` 交易前例行實驗（封閉清單、≥5 次才計數、固定順序不排名）＋ `/drift/` 示範。
+
+## 三個判斷
+- 🔴 **#27 不用 ICC**（提案原本寫 ICC ≥ 0.90）：一台手機通常一個人在驗，一個人的靜息 RMSSD 幾乎不散開，
+  ICC 量的是樣本散度不是儀器準度。改用相對誤差，理由寫在 `prv-headline.ts` 檔頭與 PHONE-PPG §12 #27。
+- 🔴 **守門指標需要新紀錄**：臉部掃描的 `giveUp()` 原本什麼都沒記，所以「不埋點」做不到 ——
+  CLAUDE.md 我先寫了「不埋點」，發現後改成照實的描述（只存時間與成敗、只存本機）。使用者自己取消的不記，
+  會讓有效讀數偏樂觀，已寫在 `scan-attempts.js` 檔頭。
+- ⚠️ **例行實驗接不上真實讀數**：`assessCalibration` 吃 0-100，手機讀數是帶位 —— 要等 drift 的軸（DI §6）。
+
+## 坑
+- `npx jest <path>` 在 root 跑會用錯設定（ts 語法 parse 失敗）→ 要 `cd packages/<pkg> && npx jest`。
+- 驗收報告長度上限 < 30 被 #27 撐破（31 行）→ 放寬到 < 33，fixture 改成 #27 的最長形。
+
+## 下次接手點
+- founder 要做：買胸帶（Polar H10 類），在 `/finger/` 選靜坐、量完把胸帶 App 的 RMSSD 填進「胸帶對照」，累積 10 次跨 2 天。
+- 還沒做的提案：B1 機型相容＋能力測試、B2 量到／算出／推論徽章、B4 自評 vs 讀數。
+- drift 的軸一定案，例行實驗就能接真實讀數。
+
+
 # 2026-11-22 Session Update（外部 Welltory 報告 → 商業價值提案）
 
 - founder 上傳外部深度研究報告，要「提高商業價值的優化建議」，並授權「變得更好的話北極星規則皆可改」。
