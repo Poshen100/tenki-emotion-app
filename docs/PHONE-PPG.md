@@ -495,6 +495,7 @@ bug。實機第 15 條在驗這件事。
 | 閘門不過就**整項消失**，不是降級成一個誤導人的數字 | `prvRmssdMs: null`，`PrvComparison` 也回 accumulating |
 | 不持久化原始幀或原始脈搏波形 | `PulseAnchor` 只有推導值；有測試把序列化後的 anchor 攤開驗 |
 | **初期只出現在證據／量測細節層** | `/finger/` 收在展開的「量測細節與證據」裡；harness 驗 DOM 歸屬**不是**可見性（收起來的 `<details>` 裡 `offsetParent` 仍不是 null）|
+| ✅ **2026-11-22 放寬**：機型通過胸帶對照（§12 第 16 條）**且**該次擷取過拍形閘門 → 可以用數字出現在讀數主畫面，標「算出」層、名字不變 | `domain/src/policies/prv-headline.ts` 的 `resolvePrvHeadline()`；任何一條不成立就回原因、留在證據層 |
 | **初期不得影響 Edge Score** | 有一條測試把同一筆擷取的 PRV 拿掉再算一次，斷言 score、confidence、excludedDrivers **完全相同** |
 | 個人比較要等到足夠多**可比較的高品質**靜息錨點 | `resolvePrvComparison()`：7 次跨 3 天，且 context 可比較、PRV 閘門有過 |
 | 與 BLE 胸帶 RR-derived HRV 在型別／儲存／分析／文案／計分五處都分開 | 型別 ✓ 儲存 ✓ 計分 ✓ 文案 ✓ 分析：`ScoreDriver.excluded` |

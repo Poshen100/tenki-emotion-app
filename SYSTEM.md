@@ -36,6 +36,17 @@ A 0–100 number appears only when a real HRV source exists. Without one, the de
 reading is a qualitative band plus its evidence. Refusing to invent a number is part
 of the product, not a gap in it.
 
+**Updated 2026-11-22 (founder):**
+- The whole decision record loop is free — alerts, scans, judgements, outcomes and stored
+  history. Premium sells the depth of longitudinal analysis, never the loop itself.
+- A camera-derived *pulse rhythm* (ms) may appear on the reading screen once that phone
+  model has passed a chest-strap comparison and the capture passed the beat-template
+  gate. It is still never called HRV and still never enters the 0–100 score. The pitch
+  moves from "no number" to "only validated numbers."
+- Two guard metrics sit beside the north star: first-scan success and valid-reading rate.
+- Fair billing: plans shown with equal visual weight, cancel where you subscribe,
+  remind before renewal.
+
 ## 2. What Tenki Core Is NOT
 
 - NOT a trading signal app

@@ -152,8 +152,10 @@ TENKI 已經有一模一樣的引擎：`intelligence/calibration.ts`（前後比
 
 ## 6. 需要 founder 說「要」的
 
-- [ ] T1：快訊接入移到 Free、掃描不限次、Free 紀錄全保留只限畫面 30 天、拿掉 `edgePrediction`／`benchmarks`
-- [ ] R1：改「數字只在有真 HRV 來源時出現」那條（附驗收條件）
-- [ ] R2：北極星旁加首測成功率、有效讀數率
-- [ ] R3：Calibration Proof 擴成交易前例行實驗
-- [ ] B5：公平訂閱承諾進規則
+> ✅ **2026-11-22 founder：「全依建議，開始」** —— 五條全部核准。
+
+- [x] T1：快訊接入移到 Free、掃描不限次、Free 紀錄全保留只限畫面 30 天、拿掉 `edgePrediction`／`benchmarks`
+- [x] R1：改「數字只在有真 HRV 來源時出現」那條（附驗收條件）
+- [x] R2：北極星旁加首測成功率、有效讀數率
+- [x] R3：Calibration Proof 擴成交易前例行實驗
+- [x] B5：公平訂閱承諾進規則
