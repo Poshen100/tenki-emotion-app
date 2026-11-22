@@ -33,6 +33,13 @@
 
 import { MIN_PERFUSION } from './ppg/quality';
 import {
+  MAX_MEDIAN_RELATIVE_ERROR,
+  MAX_P90_RELATIVE_ERROR,
+  MIN_REFERENCE_DAYS,
+  MIN_REFERENCE_PAIRS,
+  assessReferenceAgreement,
+} from './ppg/prv-headline';
+import {
   DC_DRIFT_SUSPECT,
   DRIFT_PERIOD_TRUSTWORTHY_SEC,
   type ExposureStability,
@@ -155,6 +162,15 @@ export interface ValidationCapture {
   } | null;
   /** What the person said they were doing. */
   scenario: ValidationScenario;
+  /**
+   * RMSSD a chest strap measured over the same capture, typed in by the user,
+   * or null/absent when there was no strap.
+   *
+   * 🔴 Optional and late: every record written before 2026-11-22 lacks it, so
+   * it arrives as `undefined`. Check #27 (`ppg/prv-headline.ts`) is the only
+   * reader and treats anything but a positive number as "no strap".
+   */
+  referenceRmssdMs?: number | null;
 }
 
 // ─────────────────────────────────────────────
@@ -506,6 +522,23 @@ export function formatValidationReport(log: readonly ValidationCapture[]): strin
   lines.push('#14 跨天變異 vs 當日變異');
   lines.push(`  脈搏：${describeSpread(spread.pulseBpm, 'bpm')}`);
   lines.push(`  脈搏節律：${describeSpread(spread.pulseRhythmMs, 'ms')}`);
+  lines.push('');
+
+  // 🔴 #27 decides whether Pulse Rhythm may headline on this device
+  // (founder 2026-11-22). The bounds are printed next to the numbers so the
+  // person reading a pasted report does not have to know them.
+  const ref = assessReferenceAgreement(log);
+  lines.push('#27 胸帶對照（脈搏節律能不能上主畫面）');
+  if (ref.status === 'accumulating') {
+    lines.push(
+      `  還在累積：靜坐配對 ${ref.pairCount}/${MIN_REFERENCE_PAIRS} 次、${ref.dayCount}/${MIN_REFERENCE_DAYS} 天` +
+        (ref.medianAbsError === null ? '' : ` · 目前誤差中位數 ${pct(ref.medianAbsError)}`),
+    );
+  } else {
+    lines.push(
+      `  ${ref.status === 'passed' ? '✓ 通過' : '✗ 不通過'}：${ref.pairCount} 對、${ref.dayCount} 天 · 誤差中位數 ${pct(ref.medianAbsError)}（≤ ${pct(MAX_MEDIAN_RELATIVE_ERROR)}）· 第 90 百分位 ${pct(ref.p90AbsError)}（≤ ${pct(MAX_P90_RELATIVE_ERROR)}）· 偏差 ${pct(ref.medianBias)}`,
+    );
+  }
 
   return lines.join('\n');
 }
@@ -783,6 +816,10 @@ function spreadOf(values: readonly number[]): Spread | null {
  * interpret. Anything that is not a real value must render as absent, whatever
  * upstream mistake produced it — this is the last place that can still catch it.
  */
+function pct(value: number | null): string {
+  return value === null ? '—' : `${Math.round(value * 100)}%`;
+}
+
 function fmt(value: number | null): string {
   return value === null || !Number.isFinite(value) ? '—' : String(value);
 }

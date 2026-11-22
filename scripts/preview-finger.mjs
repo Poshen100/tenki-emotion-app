@@ -686,7 +686,7 @@ check(
   `顯示=${clean.prvShown} prv=${clean.prv}`,
 );
 check(
-  '🔴 PRV 只出現在證據層，不是頭條讀數',
+  '🔴 這台裝置還沒通過胸帶對照（#27）→ PRV 只出現在證據層，不是頭條讀數',
   clean.prvInEvidenceLayer && !/ms/.test(clean.headlineCardText),
   `在證據層=${clean.prvInEvidenceLayer} 頭條卡=${clean.headlineCardText.replace(/\n/g, ' | ')}`,
 );
@@ -1073,6 +1073,91 @@ await page.evaluate(() => {
   window.__tenkiFingerHarness.resetValidationLog();
   window.__tenkiFingerHarness.setScenario('resting');
   window.__tenkiFingerHarness.setLockAchieved(false);
+});
+
+// ── 2e. #27 胸帶對照：脈搏節律什麼時候可以上主畫面（founder 2026-11-22）──
+// 🔴 判斷在引擎；這裡驗的是頁面**照著引擎畫**，而且三條路都不會讓數字溜上去。
+console.log('\n── #27 胸帶對照 ──');
+const seedPairs = (ratio) => page.evaluate((r) => {
+  const rows = Array.from({ length: 10 }, (_, i) => ({
+    atMs: 1_763_800_000_000 + i, localDateKey: i % 2 ? '2026-11-21' : '2026-11-22',
+    durationSec: 90, qualityScore: 95, accepted: true, heartRateBpm: 64,
+    prvRmssdMs: Math.round(50 * r * 10) / 10, beatTemplateCorrelation: 0.98, lockEverAchieved: true,
+    channel: 'red', channelPeriodicity: null, channelDcMean: null, exposure: null,
+    exposureLock: null, torchOn: null, quietSegments: null, scenario: 'resting', referenceRmssdMs: 50,
+  }));
+  localStorage.setItem('tenki.preview.validationLog', JSON.stringify(rows));
+}, ratio);
+const headState = () => page.evaluate(() => ({
+  shown: !document.getElementById('prvHeadRow').hidden,
+  value: document.getElementById('prvHead').textContent.trim(),
+  inHeadlineCard: document.getElementById('hr').closest('section').contains(document.getElementById('prvHeadRow')),
+  inEvidence: document.getElementById('how').contains(document.getElementById('prvHeadRow')),
+  headlineCardText: document.getElementById('hr').closest('section').innerText,
+  refShown: !document.getElementById('refBlock').hidden,
+  report: document.getElementById('validationReport').textContent,
+}));
+
+await page.evaluate(() => window.__tenkiFingerHarness.resetValidationLog());
+await runScan({});
+let h = await headState();
+check('沒有對照紀錄 → 主畫面沒有脈搏節律', !h.shown && h.value === '—', JSON.stringify(h));
+check('靜坐而且脈搏節律有出來 → 出現胸帶對照欄位', h.refShown, JSON.stringify(h));
+check('報告有 #27，而且說還在累積', h.report.includes('#27') && h.report.includes('靜坐配對 0/10'), h.report);
+
+await seedPairs(1);
+const validated = await runScan({});
+h = await headState();
+check('🔴 通過對照的裝置 → 主畫面出現脈搏節律，數字跟證據層同一個',
+  h.shown && /^\d+(\.\d+)? ms$/.test(h.value) && h.value === validated.prv,
+  `head=${h.value} evidence=${validated.prv}`);
+check('它在頭條卡裡，不在證據層', h.inHeadlineCard && !h.inEvidence, JSON.stringify(h));
+check('🔴 主畫面那一行標「算出」，而且講明不是心律變異、不進分數',
+  h.headlineCardText.includes('算出') && h.headlineCardText.includes('不是心律變異') && h.headlineCardText.includes('不進你的分數'),
+  h.headlineCardText.replace(/\n/g, ' | '));
+
+await seedPairs(0.7);
+await runScan({});
+h = await headState();
+check('🔴 對照不通過的裝置 → 主畫面沒有脈搏節律', !h.shown && h.value === '—', JSON.stringify(h));
+check('報告說不通過', h.report.includes('✗ 不通過'), h.report);
+
+await seedPairs(1);
+await runScan({});
+const weakAfterPass = await runScan(PPG_FIXTURES.lowPerfusion);
+h = await headState();
+check('🔴 通過的裝置也救不了一次沒過閘的擷取（上一次的數字不得留著）',
+  !h.shown && h.value === '—' && weakAfterPass.prv === '—', JSON.stringify(h));
+
+await seedPairs(1);
+await runScan({});
+await page.evaluate(() => window.__tenkiFingerHarness.renderFrames([]));
+h = await headState();
+check('🔴 連分析都跑不動的擷取，也會把上一次的主畫面數字收掉', !h.shown && h.value === '—', JSON.stringify(h));
+
+await page.evaluate(() => window.__tenkiFingerHarness.resetValidationLog());
+await runScan({});
+const entered = await page.evaluate(() => {
+  const input = document.getElementById('refRmssd');
+  const save = document.getElementById('refSave');
+  const status = () => document.getElementById('refState').textContent;
+  input.value = '0'; save.click(); const bad = status();
+  input.value = '42'; save.click(); const good = status();
+  const log = JSON.parse(localStorage.getItem('tenki.preview.validationLog'));
+  return { bad, good, last: log[log.length - 1].referenceRmssdMs, count: log.length,
+    report: document.getElementById('validationReport').textContent };
+});
+check('不合理的值不收，而且說為什麼', entered.bad.includes('1–300'), entered.bad);
+check('🔴 合理的值寫回這一次的紀錄（不是新增一筆）', entered.last === 42 && entered.count === 1, JSON.stringify(entered));
+check('記下之後報告跟著更新', entered.good.includes('1/10') && entered.report.includes('靜坐配對 1/10'), JSON.stringify(entered));
+
+await page.evaluate(() => window.__tenkiFingerHarness.setScenario('walking'));
+await runScan({});
+h = await headState();
+check('🔴 邊走的擷取不出現對照欄位（不算配對，給欄位就是騙人）', !h.refShown, JSON.stringify(h));
+await page.evaluate(() => {
+  window.__tenkiFingerHarness.resetValidationLog();
+  window.__tenkiFingerHarness.setScenario('resting');
 });
 
 // ── 3b. 一次校準不是基線（brief §5）────────────────────────────────────────

@@ -27,7 +27,7 @@
     取消路徑跟訂閱路徑**在同一處**；續訂**前**提醒。Welltory 的負評主力就是這三件事（`docs/research/WELLTORY.md`）。
   - **Edge Score（0-100）只在有真 HRV 來源時出現**；沒有時的預設讀數是質化帶位＋證據。「不給假數字」是賣點，不是缺口。
     - ✅ **相機脈搏節律可以用數字（ms）出現在讀數主畫面**（founder 2026-11-22 改），但四個條件缺一不可：
-      (a) 該**機型**通過胸帶對照驗收（`docs/PHONE-PPG.md` §12 第 16 條）；(b) 該次擷取通過拍形閘門；
+      (a) **這台手機**通過胸帶對照（`docs/PHONE-PPG.md` §12 第 27 條，`ppg/prv-headline.ts`）；(b) 該次擷取通過拍形閘門；
       (c) 名字仍是「脈搏節律」、標「算出」層，**仍不叫 HRV**；(d) **仍不進 Edge Score**。
       賣點從「不給數字」升級成「**給驗證過的數字**」。
 - **核心指標**：Decision Edge Score (0-100)
@@ -67,7 +67,7 @@
 | 把相機 HRV 跟手錶／胸帶 HRV 當同一個數字比較 | 三者 `derivation` 不同（estimated / observed / derived），contract 逼你標記就是為了擋這件事 |
 | 對 SDNN/RMSSD 或相機 HRV 的偏差**乘一個固定係數**修正 | 沒有個人化依據的魔術常數會把偏差藏起來（`harmonizeHrv() × 0.75` 已因此拆掉一次）|
 | 產出 SNS / PNS score、LF/HF balance、「交感副交感平衡」、「自律神經分數」 | 手機量不到神經活動。LF 不是選擇性的交感指標、LF/HF 不該被描述成 sympathovagal balance。`domain/contracts/regulation-evidence.ts` **連欄位都沒有**，並有 `findForbiddenAutonomicClaims()` 擋文案 |
-| 讓「脈搏節律」(PRV) 影響 Edge Score、在累積夠多可比較的高品質錨點前就跟使用者自己比、或在**機型沒通過胸帶對照**前放進頭條讀數 | founder 2026-09-11 決議 **不進分數**、比較要等 7 次跨 3 天；2026-11-22 放寬「只在證據層」→ 機型驗收過＋該次過閘才可上主畫面（`docs/PHONE-PPG.md` §13）|
+| 讓「脈搏節律」(PRV) 影響 Edge Score、在累積夠多可比較的高品質錨點前就跟使用者自己比、或在**這台手機沒通過胸帶對照**前放進頭條讀數 | founder 2026-09-11 決議 **不進分數**、比較要等 7 次跨 3 天；2026-11-22 放寬「只在證據層」→ 這台手機通過胸帶對照＋該次過閘才可上主畫面（`docs/PHONE-PPG.md` §13）|
 | 把相機的 PRV 叫成 HRV、或讓它填進 `hrvRmssdMs` / 餵 HRV driver / 進 HRV baseline | 相機是從光的波形推回拍點，胸帶是直接量拍間距。品質分數 99 的擷取 PRV 可以錯 156%（`docs/PHONE-PPG.md` §13）。混在一起之後沒人分得出那份 baseline 是誰量的 |
 | 讓相機呼吸率以 pulse scan 副產品的形式出現 | 只能是獨立的 Breath Lock：45–60 秒 protocol、自己的閘門、對照參考來源驗證（§14）|
 | 兩個來源的呼吸率不一致時取平均 | 對的答案跟錯的答案的平均是第三個錯答案。不一致就顯示「訊號衝突」或什麼都不顯示 |

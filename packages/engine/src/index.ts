@@ -420,3 +420,20 @@ export type {
   ValidationCapture,
   ValidationScenario,
 } from './biometric/validation-log';
+
+// ─── Pulse Rhythm on the reading screen (#27, founder 2026-11-22) ───
+export {
+  MAX_MEDIAN_RELATIVE_ERROR,
+  MAX_P90_RELATIVE_ERROR,
+  MIN_REFERENCE_DAYS,
+  MIN_REFERENCE_PAIRS,
+  assessReferenceAgreement,
+  resolvePrvHeadline,
+} from './biometric/ppg/prv-headline';
+
+export type {
+  PrvHeadline,
+  PrvHeadlineWithheld,
+  ReferenceAgreement,
+  ReferenceAgreementStatus,
+} from './biometric/ppg/prv-headline';
