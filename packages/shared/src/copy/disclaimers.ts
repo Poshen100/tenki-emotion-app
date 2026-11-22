@@ -105,8 +105,7 @@ export const APP_STORE_DESCRIPTION =
   '- Focus, stress, and recovery insights\n' +
   '- Guided decision sessions\n' +
   '- Session replay and reflection\n' +
-  '- Personal Edge Graph\n' +
-  '- Optional anonymous benchmarks\n\n' +
+  '- Personal Edge Graph\n\n' +
   'TENKI CORE does not provide financial advice, investment recommendations, ' +
   'trading signals, market predictions, medical diagnoses, ' +
   'or medical treatment advice.';

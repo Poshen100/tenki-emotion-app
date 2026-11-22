@@ -27,8 +27,8 @@ describe('FREE_TIER', () => {
     expect(FREE_TIER.id).toBe('free');
   });
 
-  it('should limit daily scans to 1', () => {
-    expect(FREE_TIER.features.dailyScanLimit).toBe(1);
+  it('🔴 does not limit scans — the scan is the ritual that opens the loop', () => {
+    expect(FREE_TIER.features.dailyScanLimit).toBe('unlimited');
   });
 
   it('should provide basic Edge Score', () => {
@@ -43,16 +43,16 @@ describe('FREE_TIER', () => {
     expect(FREE_TIER.features.detectorAlerts).toBe(false);
   });
 
-  it('should NOT provide the external alert bridge', () => {
-    expect(FREE_TIER.features.externalAlertBridge).toBe(false);
+  it('🔴 includes the alert bridge — the entry of the north-star loop is never paywalled', () => {
+    expect(FREE_TIER.features.externalAlertBridge).toBe(true);
   });
 
   it('should always allow export (privacy never paywalled)', () => {
     expect(FREE_TIER.features.exportEnabled).toBe(true);
   });
 
-  it('should limit history to 7 days', () => {
-    expect(FREE_TIER.features.localHistoryDays).toBe(7);
+  it('shows the last 30 days (storage itself is never limited by tier)', () => {
+    expect(FREE_TIER.features.historyViewDays).toBe(30);
   });
 });
 
@@ -90,7 +90,7 @@ describe('PREMIUM_TIER', () => {
   });
 
   it('should provide unlimited history', () => {
-    expect(PREMIUM_TIER.features.localHistoryDays).toBe('unlimited');
+    expect(PREMIUM_TIER.features.historyViewDays).toBe('unlimited');
   });
 });
 
@@ -123,7 +123,17 @@ describe('hasFeature', () => {
     expect(hasFeature('premium', 'exportEnabled')).toBe(true);
   });
 
-  it('free tier should have limited history (truthy as number > 0)', () => {
-    expect(hasFeature('free', 'localHistoryDays')).toBe(true);
+  it('free tier should have a history view (truthy as number > 0)', () => {
+    expect(hasFeature('free', 'historyViewDays')).toBe(true);
+  });
+});
+
+describe('🔴 v2 leftovers that contradict the decision-intelligence copy rules', () => {
+  // DECISION-INTELLIGENCE.md §5: no outcome prediction; compare only with yourself.
+  // Re-adding either key to a tier would invite the next session to build it.
+  it.each(['edgePrediction', 'benchmarks'])('no tier carries %s', (key) => {
+    for (const tier of Object.values(SUBSCRIPTION_TIERS)) {
+      expect(Object.keys(tier.features)).not.toContain(key);
+    }
   });
 });

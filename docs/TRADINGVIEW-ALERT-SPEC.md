@@ -378,7 +378,10 @@ countsAsTrade = (result) => result !== null && result !== 'no_entry';
 
 ## 11. 分級與 Dark Launch
 
-- **Premium 功能**：`packages/shared/src/subscription-tiers.ts` `TierFeatures.externalAlertBridge`（free: false / premium: true）。「Pro 訂閱」對外命名對應現有 **Premium** 層 — v3 維持 2-tier，不開第三級。
+- ✅ **2026-11-22 改為 Free 也有**（founder「全依建議」，`docs/research/BUSINESS-VALUE-2026-11.md` §1）：
+  `TierFeatures.externalAlertBridge` free: true / premium: true。理由：快訊是北極星閉環的入口，
+  鎖在付費牆後，免費使用者就產生不了任何 Premium 要賣的紀錄。下面「Entitlement 掛載點」那條**作廢**（保留當歷史）。
+- ~~**Premium 功能**：`externalAlertBridge`（free: false / premium: true）~~
 - **Feature flag**：`tradingview_alerts_v1`（default off、remote-configurable）— dark launch 控制。
 - **Entitlement 掛載點（founder 決策 2026-07-12）**：repo 目前無帳號/金流系統，伺服器端驗證不了訂閱狀態 → 現階段 Premium 屬 **client 側標示**（UI badge + tier 旗標）。帳號＋金流（IAP/Stripe）基建上線後，**在 `POST /api/channel` 加一步訂閱資格驗證**即完成伺服器端付費牆 — 頻道是唯一入口，擋住發頻道就擋住整個功能；既有頻道到期自然收斂。
 - 隱私控制永不放付費牆後（CLAUDE.md 硬規則）；付費牆只鎖「外部快訊橋接」功能本身。
