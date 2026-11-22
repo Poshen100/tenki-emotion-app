@@ -28,6 +28,15 @@
      勿刪、勿移動、勿複製第二份：`scripts/verify.sh` 驗它恰好出現一次、
      而且排在所有條目之前。它的存在理由見協議第 1 條。 -->
 
+# 2026-11-22 Session Update（外部 Welltory 報告 → 商業價值提案）
+
+- founder 上傳外部深度研究報告，要「提高商業價值的優化建議」，並授權「變得更好的話北極星規則皆可改」。
+- 寫成 `docs/research/BUSINESS-VALUE-2026-11.md`。**沒有改任何規則或程式** —— §6 是待 founder 逐條勾選的清單。
+- 🔴 最大發現：`subscription-tiers.ts` 的 Free 鎖了 `externalAlertBridge`（快訊），而快訊是北極星閉環的入口；
+  Free 只留 7 天歷史，會刪掉護城河本身。另外 `edgePrediction`／`benchmarks` 兩個 v2 欄位與「不預測、只跟自己比」衝突。
+- 下次接手：founder 勾了哪幾條就從那裡開；建議 T1（分級）先。
+
+
 # 2026-11-21 Session Update（Welltory 拆解，研究筆記）
 
 ## What was done
