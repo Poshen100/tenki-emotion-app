@@ -22,6 +22,7 @@
 import type { ConfidenceBand } from '../common/types';
 import type { CalibrationResult } from './calibration';
 import type { DriftResult } from './drift';
+import type { PreDecisionRoutine, RoutineTallyResult } from './routines';
 import type { EvidenceBasis, EvidenceReasonCode } from './evidence';
 import type { DecisionTwinResult } from './twin';
 
@@ -192,6 +193,56 @@ export function calibrationCopy(result: CalibrationResult): InsightCopy {
     headline: 'No clear shift yet',
     body: `Nothing moved further than your own day-to-day range. That is not a failure — it is your most honest signal right now.${priorLine}`,
     figure,
+    evidenceLine: evidenceLine(result.evidence),
+  };
+}
+
+// ─────────────────────────────────────────────
+// Pre-decision routines
+// ─────────────────────────────────────────────
+
+/** Display names for the routines. Neutral activities, no claims attached. */
+export const ROUTINE_LABELS: Record<PreDecisionRoutine, string> = {
+  breath_reset: '90-second breathing reset',
+  short_walk: 'Short walk',
+  water: 'Glass of water',
+  screen_break: 'Five minutes away from the screen',
+  plan_review: 'Re-reading your plan',
+};
+
+/**
+ * Renders one routine's tally.
+ *
+ * 🔴 All three counts in a fixed order, every time — never "mostly", never a
+ * ranking against other routines, never a suggestion to do or skip anything.
+ * It reports what the readings did after this routine; nothing more.
+ *
+ * @param result - The tally, or its refusal.
+ * @returns Headline, body, figure and evidence line.
+ */
+export function routineTallyCopy(result: RoutineTallyResult): InsightCopy {
+  const headline = ROUTINE_LABELS[result.routine];
+  const skipped =
+    result.notComparable > 0
+      ? ` ${formatCount(result.notComparable, 'run')} left out because the before and after readings were captured differently.`
+      : '';
+
+  if (result.state === 'insufficient') {
+    return {
+      headline,
+      body: `Still building — ${formatCount(result.moreSamplesNeeded, 'more comparable run')} needed before this routine has a tally.${skipped}`,
+      figure: null,
+      evidenceLine: evidenceLine(result.evidence),
+    };
+  }
+
+  return {
+    headline,
+    body:
+      `After this routine: closer to your usual range ${result.improved}, ` +
+      `no clear shift ${result.noClearShift}, further from it ${result.declined}. ` +
+      `No clear shift is a result too.${skipped}`,
+    figure: `${result.total} runs`,
     evidenceLine: evidenceLine(result.evidence),
   };
 }

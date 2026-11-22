@@ -393,10 +393,27 @@ export {
   evidenceReasonCopy,
   formatConfidence,
   formatCount,
+  ROUTINE_LABELS,
+  routineTallyCopy,
   twinCopy,
 } from './intelligence/copy';
 
 export type { InsightCopy } from './intelligence/copy';
+
+// Pre-decision routine experiments (founder 2026-11-22, §4.2 widened).
+export {
+  PRE_DECISION_ROUTINES,
+  ROUTINE_EVIDENCE_REQUIREMENT,
+  summarizeRoutineEffects,
+} from './intelligence/routines';
+
+export type {
+  PreDecisionRoutine,
+  RoutineRun,
+  RoutineTally,
+  RoutineTallyInsufficient,
+  RoutineTallyResult,
+} from './intelligence/routines';
 
 // ─── Device validation instrument ───────────
 // 把 docs/PHONE-PPG.md §12 的三條關鍵檢查變成裝置自己回答得了的東西。

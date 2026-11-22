@@ -104,6 +104,20 @@
   /** 過去七次校準的變化量 —— 讓「7 次裡有 5 次相似」是算出來的。 */
   var PRIOR_SHIFTS = [12, 15, 11, 1, -2, 9, 13];
 
+  /**
+   * 例行實驗的示範歷史（每個例行各自的前後比變化量）。刻意讓三種狀態都走得到：
+   * 呼吸重置夠 5 次 → 有計數；散步 2 次 → 還在累積；喝水有 1 次前後讀數不可比。
+   * 🔴 示範資料，不是使用者的。真實讀數要等 drift 的軸定案（§4.2b）。
+   */
+  var ROUTINE_DEMO_SHIFTS = {
+    breath_reset: [12, 1, -2, 9, 1, 0],
+    short_walk: [8, 0],
+    water: [1, 'mixed'],
+  };
+  var ROUTINE_CHIPS = DI.PRE_DECISION_ROUTINES.map(function (id) {
+    return { id: id, label: DI.ROUTINE_LABELS[id] };
+  });
+
   var state = {
     scenario: SCENARIOS[0],
     calibOutcome: CALIB_OUTCOMES[1],
@@ -112,6 +126,9 @@
     calibration: null,
     calibratedAt: null,
     scanTs: NOW,
+    routine: 'breath_reset',
+    /** 這次頁面上「真的按過校準」的那幾次（示範歷史另外算）。 */
+    routineRuns: [],
   };
 
   // ═══════════════════════════════════════════
@@ -203,6 +220,58 @@
       after: { value: scenario.current + state.calibOutcome.offset, ts: ts, captureId: 'soul-scan:A' },
       reference: reference,
       priors: priors,
+    });
+    // 同一個結果也記進這次選的例行 —— 例行計數吃的是同一個 assessCalibration。
+    state.routineRuns.push({ routine: state.routine, ts: ts, result: state.calibration });
+  }
+
+  /** 示範歷史 → 每一筆都是真的跑過 assessCalibration 的結果，不是手寫的判定。 */
+  function demoRoutineRuns() {
+    var reference = state.drift && state.drift.state === 'assessed' ? state.drift.reference : null;
+    var base = state.scenario.current;
+    var runs = [];
+    Object.keys(ROUTINE_DEMO_SHIFTS).forEach(function (routine) {
+      ROUTINE_DEMO_SHIFTS[routine].forEach(function (shift, i) {
+        var ts = NOW - (i + 1) * MS_PER_DAY;
+        var mixed = shift === 'mixed';
+        runs.push({
+          routine: routine,
+          ts: ts,
+          result: DI.assessCalibration({
+            before: { value: base, ts: ts - 180000, captureId: 'soul-scan:A' },
+            after: { value: base + (mixed ? 10 : shift), ts: ts, captureId: mixed ? 'watch:B' : 'soul-scan:A' },
+            reference: reference,
+          }),
+        });
+      });
+    });
+    return runs;
+  }
+
+  function renderRoutines() {
+    var list = $('routine-list');
+    list.innerHTML = '';
+    DI.summarizeRoutineEffects(demoRoutineRuns().concat(state.routineRuns)).forEach(function (tally) {
+      var copy = DI.routineTallyCopy(tally);
+      var row = document.createElement('div');
+      row.className = 'routine-row';
+      row.dataset.routine = tally.routine;
+      row.dataset.state = tally.state;
+      var h = document.createElement('h3');
+      h.className = 'body';
+      h.style.fontWeight = '600';
+      h.style.color = 'var(--n-100)';
+      h.textContent = copy.headline + (copy.figure ? ' · ' + copy.figure : '');
+      var b = document.createElement('p');
+      b.className = 'body';
+      b.textContent = copy.body;
+      var e = document.createElement('div');
+      e.className = 'evidence-line';
+      e.textContent = copy.evidenceLine;
+      row.appendChild(h);
+      row.appendChild(b);
+      row.appendChild(e);
+      list.appendChild(row);
     });
   }
 
@@ -493,6 +562,7 @@
   function renderAll() {
     renderDrift();
     renderCalibration();
+    renderRoutines();
     renderTwin();
     renderChain();
     renderReal();
@@ -545,9 +615,16 @@
     state.calibOutcome = outcome;
     renderChips($('calib-outcome-row'), CALIB_OUTCOMES, outcome.id, pickCalibOutcome);
     if (state.calibration) {
+      // 換「量到什麼」是改寫同一次，不是多做一次 —— 不得讓例行計數多一筆。
+      state.routineRuns.pop();
       runCalibration();
       renderAll();
     }
+  }
+
+  function pickRoutine(item) {
+    state.routine = item.id;
+    renderChips($('routine-row'), ROUTINE_CHIPS, item.id, pickRoutine);
   }
 
   $('xray-toggle').addEventListener('click', function () {
@@ -562,6 +639,7 @@
 
   renderChips($('scenario-row'), SCENARIOS, state.scenario.id, pickScenario);
   renderChips($('calib-outcome-row'), CALIB_OUTCOMES, state.calibOutcome.id, pickCalibOutcome);
+  renderChips($('routine-row'), ROUTINE_CHIPS, state.routine, pickRoutine);
   recompute();
   renderAll();
 })();
