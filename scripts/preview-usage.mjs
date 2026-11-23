@@ -74,18 +74,21 @@ vm.runInNewContext(readFileSync(join(repoRoot, 'apps/preview/scan-attempts.js'),
 const ATT = sandbox.globalThis.TENKI_SCAN_ATTEMPTS;
 console.log('── 守門指標 ──');
 check('🔴 沒有紀錄 → 首測是 null（沒有紀錄不是失敗），次數 0',
-  USAGE.summarize(empty).guard, { firstScan: null, completed: 0, withReading: 0 });
+  USAGE.summarize(empty).guard, { firstScan: null, completed: 0, withReading: 0, noReading: 0, cancelled: 0 });
 check('沒有紀錄時文字說「沒有紀錄」，不說失敗',
-  USAGE.describe(USAGE.summarize(empty)).guard, '首測沒有紀錄 · 跑完的掃描 0 次，拿到讀數 0 次');
+  USAGE.describe(USAGE.summarize(empty)).guard, '首測沒有紀錄 · 跑完的掃描 0 次：拿到讀數 0、沒拿到 0 · 中途取消 0 次');
 let log = ATT.load(null);
+// 🔴 第一筆是取消：取消不是一次量測，不能變成「首測」。
+log = ATT.append(log, { ts: 0, outcome: 'cancelled' });
+check('🔴 只有取消時，首測仍然是「沒有紀錄」', log.first, null);
 log = ATT.append(log, { ts: 1, outcome: 'no_reading' });
 log = ATT.append(log, { ts: 2, outcome: 'reading' });
 log = ATT.append(log, { ts: 3, outcome: 'reading' });
 const g = USAGE.summarize({ ...empty, scanAttempts: log });
-check('首測失敗、之後兩次成功 → 首測 no_reading、3 次裡 2 次有讀數',
-  g.guard, { firstScan: 'no_reading', completed: 3, withReading: 2 });
-check('🔴 兩個數字都給、不給百分比',
-  USAGE.describe(g).guard, '首測沒拿到讀數 · 跑完的掃描 3 次，拿到讀數 2 次');
+check('🔴 取消、失敗、兩次成功 → 首測看第一次跑完的；取消不進跑完的分母，但單獨計數',
+  g.guard, { firstScan: 'no_reading', completed: 3, withReading: 2, noReading: 1, cancelled: 1 });
+check('🔴 三類都給數字、不給百分比',
+  USAGE.describe(g).guard, '首測沒拿到讀數 · 跑完的掃描 3 次：拿到讀數 2、沒拿到 1 · 中途取消 1 次');
 let big = ATT.load(null);
 for (let i = 0; i < ATT.SCAN_ATTEMPTS_MAX + 5; i++) {
   big = ATT.append(big, { ts: i, outcome: i === 0 ? 'no_reading' : 'reading' });
@@ -95,7 +98,7 @@ check('🔴 上限擠掉最舊一筆時，「第一次」不會跟著被帶走',
 check('壞掉的列被丟掉，不拋錯',
   ATT.load({ first: { ts: 'x' }, attempts: [{ ts: 1, outcome: 'reading' }, { ts: 2, outcome: 'maybe' }, null] }),
   { first: null, attempts: [{ ts: 1, outcome: 'reading' }] });
-check('🔴 紀錄裡只有時間與成敗，沒有任何量測值',
+check('🔴 紀錄裡只有時間與結果，沒有任何量測值',
   Object.keys(big.attempts[0]).sort(), ['outcome', 'ts']);
 
 // ── ② 畫面 ──────────────────────────────────────────────
@@ -149,7 +152,7 @@ check('標題跟推導是同一句', await page.locator('#labToastTitle').textCo
 const sub = await page.locator('#labToastSub').textContent();
 check('細節列出五步（沒掃描過所以「掃描 —」）＋守門指標那一行',
   sub.replace('（已複製）', ''),
-  '建立基線 ✓ · 掃描 — · 接上快訊 ✓ · 做過判定 ✓ · 填完一筆 ✓\n首測沒拿到讀數 · 跑完的掃描 3 次，拿到讀數 2 次');
+  '建立基線 ✓ · 掃描 — · 接上快訊 ✓ · 做過判定 ✓ · 填完一筆 ✓\n首測沒拿到讀數 · 跑完的掃描 3 次：拿到讀數 2、沒拿到 1 · 中途取消 1 次');
 check('🔴 剪貼簿裡也有守門指標（顯示與複製是同一份）',
   (await page.evaluate(() => navigator.clipboard.readText())).includes('跑完的掃描 3 次'), true);
 const clip = await page.evaluate(() => navigator.clipboard.readText());

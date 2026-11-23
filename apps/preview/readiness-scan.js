@@ -867,6 +867,9 @@
     document.body.appendChild(node);
 
     node.querySelector('[data-rs="cancel"]').addEventListener('click', function () {
+      // 守門指標：量測還在進行就按取消 → 記成「取消」，不是「沒拿到讀數」。
+      // 揭曉之後取消鈕是收起來的，所以這裡只會是中途取消。
+      if (session && !session.done) recordAttempt('cancelled');
       finish(null);
     });
     // ⚠️ 這條在**注入當下**就綁，不是揭曉時才綁。揭曉之後取消鈕會收起來，
@@ -2002,9 +2005,9 @@
   }
 
   /**
-   * 守門指標的原料：這次跑完的掃描有沒有拿到讀數（scan-attempts.js）。
+   * 守門指標的原料：這次掃描是拿到讀數、沒拿到，還是中途取消（scan-attempts.js）。
    * 跟 recordInHistory 同一個做法：模組沒載到就出聲、不自己存第二份。
-   * @param {'reading'|'no_reading'} outcome
+   * @param {'reading'|'no_reading'|'cancelled'} outcome
    */
   function recordAttempt(outcome) {
     var attempts = global.TENKI_SCAN_ATTEMPTS;

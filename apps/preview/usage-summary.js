@@ -49,7 +49,8 @@
    *   scan-attempts.js 的 load() 結果；沒有就當作還沒有任何紀錄
    * @returns {{steps: Array<{id: string, label: string, done: boolean}>,
    *   weekJudged: number, weekClosed: number, weekOpen: number,
-   *   guard: {firstScan: ?string, completed: number, withReading: number}}}
+   *   guard: {firstScan: ?string, completed: number, withReading: number,
+   *     noReading: number, cancelled: number}}}
    */
   function summarize(input) {
     var outcomes = Array.isArray(input.outcomes) ? input.outcomes : [];
@@ -61,6 +62,9 @@
     var weekClosed = recent.filter(isClosed).length;
     var log = input.scanAttempts && Array.isArray(input.scanAttempts.attempts) ? input.scanAttempts : null;
     var attempts = log ? log.attempts : [];
+    var count = function (outcome) {
+      return attempts.filter(function (a) { return a.outcome === outcome; }).length;
+    };
     return {
       steps: [
         { id: 'baseline', label: '建立基線', done: input.onboarded === true },
@@ -76,8 +80,11 @@
         // 🔴 null ＝「沒有紀錄」，不是失敗。這份紀錄 2026-11-22 才開始寫，
         //    之前就掃過的人第一次掃描根本沒被記下來 —— 不能把它算成「首測失敗」。
         firstScan: log && log.first ? log.first.outcome : null,
-        completed: attempts.length,
-        withReading: attempts.filter(function (a) { return a.outcome === 'reading'; }).length,
+        // 「跑完」＝拿到讀數＋沒拿到。中途取消不在分母裡，但單獨給數字（founder 2026-11-23）。
+        completed: count('reading') + count('no_reading'),
+        withReading: count('reading'),
+        noReading: count('no_reading'),
+        cancelled: count('cancelled'),
       },
     };
   }
@@ -99,7 +106,8 @@
       : g.firstScan === 'no_reading' ? '首測沒拿到讀數'
       : '首測沒有紀錄';
     // 🔴 兩個數字都給，不給百分比：n 很小的時候「100%」跟「1/1」是兩件事。
-    var guard = first + ' · 跑完的掃描 ' + g.completed + ' 次，拿到讀數 ' + g.withReading + ' 次';
+    var guard = first + ' · 跑完的掃描 ' + g.completed + ' 次：拿到讀數 ' + g.withReading +
+      '、沒拿到 ' + g.noReading + ' · 中途取消 ' + g.cancelled + ' 次';
     return { title: title, detail: detail, guard: guard };
   }
 
