@@ -441,9 +441,11 @@ export type {
 // ─── Pulse Rhythm on the reading screen (#27, founder 2026-11-22) ───
 export {
   MAX_MEDIAN_RELATIVE_ERROR,
-  MAX_P90_RELATIVE_ERROR,
+  MAX_REFERENCE_ENTRY_DELAY_MS,
+  MAX_TAIL_RELATIVE_ERROR,
   MIN_REFERENCE_DAYS,
   MIN_REFERENCE_PAIRS,
+  MIN_REFERENCE_RMSSD_MS,
   assessReferenceAgreement,
   resolvePrvHeadline,
 } from './biometric/ppg/prv-headline';

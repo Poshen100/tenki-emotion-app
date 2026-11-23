@@ -481,7 +481,7 @@
         <span class="dialLabel">脈搏節律 · 算出</span>
         <span class="precisionValue" id="prvHead">—</span>
       </div>
-      <p class="fine" id="prvHeadNote" style="margin-top:6px" hidden>這台手機對照過胸帶。這不是心律變異，也不進你的分數。</p>
+      <p class="fine" id="prvHeadNote" style="margin-top:6px" hidden>這台手機做過初步的胸帶對照 —— 只代表這台手機，不代表同型號的其他手機。這不是心律變異，也不進你的分數。</p>
     </section>
 
     <!-- 🔴 一次校準得到一個參考點；基線是多次、跨幾天才成形的東西。這張卡
@@ -546,7 +546,11 @@
            給一個填了也不算數的欄位就是在騙人。 -->
       <div id="refBlock" style="margin-top:12px" hidden>
         <div class="dialLabel">胸帶對照（選填）</div>
-        <p class="fine" style="margin-top:6px">這次同時戴著胸帶的話，把胸帶 App 這段時間的 RMSSD 填進來。累積 10 次、跨 2 天，這台手機才知道它的脈搏節律能不能放上主畫面。</p>
+        <p class="fine" style="margin-top:6px">這次同時戴著胸帶的話，把胸帶 App <b>同一段時間</b>的 RMSSD 填進來（量完 10 分鐘內）。累積 10 次、跨 2 天，才判定這台手機的脈搏節律能不能放上主畫面 —— 那是這台手機的初步驗證，不是這個型號的。</p>
+        <label class="fine" style="display:flex;gap:8px;align-items:center;margin-top:8px;min-height:44px">
+          <input type="checkbox" id="refSameWindow" style="width:20px;height:20px;flex:none" />
+          胸帶的這個值跟這次擷取是同一段時間量的
+        </label>
         <div style="display:flex;gap:8px;margin-top:8px;align-items:stretch">
           <input id="refRmssd" type="number" inputmode="decimal" min="1" max="300" step="0.1" placeholder="RMSSD（ms）"
             style="flex:1;min-width:0;min-height:44px;border-radius:12px;border:1px solid var(--n-700);background:transparent;color:var(--n-100);padding:0 12px;font-size:16px;font-family:inherit" />

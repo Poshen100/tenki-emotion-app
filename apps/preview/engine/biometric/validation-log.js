@@ -39,7 +39,7 @@
  * @see docs/PHONE-PPG.md §12
  */
 import { MIN_PERFUSION } from './ppg/quality.js';
-import { MAX_MEDIAN_RELATIVE_ERROR, MAX_P90_RELATIVE_ERROR, MIN_REFERENCE_DAYS, MIN_REFERENCE_PAIRS, assessReferenceAgreement, } from './ppg/prv-headline.js';
+import { MAX_MEDIAN_RELATIVE_ERROR, MAX_TAIL_RELATIVE_ERROR, MIN_REFERENCE_DAYS, MIN_REFERENCE_PAIRS, MIN_REFERENCE_RMSSD_MS, assessReferenceAgreement, } from './ppg/prv-headline.js';
 import { DC_DRIFT_SUSPECT, DRIFT_PERIOD_TRUSTWORTHY_SEC, } from './ppg/exposure-stability.js';
 /**
  * What the person was doing during a capture.
@@ -273,13 +273,17 @@ export function formatValidationReport(log) {
     // (founder 2026-11-22). The bounds are printed next to the numbers so the
     // person reading a pasted report does not have to know them.
     const ref = assessReferenceAgreement(log);
-    lines.push('#27 胸帶對照（脈搏節律能不能上主畫面）');
+    lines.push('#27 胸帶對照（只代表這台手機的初步驗證）');
+    const left = ref.unsyncedCount + ref.lowReferenceCount === 0
+        ? ''
+        : ` · 不計：沒確認同一段時間 ${ref.unsyncedCount}、胸帶值低於 ${MIN_REFERENCE_RMSSD_MS}ms ${ref.lowReferenceCount}`;
     if (ref.status === 'accumulating') {
-        lines.push(`  還在累積：靜坐配對 ${ref.pairCount}/${MIN_REFERENCE_PAIRS} 次、${ref.dayCount}/${MIN_REFERENCE_DAYS} 天` +
-            (ref.medianAbsError === null ? '' : ` · 目前誤差中位數 ${pct(ref.medianAbsError)}`));
+        lines.push(`  樣本不足，還不能判定：靜坐配對 ${ref.pairCount}/${MIN_REFERENCE_PAIRS} 次、${ref.dayCount}/${MIN_REFERENCE_DAYS} 天` +
+            (ref.medianAbsError === null ? '' : ` · 目前誤差中位數 ${pct(ref.medianAbsError)}`) +
+            left);
     }
     else {
-        lines.push(`  ${ref.status === 'passed' ? '✓ 通過' : '✗ 不通過'}：${ref.pairCount} 對、${ref.dayCount} 天 · 誤差中位數 ${pct(ref.medianAbsError)}（≤ ${pct(MAX_MEDIAN_RELATIVE_ERROR)}）· 第 90 百分位 ${pct(ref.p90AbsError)}（≤ ${pct(MAX_P90_RELATIVE_ERROR)}）· 偏差 ${pct(ref.medianBias)}`);
+        lines.push(`  ${ref.status === 'passed' ? '✓ 初步通過' : '✗ 不通過'}：${ref.pairCount} 對、${ref.dayCount} 天 · 誤差中位數 ${pct(ref.medianAbsError)}（≤ ${pct(MAX_MEDIAN_RELATIVE_ERROR)}）· 超過 ${pct(MAX_TAIL_RELATIVE_ERROR)} 的 ${ref.tailCount} 對（容許 ≤ ${ref.tailAllowed}）· 最差 ${pct(ref.worstAbsError)} · 偏差 ${pct(ref.medianBias)}${left}`);
     }
     return lines.join('\n');
 }

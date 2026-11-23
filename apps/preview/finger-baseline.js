@@ -26,6 +26,7 @@ import {
 } from './engine/biometric/ppg/signal-quality.js';
 import { formatValidationReport } from './engine/biometric/validation-log.js';
 import {
+  MAX_REFERENCE_ENTRY_DELAY_MS,
   MIN_REFERENCE_DAYS,
   MIN_REFERENCE_PAIRS,
   assessReferenceAgreement,
@@ -1442,6 +1443,7 @@ function renderReferenceInput(a) {
   const eligible = state.scenario === 'resting' && a.prvRmssdMs !== null;
   block.hidden = !eligible;
   input.value = '';
+  $('refSameWindow').checked = false;
   status.textContent = '';
   if (!eligible) return;
   $('refSave').onclick = () => {
@@ -1451,12 +1453,28 @@ function renderReferenceInput(a) {
       status.textContent = '請填 1–300 之間的數字（胸帶 App 上的 RMSSD，單位 ms）。';
       return;
     }
+    // 🔴 同步只能由使用者確認 —— 手打的數字證明不了它跟這次擷取是同一段時間。
+    //    沒勾就不收；勾了也還要在時間窗內，引擎那邊會再檢查一次。
+    if (!$('refSameWindow').checked) {
+      status.textContent = '要先確認胸帶的值跟這次擷取是同一段時間量的，不同時段的值不能拿來對照。';
+      return;
+    }
     const log = loadValidationLog();
     if (log.length === 0) {
       status.textContent = '這次的紀錄沒有存下來（可能是無痕模式），對照記不進去。';
       return;
     }
-    log[log.length - 1] = { ...log[log.length - 1], referenceRmssdMs: value };
+    const now = Date.now();
+    if (now - log[log.length - 1].atMs > MAX_REFERENCE_ENTRY_DELAY_MS) {
+      status.textContent = '離這次擷取已經超過 10 分鐘，這個值不算配對。下次量完直接填。';
+      return;
+    }
+    log[log.length - 1] = {
+      ...log[log.length - 1],
+      referenceRmssdMs: value,
+      referenceSameWindow: true,
+      referenceEnteredAtMs: now,
+    };
     try {
       localStorage.setItem(VALIDATION_KEY, JSON.stringify(log));
     } catch (_) {
@@ -1468,9 +1486,9 @@ function renderReferenceInput(a) {
     const r = assessReferenceAgreement(log);
     status.textContent =
       r.status === 'accumulating'
-        ? `記下了。靜坐配對 ${r.pairCount}/${MIN_REFERENCE_PAIRS} 次、${r.dayCount}/${MIN_REFERENCE_DAYS} 天。`
+        ? `記下了。樣本還不夠判定：靜坐配對 ${r.pairCount}/${MIN_REFERENCE_PAIRS} 次、${r.dayCount}/${MIN_REFERENCE_DAYS} 天。`
         : r.status === 'passed'
-          ? '記下了。這台手機通過了胸帶對照。'
+          ? '記下了。這台手機初步通過了胸帶對照（只代表這台手機）。'
           : '記下了。這台手機的誤差超過門檻，脈搏節律會留在證據層。';
   };
 }

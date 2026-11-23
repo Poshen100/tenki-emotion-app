@@ -1085,6 +1085,7 @@ const seedPairs = (ratio) => page.evaluate((r) => {
     prvRmssdMs: Math.round(50 * r * 10) / 10, beatTemplateCorrelation: 0.98, lockEverAchieved: true,
     channel: 'red', channelPeriodicity: null, channelDcMean: null, exposure: null,
     exposureLock: null, torchOn: null, quietSegments: null, scenario: 'resting', referenceRmssdMs: 50,
+    referenceSameWindow: true, referenceEnteredAtMs: 1_763_800_000_000 + i + 60_000,
   }));
   localStorage.setItem('tenki.preview.validationLog', JSON.stringify(rows));
 }, ratio);
@@ -1112,8 +1113,9 @@ check('🔴 通過對照的裝置 → 主畫面出現脈搏節律，數字跟證
   h.shown && /^\d+(\.\d+)? ms$/.test(h.value) && h.value === validated.prv,
   `head=${h.value} evidence=${validated.prv}`);
 check('它在頭條卡裡，不在證據層', h.inHeadlineCard && !h.inEvidence, JSON.stringify(h));
-check('🔴 主畫面那一行標「算出」，而且講明不是心律變異、不進分數',
-  h.headlineCardText.includes('算出') && h.headlineCardText.includes('不是心律變異') && h.headlineCardText.includes('不進你的分數'),
+check('🔴 主畫面那一行標「算出」，講明只代表這台手機、不是心律變異、不進分數',
+  h.headlineCardText.includes('算出') && h.headlineCardText.includes('只代表這台手機') &&
+    h.headlineCardText.includes('不是心律變異') && h.headlineCardText.includes('不進你的分數'),
   h.headlineCardText.replace(/\n/g, ' | '));
 
 await seedPairs(0.7);
@@ -1141,15 +1143,27 @@ const entered = await page.evaluate(() => {
   const input = document.getElementById('refRmssd');
   const save = document.getElementById('refSave');
   const status = () => document.getElementById('refState').textContent;
+  const box = document.getElementById('refSameWindow');
   input.value = '0'; save.click(); const bad = status();
-  input.value = '42'; save.click(); const good = status();
+  input.value = '42'; box.checked = false; save.click(); const unconfirmed = status();
+  const before = JSON.parse(localStorage.getItem('tenki.preview.validationLog'));
+  box.checked = true; save.click(); const good = status();
   const log = JSON.parse(localStorage.getItem('tenki.preview.validationLog'));
-  return { bad, good, last: log[log.length - 1].referenceRmssdMs, count: log.length,
-    report: document.getElementById('validationReport').textContent };
+  const last = log[log.length - 1];
+  return { bad, unconfirmed, good, last: last.referenceRmssdMs, sameWindow: last.referenceSameWindow,
+    enteredLate: typeof last.referenceEnteredAtMs !== 'number' || last.referenceEnteredAtMs < last.atMs,
+    unconfirmedStored: before[before.length - 1].referenceRmssdMs !== undefined,
+    count: log.length, report: document.getElementById('validationReport').textContent };
 });
 check('不合理的值不收，而且說為什麼', entered.bad.includes('1–300'), entered.bad);
-check('🔴 合理的值寫回這一次的紀錄（不是新增一筆）', entered.last === 42 && entered.count === 1, JSON.stringify(entered));
-check('記下之後報告跟著更新', entered.good.includes('1/10') && entered.report.includes('靜坐配對 1/10'), JSON.stringify(entered));
+check('🔴 沒勾「同一段時間」就不收，也沒有寫進紀錄',
+  entered.unconfirmed.includes('同一段時間') && !entered.unconfirmedStored, JSON.stringify(entered));
+check('🔴 勾了才寫回這一次的紀錄（不是新增一筆），連同確認與輸入時間',
+  entered.last === 42 && entered.sameWindow === true && !entered.enteredLate && entered.count === 1,
+  JSON.stringify(entered));
+check('記下之後報告跟著更新，而且講明樣本還不夠',
+  entered.good.includes('樣本還不夠判定') && entered.good.includes('1/10') && entered.report.includes('靜坐配對 1/10'),
+  JSON.stringify(entered));
 
 await page.evaluate(() => window.__tenkiFingerHarness.setScenario('walking'));
 await runScan({});
