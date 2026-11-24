@@ -155,6 +155,21 @@ Edge Score 高於個人常態是好事，brand.md 的 above baseline 是壞事�
   的改寫都是在拆這個賣點。**
 - 校準前後的讀數必須是**同一種量測**（同 tier、同來源），否則回 `insufficient`。
 
+#### 4.2b 交易前例行實驗（founder 2026-11-22 核准，`docs/research/BUSINESS-VALUE-2026-11.md` §2.4）
+
+Calibration Proof 從單一 90 秒 reset 擴成使用者自選的例行：
+`breath_reset`（原本那個）／`short_walk`／`water`／`screen_break`／`plan_review`
+（`intelligence/routines.ts`）。每一次仍是同一個 `assessCalibration()` 前後比；
+累積起來每個例行各有一張計數（`summarizeRoutineEffects()`，文案 `routineTallyCopy()`）。
+
+- 🔴 **清單是封閉的**：自由文字的例行跨週比不起來（「散步」「走一下」是兩份計數）。
+- 🔴 **三個數字永遠都給、固定順序**；**不排名、不說哪個最有效、不建議做或不做**。
+  幾筆前後比同時還差在時段、行情與心情，「散步對你最有效」就是一句建議。
+- 🔴 **前後讀數不可比（不同擷取條件）的那幾次單獨計數**，不丟掉、也不算成「沒有變化」。
+- 門檻 5 次（`ROUTINE_EVIDENCE_REQUIREMENT`）：一對說的是發生過一次，計數宣稱的是一個模式。
+- ⚠️ **真實讀數還接不上**：`assessCalibration` 吃 0-100，而手機讀數在 drift 的軸定案前是質化帶位（§6）。
+  目前只有 `/drift/` 示範在跑它。軸定了才接 —— 不要為了讓它動起來就把帶位硬換成數字（§5 紅線 8）。
+
 ### 4.3 Decision Twin
 
 - 相似度只吃**可比較且可解釋**的特徵：time bucket、帶位、drift magnitude、

@@ -26,6 +26,13 @@ import {
 } from './engine/biometric/ppg/signal-quality.js';
 import { formatValidationReport } from './engine/biometric/validation-log.js';
 import {
+  MAX_REFERENCE_ENTRY_DELAY_MS,
+  MIN_REFERENCE_DAYS,
+  MIN_REFERENCE_PAIRS,
+  assessReferenceAgreement,
+  resolvePrvHeadline,
+} from './engine/biometric/ppg/prv-headline.js';
+import {
   buildPulseAnchor,
   resolvePrvComparison,
   resolvePulseBaselineProgress,
@@ -1194,6 +1201,11 @@ function renderOutcome(outcome) {
     // ⚠️ 連完全跑不動的擷取也要記。第 6 條問的是「lock 出現但最終沒有讀數」，
     // 而那正是這條路徑。
     renderValidationReport(recordValidationCapture(validationEntry(null)));
+    // 上一次擷取的主畫面數字與對照欄位不得留到這一次。
+    $('prvHeadRow').hidden = true;
+    $('prvHeadNote').hidden = true;
+    $('prvHead').textContent = '—';
+    $('refBlock').hidden = true;
     return;
   }
 
@@ -1222,7 +1234,10 @@ function renderOutcome(outcome) {
   renderAdvisories(signal.advisories);
   const anchors = renderStage(a);
   renderPrv(a, anchors);
-  renderValidationReport(recordValidationCapture(validationEntry(a)));
+  const log = recordValidationCapture(validationEntry(a));
+  renderValidationReport(log);
+  renderPrvHeadline(a, log);
+  renderReferenceInput(a);
 
   const channelNote = a.channelDiagnostics
     .map((d) => `${d.channel === 'red' ? '紅' : '綠'} 節律 ${d.periodicity}／亮度 ${d.dcMean}`)
@@ -1362,7 +1377,8 @@ function renderAdvisories(advisories) {
  * （感光雜訊不扣品質分，卻會把每個峰值推開）。所以它只在拍形穩定度過關時
  * 才出現 —— 過不了就**整項消失**，不是降級成一個誤導人的數字。
  *
- * 🔴 它只出現在證據層（展開的「量測細節與證據」），不是頭條讀數。
+ * 🔴 它一定出現在證據層（展開的「量測細節與證據」）。上主畫面是另一件事，只在這台手機
+ *    通過胸帶對照時才發生（renderPrvHeadline，#27，founder 2026-11-22）。
  * 🔴 個人比較要等到有足夠多**可比較的高品質**靜息錨點才給。
  */
 function renderPrv(a, anchors) {
@@ -1395,6 +1411,86 @@ function renderPrv(a, anchors) {
     comparison.status === 'established'
       ? `跟你過去 ${comparison.sampleCount} 次可比較的高品質校準相比：${PLACEMENT_COPY[comparison.placement]}。`
       : `還在累積可比較的紀錄（${comparison.sampleCount}/${comparison.required} 次），還不能跟你自己比。`;
+}
+
+/**
+ * 脈搏節律能不能上主畫面（#27，founder 2026-11-22）。
+ *
+ * 🔴 判斷在引擎（`resolvePrvHeadline`），這裡只照著畫。不通過時主畫面**什麼都不放** ——
+ *    數字仍然在證據層，理由在驗收報告的 #27 那一行。
+ *
+ * @param {object} a - 這次擷取的分析結果。
+ * @param {Array<object>} log - 這台裝置的驗收紀錄（含這一次）。
+ */
+function renderPrvHeadline(a, log) {
+  const head = resolvePrvHeadline(assessReferenceAgreement(log), a.prvRmssdMs);
+  $('prvHeadRow').hidden = !head.show;
+  $('prvHeadNote').hidden = !head.show;
+  // 清掉上一次的值：隱藏的節點留著舊數字，下一次一顯示就是別次的讀數。
+  $('prvHead').textContent = head.show ? `${head.valueMs} ms` : '—';
+}
+
+/**
+ * 胸帶對照欄位。只在靜坐而且脈搏節律有出來時出現（其他擷取不算配對）。
+ * 記下的值寫回**這一次**的驗收紀錄（最後一筆），然後重畫報告與主畫面資格。
+ *
+ * @param {object} a - 這次擷取的分析結果。
+ */
+function renderReferenceInput(a) {
+  const block = $('refBlock');
+  const input = $('refRmssd');
+  const status = $('refState');
+  const eligible = state.scenario === 'resting' && a.prvRmssdMs !== null;
+  block.hidden = !eligible;
+  input.value = '';
+  $('refSameWindow').checked = false;
+  status.textContent = '';
+  if (!eligible) return;
+  $('refSave').onclick = () => {
+    const value = Number(input.value);
+    // 🔴 不合理的值不收，也不默默改成別的數字。
+    if (!Number.isFinite(value) || value <= 0 || value > 300) {
+      status.textContent = '請填 1–300 之間的數字（胸帶 App 上的 RMSSD，單位 ms）。';
+      return;
+    }
+    // 🔴 同步只能由使用者確認 —— 手打的數字證明不了它跟這次擷取是同一段時間。
+    //    沒勾就不收；勾了也還要在時間窗內，引擎那邊會再檢查一次。
+    if (!$('refSameWindow').checked) {
+      status.textContent = '要先確認胸帶的值跟這次擷取是同一段時間量的，不同時段的值不能拿來對照。';
+      return;
+    }
+    const log = loadValidationLog();
+    if (log.length === 0) {
+      status.textContent = '這次的紀錄沒有存下來（可能是無痕模式），對照記不進去。';
+      return;
+    }
+    const now = Date.now();
+    if (now - log[log.length - 1].atMs > MAX_REFERENCE_ENTRY_DELAY_MS) {
+      status.textContent = '離這次擷取已經超過 10 分鐘，這個值不算配對。下次量完直接填。';
+      return;
+    }
+    log[log.length - 1] = {
+      ...log[log.length - 1],
+      referenceRmssdMs: value,
+      referenceSameWindow: true,
+      referenceEnteredAtMs: now,
+    };
+    try {
+      localStorage.setItem(VALIDATION_KEY, JSON.stringify(log));
+    } catch (_) {
+      status.textContent = '寫不進這台裝置（可能是無痕模式），對照沒有記下來。';
+      return;
+    }
+    renderValidationReport(log);
+    renderPrvHeadline(a, log);
+    const r = assessReferenceAgreement(log);
+    status.textContent =
+      r.status === 'accumulating'
+        ? `記下了。樣本還不夠判定：靜坐配對 ${r.pairCount}/${MIN_REFERENCE_PAIRS} 次、${r.dayCount}/${MIN_REFERENCE_DAYS} 天。`
+        : r.status === 'passed'
+          ? '記下了。這台手機初步通過了胸帶對照（只代表這台手機）。'
+          : '記下了。這台手機的誤差超過門檻，脈搏節律會留在證據層。';
+  };
 }
 
 /**

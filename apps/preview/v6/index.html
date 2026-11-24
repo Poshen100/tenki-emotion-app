@@ -1710,7 +1710,7 @@ a.lab-wide{text-decoration:none}
 }
 .lab-toast.show{opacity:1;transform:translateY(0);pointer-events:auto}
 .lab-toast-title{font-size:14px;font-weight:600;color:#fff}
-.lab-toast-sub{font-size:12px;color:var(--n-400);margin-top:3px;line-height:1.45}
+.lab-toast-sub{font-size:12px;color:var(--n-400);margin-top:3px;line-height:1.45;white-space:pre-line}
 @media (prefers-reduced-motion: reduce){ .lab-toast{transition:none} }
 .session-detail{
   position:absolute;inset:0;
@@ -3067,7 +3067,7 @@ a.lab-wide{text-decoration:none}
          那支在**頂層**就讀 window.TENKI_OUTCOME（OUTCOME_STORE_KEY_V6 / isDisciplinedV6），
          放到頁尾跟其他 script 一起載會來不及。絕對路徑：本頁同時掛在 /v3/ 與 /preview/v6/。 -->
     <script src="/preview/decision-outcome.js?v=do17"></script>
-    <script src="/preview/usage-summary.js?v=us1"></script>
+    <script src="/preview/usage-summary.js?v=us3"></script>
     <!-- Datum Glyphs：圖示的單一來源。本頁的圖示一律是 `data-datum` 佔位，
          由下面 ICON_SVG 旁的 hydrate() 填 —— 不要再把 path 抄進 HTML。 -->
     <script src="/preview/datum-glyphs.js?v=dg1"></script>
@@ -3529,7 +3529,8 @@ a.lab-wide{text-decoration:none}
             <div class="sub">下載原始數據<br>供進階分析</div>
           </div>
           <!-- 使用摘要（2026-11-16）：走到哪一步、最近 7 天填完幾筆。
-               全部從裝置上既有的資料推導（usage-summary.js），不埋點、不上傳；
+               從本機紀錄推導（usage-summary.js），不上傳；2026-11-22 加守門指標
+               （首測、跑完的掃描拿到讀數幾次），原料是 scan-attempts.js 那份只有時間與成敗的紀錄；
                按下去只是顯示並複製，要不要貼給別人是使用者自己的事。 -->
           <div class="lab-item is-control" id="labUsageTile" onclick="showUsageSummary()">
             <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V10M12 20V4M19 20v-7"/></svg></div>
@@ -3896,16 +3897,14 @@ a.lab-wide{text-decoration:none}
 
     <div class="pm-row head"><span>能力</span><span>Free</span><span>Premium</span></div>
 
-    <div class="pm-row"><div class="pm-k">每日掃描</div><div class="pm-v">1 次</div><div class="pm-v on">無限</div></div>
-    <div class="pm-row"><div class="pm-k">本機歷史<small>紀錄一律留在這台裝置上</small></div><div class="pm-v">7 天</div><div class="pm-v on">無限</div></div>
+    <div class="pm-row"><div class="pm-k">掃描</div><div class="pm-v on">無限</div><div class="pm-v on">無限</div></div>
+    <div class="pm-row"><div class="pm-k">看得到的歷史<small>紀錄一律全部留在這台裝置上，升級後整段都看得到</small></div><div class="pm-v">30 天</div><div class="pm-v on">全部</div></div>
     <div class="pm-row"><div class="pm-k">Edge Timeline</div><div class="pm-v">有限</div><div class="pm-v on">完整</div></div>
     <div class="pm-row"><div class="pm-k">回放洞察</div><div class="pm-v">基本</div><div class="pm-v on">進階</div></div>
     <div class="pm-row"><div class="pm-k">Session 封存</div><div class="pm-v">有限</div><div class="pm-v on">完整</div></div>
     <div class="pm-row"><div class="pm-k">個人 Edge 圖譜<small>你自己的狀態隨時間怎麼走</small></div><div class="pm-v off">—</div><div class="pm-v on">✓</div></div>
-    <div class="pm-row"><div class="pm-k">Edge 走勢預估<small>對象是你自己的節律</small></div><div class="pm-v off">—</div><div class="pm-v on">✓</div></div>
     <div class="pm-row"><div class="pm-k">偵測器快訊</div><div class="pm-v off">—</div><div class="pm-v on">✓</div></div>
-    <div class="pm-row"><div class="pm-k">外部快訊接入<small>把外部訊號接進決策流程</small></div><div class="pm-v off">—</div><div class="pm-v on">✓</div></div>
-    <div class="pm-row"><div class="pm-k">匿名基準</div><div class="pm-v off">—</div><div class="pm-v on">✓</div></div>
+    <div class="pm-row"><div class="pm-k">外部快訊接入<small>把外部訊號接進決策流程</small></div><div class="pm-v on">✓</div><div class="pm-v on">✓</div></div>
     <div class="pm-row"><div class="pm-k">進階洞察</div><div class="pm-v off">—</div><div class="pm-v on">✓</div></div>
 
     <!-- 🔴 這一列不是功能，是一條承諾，而且**兩欄都是 ✓**。
@@ -6211,7 +6210,7 @@ function labInfo(title, sub){
   labToastTimer = setTimeout(() => t.classList.remove('show'), 3000);
 }
 
-// ── 使用摘要：從既有的本機資料推導，不另外存任何東西（usage-summary.js）──
+// ── 使用摘要：從本機紀錄推導，不送出去（usage-summary.js；守門指標吃 scan-attempts.js）──
 /** 摘要要讀完才收，不沿用 labInfo 的 3 秒。點一下可以提早收。 */
 const USAGE_TOAST_MS = 9000;
 function showUsageSummary(){
@@ -6226,16 +6225,17 @@ function showUsageSummary(){
     onboarded, hasChannel,
     readingCount: Array.isArray(readings) ? readings.length : 0,
     outcomes: readJson('tenki.alert.outcomes.v1'),
+    scanAttempts: window.TENKI_SCAN_ATTEMPTS ? TENKI_SCAN_ATTEMPTS.read() : null,
     nowMs: Date.now(),
   });
   const text = TENKI_USAGE.describe(summary);
   const show = (copied) => {
-    labInfo(text.title, text.detail + (copied ? '（已複製）' : ''));
+    labInfo(text.title, text.detail + '\n' + text.guard + (copied ? '（已複製）' : ''));
     clearTimeout(labToastTimer);
     labToastTimer = setTimeout(() => document.getElementById('labToast').classList.remove('show'), USAGE_TOAST_MS);
   };
   const copy = navigator.clipboard && navigator.clipboard.writeText
-    ? navigator.clipboard.writeText('TENKI 使用摘要｜' + text.title + '｜' + text.detail)
+    ? navigator.clipboard.writeText('TENKI 使用摘要｜' + text.title + '｜' + text.detail + '｜' + text.guard)
     : Promise.reject(new Error('clipboard unavailable'));
   // 🔴 只有真的寫進剪貼簿才說「已複製」。
   copy.then(() => show(true), () => show(false));
@@ -8272,7 +8272,8 @@ function closeSessionDetail(){
          同樣用絕對路徑（本頁同時掛在 /v3/ 與 /preview/v6/）。 -->
     <!-- 讀數歷史：必須排在 readiness-scan.js **之前** —— 它的 saveReading 會呼叫 -->
     <script src="/preview/readiness-history.js?v=rh1"></script>
-    <script src="/preview/readiness-scan.js?v=rs23"></script>
+    <script src="/preview/scan-attempts.js?v=sa2"></script>
+    <script src="/preview/readiness-scan.js?v=rs25"></script>
     <!-- Stardust Scan Takeover logic script -->
     <script src="stardust-scan-takeover.js?v=gyro_v6"></script>
 

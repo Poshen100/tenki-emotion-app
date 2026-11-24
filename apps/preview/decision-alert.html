@@ -99,18 +99,8 @@
     .live-title { font-weight: 600; }
     .live-status { flex: 1; text-align: right; color: var(--n-500); font-size: 11px; }
     .live-chevron { color: var(--amber-400); font-size: 11px; }
-    /* 🔴 這顆 `PREMIUM` 徽章原本吃 `--gold-secured`。
-       2026-09-08 把**紫**正式認領為 Premium 的顏色之後，那一輪只掃了 v6 ——
-       於是同一個產品裡「Premium」有兩個顏色，而其中一個（金）是別人的：
-       金 = SECURED（baseline 鎖定／校準完成）。founder 2026-09-10 實走截到。
-       ⚠️ 紫只當**表面**（它活不過色盲守門，見 tokens.css），
-       所以是「紫 wash 底 + 中性字」：`--n-200` 壓在 `--premium-950` 上 9.65:1。 */
-    .live-badge {
-      flex: none; font-size: 9px; letter-spacing: 0.08em; font-weight: 700;
-      color: var(--n-200); background: var(--premium-950);
-      border: 1px solid var(--premium-600);
-      border-radius: 999px; padding: 2px 7px; text-transform: uppercase;
-    }
+    /* 這裡原本有一顆 `Premium` 徽章。2026-11-22 founder 裁決：快訊接入是北極星閉環的入口，
+       改成 Free 也有（`subscription-tiers.ts`）→ 徽章拿掉。 */
     /* 導覽列（偏移預警 ›）—— 與展開列同一個外觀，只有尾端記號不同：
        `▾` 是「在這裡展開」，`›` 是「離開這一頁去別的地方」。
        🔴 **而那個差別要吃到顏色上**：`▾` 會改變狀態（展開）→ 可動層琥珀；
@@ -760,7 +750,6 @@
       <button class="live-toggle" id="liveToggle" type="button">
         <span class="live-dot" id="liveDot"></span>
         <span class="live-title">連接 TradingView</span>
-        <span class="live-badge">Premium</span>
         <span class="live-status" id="liveStatus">離線</span>
         <span class="live-chevron" id="liveChevron">▾</span>
       </button>
@@ -1087,7 +1076,8 @@
        後者用 hasReadinessScanner() 決定要不要顯示掃描鈕。 -->
   <!-- 讀數歷史：必須排在 readiness-scan.js **之前** —— 它的 saveReading 會呼叫 -->
   <script src="/preview/readiness-history.js?v=rh1"></script>
-  <script src="/preview/readiness-scan.js?v=rs23"></script>
+  <script src="/preview/scan-attempts.js?v=sa2"></script>
+  <script src="/preview/readiness-scan.js?v=rs25"></script>
   <!-- 判定的唯一來源，必須排在 decision-alert.js 之前（後者在頂層就讀它）。 -->
   <script src="/preview/decision-outcome.js?v=do17"></script>
   <script src="decision-alert.js?v=alert52"></script>

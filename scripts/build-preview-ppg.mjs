@@ -50,6 +50,7 @@ const ENTRIES = [
   'biometric/ppg/capture-timeline.ts',
   'biometric/pulse-anchor.ts',
   'biometric/validation-log.ts',
+  'biometric/ppg/prv-headline.ts',
 ];
 
 /*

@@ -59,6 +59,7 @@ const TS = {
   calibration: read('packages/engine/src/intelligence/calibration.ts'),
   twin: read('packages/engine/src/intelligence/twin.ts'),
   copy: read('packages/engine/src/intelligence/copy.ts'),
+  routines: read('packages/engine/src/intelligence/routines.ts'),
 };
 const MIRROR = read('apps/preview/drift.js');
 
@@ -131,6 +132,7 @@ const OBJECTS = [
   ['CALIBRATION_EVIDENCE_REQUIREMENT', TS.calibration],
   ['TWIN_EVIDENCE_REQUIREMENT', TS.twin],
   ['TWIN_FEATURE_WEIGHTS', TS.twin],
+  ['ROUTINE_EVIDENCE_REQUIREMENT', TS.routines],
 ];
 
 console.log('── 鏡射常數 ──');
@@ -154,6 +156,14 @@ for (const [name, src] of OBJECTS) {
   );
   check(`${name} 值一致`, fromMirror, fromTs);
 }
+
+// 例行清單是**有順序的**陣列（順序就是畫面順序，不是排名）—— 逐項比。
+const routineList = (src) => {
+  const m = src.match(/PRE_DECISION_ROUTINES\b[^=\n]*=\s*\[([^\]]*)\]/);
+  return m ? [...m[1].matchAll(/'([a-z_]+)'/g)].map((x) => x[1]) : null;
+};
+check('PRE_DECISION_ROUTINES 兩邊一致（含順序）', routineList(MIRROR), routineList(TS.routines));
+checkTruthy('PRE_DECISION_ROUTINES 讀得到', (routineList(TS.routines) || []).length === 5);
 
 // ── copy 層：TS 的每一句長文案都要在鏡射裡逐字出現 ──
 //
@@ -394,6 +404,13 @@ for (const page of PAGES_LOADING_SCAN) {
       historyAt !== -1 && historyAt < scanAt,
       `history@${historyAt} scan@${scanAt} —— saveReading 會呼叫它，順序反了就記不到`
     );
+    // 守門指標的原料（2026-11-22）：同一個形狀 —— 沒載到或排在後面，成敗就靜靜地沒被記。
+    const attemptsAt = html.search(/<script[^>]+scan-attempts\.js/);
+    checkTruthy(
+      `${page} 的 scan-attempts 排在 scan 之前`,
+      attemptsAt !== -1 && attemptsAt < scanAt,
+      `attempts@${attemptsAt} scan@${scanAt} —— 首測與有效讀數會少記`
+    );
   }
 }
 
@@ -547,6 +564,43 @@ checkTruthy(
   (await text('#calib-body')).includes('Similar in 5 of your last 7 sessions.'),
   await text('#calib-body')
 );
+
+console.log('\n── 交易前例行實驗（founder 2026-11-22）──');
+const routines = () => page.$$eval('#routine-list .routine-row', (rows) => rows.map((r) => ({
+  routine: r.dataset.routine, state: r.dataset.state, text: r.innerText,
+})));
+let rt = await routines();
+check('🔴 固定順序（清單順序，不是排名），沒做過的例行不出現',
+  rt.map((r) => r.routine), ['breath_reset', 'short_walk', 'water']);
+const breath = rt[0];
+const counts = breath.text.match(/closer to your usual range (\d+), no clear shift (\d+), further from it (\d+)/);
+const total = breath.text.match(/· (\d+) runs/);
+checkTruthy('夠 5 次的例行有計數，三個數字都給', breath.state === 'assessed' && counts !== null, breath.text);
+checkTruthy('🔴 三個數字加起來等於總次數',
+  counts && total && Number(counts[1]) + Number(counts[2]) + Number(counts[3]) === Number(total[1]),
+  breath.text);
+checkTruthy('「沒有明顯變化」也是結果', breath.text.includes('No clear shift is a result too.'), breath.text);
+checkTruthy('還不夠的例行說還差幾次，不給數字',
+  rt[1].state === 'insufficient' && rt[1].text.includes('3 more comparable runs needed') && !/closer to/.test(rt[1].text),
+  rt[1].text);
+checkTruthy('🔴 前後讀數不可比的那次單獨說出來，不丟掉也不算成沒變化',
+  rt[2].text.includes('1 run left out'), rt[2].text);
+checkTruthy('🔴 不排名、不建議、不講交易',
+  !rt.some((r) => /\b(best|worst|most|mostly|should|recommend)\b|trade|entry|exit|market/i.test(r.text)),
+  rt.map((r) => r.text).join(' | '));
+
+await page.getByRole('button', { name: 'Short walk' }).click();
+await page.locator('#calibrate-btn').click();
+await page.waitForFunction(() =>
+  document.querySelector('#routine-list [data-routine="short_walk"]')?.innerText.includes('2 more comparable runs'),
+  null, { timeout: 15000 });
+rt = await routines();
+checkTruthy('選了散步再校準 → 那一次記進散步', rt[1].text.includes('2 more comparable runs needed'), rt[1].text);
+await page.getByRole('button', { name: '離得更遠' }).click();
+rt = await routines();
+checkTruthy('🔴 改「量到什麼」是改寫同一次，不會多記一筆',
+  rt[1].text.includes('2 more comparable runs needed'), rt[1].text);
+await page.getByRole('button', { name: '往常態靠回去' }).click();
 
 console.log('\n── 🔴 真實累積：沒有資料時不編 ──');
 check('空狀態明說還沒有資料', await text('#real-headline'), '還沒有你的資料');

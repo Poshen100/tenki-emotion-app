@@ -393,10 +393,27 @@ export {
   evidenceReasonCopy,
   formatConfidence,
   formatCount,
+  ROUTINE_LABELS,
+  routineTallyCopy,
   twinCopy,
 } from './intelligence/copy';
 
 export type { InsightCopy } from './intelligence/copy';
+
+// Pre-decision routine experiments (founder 2026-11-22, §4.2 widened).
+export {
+  PRE_DECISION_ROUTINES,
+  ROUTINE_EVIDENCE_REQUIREMENT,
+  summarizeRoutineEffects,
+} from './intelligence/routines';
+
+export type {
+  PreDecisionRoutine,
+  RoutineRun,
+  RoutineTally,
+  RoutineTallyInsufficient,
+  RoutineTallyResult,
+} from './intelligence/routines';
 
 // ─── Device validation instrument ───────────
 // 把 docs/PHONE-PPG.md §12 的三條關鍵檢查變成裝置自己回答得了的東西。
@@ -420,3 +437,22 @@ export type {
   ValidationCapture,
   ValidationScenario,
 } from './biometric/validation-log';
+
+// ─── Pulse Rhythm on the reading screen (#27, founder 2026-11-22) ───
+export {
+  MAX_MEDIAN_RELATIVE_ERROR,
+  MAX_REFERENCE_ENTRY_DELAY_MS,
+  MAX_TAIL_RELATIVE_ERROR,
+  MIN_REFERENCE_DAYS,
+  MIN_REFERENCE_PAIRS,
+  MIN_REFERENCE_RMSSD_MS,
+  assessReferenceAgreement,
+  resolvePrvHeadline,
+} from './biometric/ppg/prv-headline';
+
+export type {
+  PrvHeadline,
+  PrvHeadlineWithheld,
+  ReferenceAgreement,
+  ReferenceAgreementStatus,
+} from './biometric/ppg/prv-headline';

@@ -33,6 +33,14 @@
 
 import { MIN_PERFUSION } from './ppg/quality';
 import {
+  MAX_MEDIAN_RELATIVE_ERROR,
+  MAX_TAIL_RELATIVE_ERROR,
+  MIN_REFERENCE_DAYS,
+  MIN_REFERENCE_PAIRS,
+  MIN_REFERENCE_RMSSD_MS,
+  assessReferenceAgreement,
+} from './ppg/prv-headline';
+import {
   DC_DRIFT_SUSPECT,
   DRIFT_PERIOD_TRUSTWORTHY_SEC,
   type ExposureStability,
@@ -155,6 +163,22 @@ export interface ValidationCapture {
   } | null;
   /** What the person said they were doing. */
   scenario: ValidationScenario;
+  /**
+   * RMSSD a chest strap measured over the same capture, typed in by the user,
+   * or null/absent when there was no strap.
+   *
+   * 🔴 Optional and late: every record written before 2026-11-22 lacks it, so
+   * it arrives as `undefined`. Check #27 (`ppg/prv-headline.ts`) is the only
+   * reader and treats anything but a positive number as "no strap".
+   */
+  referenceRmssdMs?: number | null;
+  /**
+   * The user confirmed the strap value covers the same window as this capture.
+   * Only `true` counts; absent (older records) does not.
+   */
+  referenceSameWindow?: boolean;
+  /** When the strap value was typed in, Unix ms. Pairs typed too late are not counted. */
+  referenceEnteredAtMs?: number | null;
 }
 
 // ─────────────────────────────────────────────
@@ -506,6 +530,28 @@ export function formatValidationReport(log: readonly ValidationCapture[]): strin
   lines.push('#14 跨天變異 vs 當日變異');
   lines.push(`  脈搏：${describeSpread(spread.pulseBpm, 'bpm')}`);
   lines.push(`  脈搏節律：${describeSpread(spread.pulseRhythmMs, 'ms')}`);
+  lines.push('');
+
+  // 🔴 #27 decides whether Pulse Rhythm may headline on this device
+  // (founder 2026-11-22). The bounds are printed next to the numbers so the
+  // person reading a pasted report does not have to know them.
+  const ref = assessReferenceAgreement(log);
+  lines.push('#27 胸帶對照（只代表這台手機的初步驗證）');
+  const left =
+    ref.unsyncedCount + ref.lowReferenceCount === 0
+      ? ''
+      : ` · 不計：沒確認同一段時間 ${ref.unsyncedCount}、胸帶值低於 ${MIN_REFERENCE_RMSSD_MS}ms ${ref.lowReferenceCount}`;
+  if (ref.status === 'accumulating') {
+    lines.push(
+      `  樣本不足，還不能判定：靜坐配對 ${ref.pairCount}/${MIN_REFERENCE_PAIRS} 次、${ref.dayCount}/${MIN_REFERENCE_DAYS} 天` +
+        (ref.medianAbsError === null ? '' : ` · 目前誤差中位數 ${pct(ref.medianAbsError)}`) +
+        left,
+    );
+  } else {
+    lines.push(
+      `  ${ref.status === 'passed' ? '✓ 初步通過' : '✗ 不通過'}：${ref.pairCount} 對、${ref.dayCount} 天 · 誤差中位數 ${pct(ref.medianAbsError)}（≤ ${pct(MAX_MEDIAN_RELATIVE_ERROR)}）· 超過 ${pct(MAX_TAIL_RELATIVE_ERROR)} 的 ${ref.tailCount} 對（容許 ≤ ${ref.tailAllowed}）· 最差 ${pct(ref.worstAbsError)} · 偏差 ${pct(ref.medianBias)}${left}`,
+    );
+  }
 
   return lines.join('\n');
 }
@@ -783,6 +829,10 @@ function spreadOf(values: readonly number[]): Spread | null {
  * interpret. Anything that is not a real value must render as absent, whatever
  * upstream mistake produced it — this is the last place that can still catch it.
  */
+function pct(value: number | null): string {
+  return value === null ? '—' : `${Math.round(value * 100)}%`;
+}
+
 function fmt(value: number | null): string {
   return value === null || !Number.isFinite(value) ? '—' : String(value);
 }

@@ -17,7 +17,19 @@
     不給進出場建議；臉部是日常掃描入口、不露臉、phone-first 都照舊。
   - 選下一刀時先問：它對**外部交易者**的獲取／啟用／留存／收入是哪一項。答不出來就不是現在該做的。
   - 北極星：每位活躍使用者每週「判定與結果都填完」的決策數（Premium 的 drift／twin／校準證明全靠它累積）。
-  - **數字只在有真 HRV 來源時出現**；沒有時的預設讀數是質化帶位＋證據。「不給假數字」是賣點，不是缺口。
+    - **守門指標**（founder 2026-11-22，不取代北極星）：**首測成功率**（新使用者第一次掃描就拿到讀數）、
+      **有效讀數率**（擷取通過閘門的比例）。北極星看不到「入口壞了」—— 第一次就量失敗的人不會出現在它裡面。
+      原料是 `apps/preview/scan-attempts.js`：每筆**只有時間與結果**（拿到讀數／沒拿到／中途取消，沒有任何量測值），只存本機、不上傳。取消單獨計數、不進有效讀數的分母。
+  - **決策閉環整條免費**（founder 2026-11-22）：快訊接入、掃描、判定、結果、紀錄保存都不得放付費牆後。
+    Premium 只賣**縱向分析的深度**（全歷史的 drift／twin／校準證明／黑盒子、例行效果）。
+    紀錄一律全部存在本機，Free 只限畫面看得到的範圍（30 天）—— 升級那天要打開一個裝滿的寶箱，不是空的雷達。
+  - **公平訂閱**（founder 2026-11-22）：方案頁各選項**同等視覺權重**（不准把某一個做灰、另一個做亮）；
+    取消路徑跟訂閱路徑**在同一處**；續訂**前**提醒。Welltory 的負評主力就是這三件事（`docs/research/WELLTORY.md`）。
+  - **Edge Score（0-100）只在有真 HRV 來源時出現**；沒有時的預設讀數是質化帶位＋證據。「不給假數字」是賣點，不是缺口。
+    - ✅ **相機脈搏節律可以用數字（ms）出現在讀數主畫面**（founder 2026-11-22 改），但四個條件缺一不可：
+      (a) **這台手機**初步通過胸帶對照（`docs/PHONE-PPG.md` §12 第 27 條，`ppg/prv-headline.ts`；只代表這台手機，不得推論同型號）；(b) 該次擷取通過拍形閘門；
+      (c) 名字仍是「脈搏節律」、標「算出」層，**仍不叫 HRV**；(d) **仍不進 Edge Score**。
+      賣點從「不給數字」升級成「**給驗證過的數字**」。
 - **核心指標**：Decision Edge Score (0-100)
 - **掃描主入口**：Soul Scan（臉部基線）— 方向定調見 `docs/SOUL-SCAN-NORTH-STAR.md`（必讀）；finger PPG 退為校準/補強層，不要把臉部流程塞進 `(tabs)/scan.tsx`
 - **Phone-first**：只有一支手機的使用者是最大市場。**沒有任何穿戴裝置也必須能走完整個核心循環**
@@ -48,12 +60,14 @@
 | 用 Redux | 用 Zustand |
 | 累積多個 Todo 才 commit | 違反 Commit-Per-Todo |
 | 把產品框定為 "trading tool" / "signal system" / "meditation app" | 違反 `SYSTEM.md` 核心定位（Decision Infrastructure / Human State Calibration System） |
+| 把決策閉環的任何一段（快訊、掃描、判定、結果、紀錄保存）放進 Premium | 北極星的原料在付費牆後，免費使用者產生不了任何 Premium 要賣的東西（founder 2026-11-22，`docs/research/BUSINESS-VALUE-2026-11.md` §1）|
+| 訂閱 dark pattern（方案不同視覺權重、取消藏在別處、續訂不提醒）| 信任型產品的自殺行為；founder 2026-11-22 公平訂閱承諾 |
 | 把 `docs/brand.md` 內部 dopamine/withdrawal/craving 措辭用在 user-facing copy | 違反 compliance 規則，見 `docs/brand.md` § 5 |
 | **量不到就填一個合理的預設值**（HRV 填 50、呼吸率填 15、缺睡眠當 80、沒拍點當 60bpm）| 靜息合理值下游**分不出來**，一路變成假讀數與被推壞的 baseline。缺就是缺：回 `null`，並把 driver 排除、confidence 降下來。詳見 `docs/PHONE-PPG.md` |
 | 把相機 HRV 跟手錶／胸帶 HRV 當同一個數字比較 | 三者 `derivation` 不同（estimated / observed / derived），contract 逼你標記就是為了擋這件事 |
 | 對 SDNN/RMSSD 或相機 HRV 的偏差**乘一個固定係數**修正 | 沒有個人化依據的魔術常數會把偏差藏起來（`harmonizeHrv() × 0.75` 已因此拆掉一次）|
 | 產出 SNS / PNS score、LF/HF balance、「交感副交感平衡」、「自律神經分數」 | 手機量不到神經活動。LF 不是選擇性的交感指標、LF/HF 不該被描述成 sympathovagal balance。`domain/contracts/regulation-evidence.ts` **連欄位都沒有**，並有 `findForbiddenAutonomicClaims()` 擋文案 |
-| 把「脈搏節律」(PRV) 放進頭條讀數、讓它影響 Edge Score、或在累積夠多可比較的高品質錨點前就跟使用者自己比 | founder 2026-09-11 決議：初期只在**證據／量測細節層**、**不進分數**、比較要等 7 次跨 3 天（`docs/PHONE-PPG.md` §13）|
+| 讓「脈搏節律」(PRV) 影響 Edge Score、在累積夠多可比較的高品質錨點前就跟使用者自己比、或在**這台手機沒通過胸帶對照**前放進頭條讀數 | founder 2026-09-11 決議 **不進分數**、比較要等 7 次跨 3 天；2026-11-22 放寬「只在證據層」→ 這台手機通過胸帶對照＋該次過閘才可上主畫面（`docs/PHONE-PPG.md` §13）|
 | 把相機的 PRV 叫成 HRV、或讓它填進 `hrvRmssdMs` / 餵 HRV driver / 進 HRV baseline | 相機是從光的波形推回拍點，胸帶是直接量拍間距。品質分數 99 的擷取 PRV 可以錯 156%（`docs/PHONE-PPG.md` §13）。混在一起之後沒人分得出那份 baseline 是誰量的 |
 | 讓相機呼吸率以 pulse scan 副產品的形式出現 | 只能是獨立的 Breath Lock：45–60 秒 protocol、自己的閘門、對照參考來源驗證（§14）|
 | 兩個來源的呼吸率不一致時取平均 | 對的答案跟錯的答案的平均是第三個錯答案。不一致就顯示「訊號衝突」或什麼都不顯示 |

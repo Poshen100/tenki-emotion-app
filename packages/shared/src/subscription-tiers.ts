@@ -19,12 +19,14 @@ export interface TierFeatures {
   edgeScore: boolean;
   /** Basic readiness insight. */
   basicInsight: boolean;
-  /** Guest mode local history limit (days). */
-  localHistoryDays: number | 'unlimited';
+  /**
+   * How far back the history VIEW reaches (days). Storage is never limited by
+   * tier: every record stays on the device, so upgrading opens a full history
+   * instead of an empty radar (docs/research/BUSINESS-VALUE-2026-11.md §1).
+   */
+  historyViewDays: number | 'unlimited';
   /** Personal Edge Graph. */
   edgeGraph: boolean;
-  /** Edge Prediction. */
-  edgePrediction: boolean;
   /** Edge Timeline depth. */
   edgeTimeline: 'limited' | 'full';
   /** Replay insights depth. */
@@ -33,8 +35,6 @@ export interface TierFeatures {
   detectorAlerts: boolean;
   /** External alert bridge (TradingView webhook → decision flow). */
   externalAlertBridge: boolean;
-  /** Anonymous benchmarks. */
-  benchmarks: boolean;
   /** Advanced AI insights. */
   advancedInsights: boolean;
   /** Multi-mode session archive. */
@@ -55,23 +55,27 @@ export interface TierConfig {
 
 /**
  * Free tier configuration.
- * Provides enough utility to build habit, but limits intelligence depth.
+ *
+ * 🔴 The whole decision-record loop is free: alert → timer → judgement →
+ * outcome. That loop is the north star AND the raw material every Premium
+ * insight is built from — locking its entry (the alert bridge) or deleting
+ * its history meant free users could never produce what Premium sells
+ * (founder 2026-11-22, docs/research/BUSINESS-VALUE-2026-11.md §1).
+ * Free limits the depth of longitudinal analysis, never the loop itself.
  */
 export const FREE_TIER: TierConfig = {
   id: 'free',
   name: 'Free',
   features: {
-    dailyScanLimit: 1,
+    dailyScanLimit: 'unlimited',
     edgeScore: true,
     basicInsight: true,
-    localHistoryDays: 7,
+    historyViewDays: 30,
     edgeGraph: false,
-    edgePrediction: false,
     edgeTimeline: 'limited',
     replayInsights: 'basic',
     detectorAlerts: false,
-    externalAlertBridge: false,
-    benchmarks: false,
+    externalAlertBridge: true,
     advancedInsights: false,
     sessionArchive: 'limited',
     exportEnabled: true, // Privacy controls never paywalled
@@ -89,14 +93,12 @@ export const PREMIUM_TIER: TierConfig = {
     dailyScanLimit: 'unlimited',
     edgeScore: true,
     basicInsight: true,
-    localHistoryDays: 'unlimited',
+    historyViewDays: 'unlimited',
     edgeGraph: true,
-    edgePrediction: true,
     edgeTimeline: 'full',
     replayInsights: 'advanced',
     detectorAlerts: true,
     externalAlertBridge: true,
-    benchmarks: true,
     advancedInsights: true,
     sessionArchive: 'full',
     exportEnabled: true,

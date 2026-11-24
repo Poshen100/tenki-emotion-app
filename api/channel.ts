@@ -5,11 +5,11 @@
  * unguessable channel ID is the credential (capability URL), so no token
  * ever has to be typed. Channels expire after 30 days of inactivity.
  *
- * Entitlement hook: when the account/billing layer lands, this endpoint is
- * where the Premium (`externalAlertBridge`) check plugs in — see
- * docs/TRADINGVIEW-ALERT-SPEC.md §11. Until then registration is open to
- * anyone; abuse is bounded by SETNX-gated writes, per-channel caps/TTLs, and
- * the per-client creation cap in `domain/policies/channel-rate-limit`.
+ * No entitlement check: the alert bridge is in BOTH tiers (founder
+ * 2026-11-22 — it is the entry of the north-star loop, see
+ * docs/TRADINGVIEW-ALERT-SPEC.md §11). Registration is open to anyone; abuse
+ * is bounded by SETNX-gated writes, per-channel caps/TTLs, and the per-client
+ * creation cap in `domain/policies/channel-rate-limit`.
  *
  * 🔴 That creation cap is load-bearing as of 2026-10-29. Before then this
  * endpoint sat behind Vercel Authentication, so the wall was incidentally

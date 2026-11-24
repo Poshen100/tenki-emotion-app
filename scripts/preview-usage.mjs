@@ -69,6 +69,38 @@ check('沒有待填時不提待填',
 check('🔴 摘要文字裡沒有標的或結果（只有步驟與筆數）',
   /ES1|profit|stopped|達到目標|觸及/.test(text.title + text.detail), false);
 
+// ── ①b 守門指標（founder 2026-11-22）──────────────────────
+vm.runInNewContext(readFileSync(join(repoRoot, 'apps/preview/scan-attempts.js'), 'utf8'), sandbox);
+const ATT = sandbox.globalThis.TENKI_SCAN_ATTEMPTS;
+console.log('── 守門指標 ──');
+check('🔴 沒有紀錄 → 首測是 null（沒有紀錄不是失敗），次數 0',
+  USAGE.summarize(empty).guard, { firstScan: null, completed: 0, withReading: 0, noReading: 0, cancelled: 0 });
+check('沒有紀錄時文字說「沒有紀錄」，不說失敗',
+  USAGE.describe(USAGE.summarize(empty)).guard, '首測沒有紀錄 · 跑完的掃描 0 次：拿到讀數 0、沒拿到 0 · 中途取消 0 次');
+let log = ATT.load(null);
+// 🔴 第一筆是取消：取消不是一次量測，不能變成「首測」。
+log = ATT.append(log, { ts: 0, outcome: 'cancelled' });
+check('🔴 只有取消時，首測仍然是「沒有紀錄」', log.first, null);
+log = ATT.append(log, { ts: 1, outcome: 'no_reading' });
+log = ATT.append(log, { ts: 2, outcome: 'reading' });
+log = ATT.append(log, { ts: 3, outcome: 'reading' });
+const g = USAGE.summarize({ ...empty, scanAttempts: log });
+check('🔴 取消、失敗、兩次成功 → 首測看第一次跑完的；取消不進跑完的分母，但單獨計數',
+  g.guard, { firstScan: 'no_reading', completed: 3, withReading: 2, noReading: 1, cancelled: 1 });
+check('🔴 三類都給數字、不給百分比',
+  USAGE.describe(g).guard, '首測沒拿到讀數 · 跑完的掃描 3 次：拿到讀數 2、沒拿到 1 · 中途取消 1 次');
+let big = ATT.load(null);
+for (let i = 0; i < ATT.SCAN_ATTEMPTS_MAX + 5; i++) {
+  big = ATT.append(big, { ts: i, outcome: i === 0 ? 'no_reading' : 'reading' });
+}
+check('🔴 上限擠掉最舊一筆時，「第一次」不會跟著被帶走',
+  [big.attempts.length, big.first.outcome], [ATT.SCAN_ATTEMPTS_MAX, 'no_reading']);
+check('壞掉的列被丟掉，不拋錯',
+  ATT.load({ first: { ts: 'x' }, attempts: [{ ts: 1, outcome: 'reading' }, { ts: 2, outcome: 'maybe' }, null] }),
+  { first: null, attempts: [{ ts: 1, outcome: 'reading' }] });
+check('🔴 紀錄裡只有時間與結果，沒有任何量測值',
+  Object.keys(big.attempts[0]).sort(), ['outcome', 'ts']);
+
 // ── ② 畫面 ──────────────────────────────────────────────
 const MIME = {
   '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript',
@@ -100,12 +132,13 @@ page.on('pageerror', (e) => pageErrors.push(String(e)));
 await page.route(/^https?:\/\/(?!127\.0\.0\.1)/, (route) => route.abort());
 
 await page.goto(`${base}/__blank`);
-await page.evaluate(({ rows, now }) => {
+await page.evaluate(({ rows, now, attempts }) => {
   const shift = Date.now() - now; // 假資料的相對日數搬到「現在」
   localStorage.setItem('tenki.app.onboarded.v1', '1');
   localStorage.setItem('tenki.alert.channel', 'a'.repeat(64));
   localStorage.setItem('tenki.alert.outcomes.v1', JSON.stringify(rows.map((r) => ({ ...r, ts: r.ts + shift }))));
-}, { rows: records, now: NOW });
+  localStorage.setItem('tenki.scan.attempts.v1', JSON.stringify(attempts));
+}, { rows: records, now: NOW, attempts: log });
 
 await page.goto(`${base}/v3/`, { waitUntil: 'domcontentloaded' });
 await page.waitForFunction(() => typeof window.showUsageSummary === 'function' && !!window.TENKI_USAGE);
@@ -117,8 +150,11 @@ check('頁面沒有 JS 錯誤', pageErrors, []);
 check('Lab 有「使用摘要」那一格', await page.locator('#labUsageTile').count(), 1);
 check('標題跟推導是同一句', await page.locator('#labToastTitle').textContent(), text.title);
 const sub = await page.locator('#labToastSub').textContent();
-check('細節列出五步：沒掃描過所以「掃描 —」，其餘打勾',
-  sub.replace('（已複製）', ''), '建立基線 ✓ · 掃描 — · 接上快訊 ✓ · 做過判定 ✓ · 填完一筆 ✓');
+check('細節列出五步（沒掃描過所以「掃描 —」）＋守門指標那一行',
+  sub.replace('（已複製）', ''),
+  '建立基線 ✓ · 掃描 — · 接上快訊 ✓ · 做過判定 ✓ · 填完一筆 ✓\n首測沒拿到讀數 · 跑完的掃描 3 次：拿到讀數 2、沒拿到 1 · 中途取消 1 次');
+check('🔴 剪貼簿裡也有守門指標（顯示與複製是同一份）',
+  (await page.evaluate(() => navigator.clipboard.readText())).includes('跑完的掃描 3 次'), true);
 const clip = await page.evaluate(() => navigator.clipboard.readText());
 check('🔴 說「已複製」時剪貼簿裡真的有那段字',
   [sub.endsWith('（已複製）'), clip.includes(text.title)], [true, true]);

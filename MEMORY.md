@@ -28,6 +28,84 @@
      勿刪、勿移動、勿複製第二份：`scripts/verify.sh` 驗它恰好出現一次、
      而且排在所有條目之前。它的存在理由見協議第 1 條。 -->
 
+# 2026-11-23 Session Update（founder 審查：R1／R2 補強＋Draft PR，不合併）
+
+## founder 的裁決（照原意保留）
+- 方向對；**不合併 main**，開 Draft PR 走審查。`verify` 全綠＝工程檢查通過，**不等於生理量測完成科學驗證**。
+- R3 的比較軸：**不用 TEI／ERI**（TEI 本來就是禁用詞）。分兩條獨立軸 —— 生理量測（已驗證的 RMSSD／PRV＋品質）
+  與主觀自評（0–100 緊張程度／決策準備度），分開記錄再做前後配對；主觀分數不得假裝是相機量到的。量到／算出／推論分開。
+- 下一輪順序：**P0** 5 秒機型能力測試＋相容清單、量到／算出／推論標籤 → **P1** 自評與相機讀數並列、R3 真實前後配對 → **P2** 擴大胸帶／ECG 驗證。
+- 硬體：founder 想先買 Garmin 手錶。結論：手錶腕上也是光學，**不能當 #27 的參考**；Garmin 也不把 HRV 寫進 Apple 健康／Health Connect。
+  建議手錶＋Polar H10，或至少先買 H10。
+
+## What was done
+1. `fix(engine)` R1 補強：配對要「同一段時間」勾選＋量完 10 分鐘內填；P90 改寫成「超過 17% 的配對 ≤ ⌊n/10⌋」並印出最差一筆；
+   胸帶值 < 10 ms 不計並單獨計數；文案一律「初步、只代表這台手機」；樣本不足明說還不能判定。
+2. `fix(preview)` R2 補強：中途取消單獨記 —— 不算失敗、不進有效讀數分母、首測只看第一次跑完的。
+3. Draft PR（見 PR 頁）。
+
+## 坑／注意
+- `dailyScanLimit` 在整個 repo **沒有任何地方執行**（只有 tier 設定檔與測試讀它）—— 「掃描不限次」目前是宣告，不是被執行的閘。
+  它涵蓋臉部 Soul Scan 與指尖校準；之後若真要做次數限制，要先回來問。
+- 容器有 Inter 字型 → strip-color harness 紅（127 vs 124 px）。照 PLAYBOOK 用 fontconfig reject Inter 再跑；產品程式不為此改。
+
+
+# 2026-11-22 Session Update（「全依建議，開始」：分級修正＋守門指標＋胸帶對照＋例行實驗）
+
+> 承接同一天下面那條（商業價值提案）。founder 五條全部核准。
+
+## What was done（一個 Todo 一個 commit）
+1. `feat(shared)` T1：決策閉環整條免費 —— `externalAlertBridge` free: true、掃描不限、
+   `localHistoryDays` → `historyViewDays`（儲存不分級，Free 畫面 30 天）、拿掉 `edgePrediction`／`benchmarks`。
+   同步 v6 Premium 對照表、`/decision-alert/` 徽章、`api/channel.ts` 註解、ALERT-SPEC §11、App Store 文案。
+2. `docs(rules)`：CLAUDE.md／SYSTEM.md 寫入閉環免費、守門指標、「給驗證過的數字」、公平訂閱。
+3. `feat(preview)` R2：`scan-attempts.js`（只有時間與成敗）＋使用摘要加「首測／跑完幾次拿到讀數幾次」。
+4. `feat(engine)` R1：`ppg/prv-headline.ts` —— 胸帶對照 #27（靜坐 10 對跨 2 天、誤差中位數 ≤10%、P90 ≤17%），
+   通過＋該次過閘 → `/finger/` 頭條卡出現脈搏節律（標「算出」、不叫 HRV、不進分數）。
+5. `feat(engine)` R3：`intelligence/routines.ts` 交易前例行實驗（封閉清單、≥5 次才計數、固定順序不排名）＋ `/drift/` 示範。
+
+## 三個判斷
+- 🔴 **#27 不用 ICC**（提案原本寫 ICC ≥ 0.90）：一台手機通常一個人在驗，一個人的靜息 RMSSD 幾乎不散開，
+  ICC 量的是樣本散度不是儀器準度。改用相對誤差，理由寫在 `prv-headline.ts` 檔頭與 PHONE-PPG §12 #27。
+- 🔴 **守門指標需要新紀錄**：臉部掃描的 `giveUp()` 原本什麼都沒記，所以「不埋點」做不到 ——
+  CLAUDE.md 我先寫了「不埋點」，發現後改成照實的描述（只存時間與成敗、只存本機）。使用者自己取消的不記，
+  會讓有效讀數偏樂觀，已寫在 `scan-attempts.js` 檔頭。
+- ⚠️ **例行實驗接不上真實讀數**：`assessCalibration` 吃 0-100，手機讀數是帶位 —— 要等 drift 的軸（DI §6）。
+
+## 坑
+- `npx jest <path>` 在 root 跑會用錯設定（ts 語法 parse 失敗）→ 要 `cd packages/<pkg> && npx jest`。
+- 驗收報告長度上限 < 30 被 #27 撐破（31 行）→ 放寬到 < 33，fixture 改成 #27 的最長形。
+
+## 下次接手點
+- founder 要做：買胸帶（Polar H10 類），在 `/finger/` 選靜坐、量完把胸帶 App 的 RMSSD 填進「胸帶對照」，累積 10 次跨 2 天。
+- 還沒做的提案：B1 機型相容＋能力測試、B2 量到／算出／推論徽章、B4 自評 vs 讀數。
+- drift 的軸一定案，例行實驗就能接真實讀數。
+
+
+# 2026-11-22 Session Update（外部 Welltory 報告 → 商業價值提案）
+
+- founder 上傳外部深度研究報告，要「提高商業價值的優化建議」，並授權「變得更好的話北極星規則皆可改」。
+- 寫成 `docs/research/BUSINESS-VALUE-2026-11.md`。**沒有改任何規則或程式** —— §6 是待 founder 逐條勾選的清單。
+- 🔴 最大發現：`subscription-tiers.ts` 的 Free 鎖了 `externalAlertBridge`（快訊），而快訊是北極星閉環的入口；
+  Free 只留 7 天歷史，會刪掉護城河本身。另外 `edgePrediction`／`benchmarks` 兩個 v2 欄位與「不預測、只跟自己比」衝突。
+- 下次接手：founder 勾了哪幾條就從那裡開；建議 T1（分級）先。
+
+
+# 2026-11-21 Session Update（Welltory 拆解，研究筆記）
+
+## What was done
+- founder 轉了 Welltory 的 Threads 貼文要「擷取可用優點整合進 TENKI」。
+  寫成 `docs/research/WELLTORY.md`：機制表、§2 不能拿（撞硬規則）、§3 可以拿、§4 五個提案（A–E）等 founder 選。
+- **沒有寫任何程式**：五個提案都需要 founder 決定流程位置或商業承諾。
+
+## 坑
+- 這個環境擋 threads.com、help.welltory.com、screensdesign.com（WebFetch DNS 失敗、curl 403）；
+  `update_environment` 加 host 被服務拒絕。只有 WebSearch 能用 —— 研究全部來自搜尋摘要，文件開頭已標明。
+
+## 下次接手點
+- founder 選了哪個提案就從那個開。建議 A（自評 vs 讀數，並列＋進黑盒子，不照抄「相信保守那邊」—— 交易情境會變成金融建議）。
+
+
 # 2026-11-16 Session Update（「全依建議」：定位同步＋留名單＋接線步驟＋使用摘要）
 
 > 承接同一天下面那條。founder 對三個問題回「全依建議」。

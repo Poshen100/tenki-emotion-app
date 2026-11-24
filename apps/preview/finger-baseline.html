@@ -474,6 +474,14 @@
            這一行只在那種時候出現，而且要說出「用了幾秒」。 -->
       <p class="note" id="segmentNote" data-tone="neutral" style="margin-top:12px" hidden></p>
       <p class="fine" id="derivation" style="margin-top:12px"></p>
+      <!-- 🔴 founder 2026-11-22：脈搏節律可以上主畫面，但只在**這台手機**通過胸帶
+           對照（#27）**而且**這次擷取過了拍形閘門。名字不變、標「算出」、不進分數。
+           資格由引擎 `resolvePrvHeadline()` 決定，這一頁不自己判斷。 -->
+      <div class="precisionRow" id="prvHeadRow" style="margin-top:14px" hidden>
+        <span class="dialLabel">脈搏節律 · 算出</span>
+        <span class="precisionValue" id="prvHead">—</span>
+      </div>
+      <p class="fine" id="prvHeadNote" style="margin-top:6px" hidden>這台手機做過初步的胸帶對照 —— 只代表這台手機，不代表同型號的其他手機。這不是心律變異，也不進你的分數。</p>
     </section>
 
     <!-- 🔴 一次校準得到一個參考點；基線是多次、跨幾天才成形的東西。這張卡
@@ -515,8 +523,8 @@
     </section>
 
     <!-- §8：每一個被接受的讀數都要能說出它是怎麼量的。 -->
-    <!-- 🔴 證據層。PRV **只**出現在這裡（founder 2026-09-11）：它不是頭條
-         讀數，不進 Edge Score，而且要收在使用者主動展開的地方。 -->
+    <!-- 🔴 證據層。PRV 一定出現在這裡（founder 2026-09-11）、不進 Edge Score。
+         2026-11-22 起，這台手機通過胸帶對照（#27）時，同一個數字也會出現在上面的頭條卡。 -->
     <details class="only-result card" id="how">
       <summary class="dialLabel" style="cursor:pointer">量測細節與證據</summary>
 
@@ -534,6 +542,22 @@
       </div>
       <p class="fine" id="prvNote" style="margin-top:8px" hidden></p>
       <p class="fine" id="prvCompare" style="margin-top:8px" hidden></p>
+      <!-- 胸帶對照（#27）。只在「靜坐」而且脈搏節律有出來時出現 —— 其他擷取不算配對，
+           給一個填了也不算數的欄位就是在騙人。 -->
+      <div id="refBlock" style="margin-top:12px" hidden>
+        <div class="dialLabel">胸帶對照（選填）</div>
+        <p class="fine" style="margin-top:6px">這次同時戴著胸帶的話，把胸帶 App <b>同一段時間</b>的 RMSSD 填進來（量完 10 分鐘內）。累積 10 次、跨 2 天，才判定這台手機的脈搏節律能不能放上主畫面 —— 那是這台手機的初步驗證，不是這個型號的。</p>
+        <label class="fine" style="display:flex;gap:8px;align-items:center;margin-top:8px;min-height:44px">
+          <input type="checkbox" id="refSameWindow" style="width:20px;height:20px;flex:none" />
+          胸帶的這個值跟這次擷取是同一段時間量的
+        </label>
+        <div style="display:flex;gap:8px;margin-top:8px;align-items:stretch">
+          <input id="refRmssd" type="number" inputmode="decimal" min="1" max="300" step="0.1" placeholder="RMSSD（ms）"
+            style="flex:1;min-width:0;min-height:44px;border-radius:12px;border:1px solid var(--n-700);background:transparent;color:var(--n-100);padding:0 12px;font-size:16px;font-family:inherit" />
+          <button type="button" class="ghost" id="refSave" style="width:auto;padding:0 16px;min-height:44px">記下對照</button>
+        </div>
+        <p class="fine" id="refState" style="margin-top:6px"></p>
+      </div>
       <hr id="prvRule" style="border:none;border-top:1px solid var(--n-800);margin:14px 0" hidden />
 
       <div class="dialLabel" style="margin-top:4px">實機驗收</div>

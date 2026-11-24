@@ -491,6 +491,76 @@
   }
 
   // ═══════════════════════════════════════════
+  // 交易前例行實驗（mirror of intelligence/routines.ts，founder 2026-11-22）
+  // ═══════════════════════════════════════════
+
+  /** mirror of intelligence/routines.ts PRE_DECISION_ROUTINES（固定順序，不是排名） */
+  var PRE_DECISION_ROUTINES = ['breath_reset', 'short_walk', 'water', 'screen_break', 'plan_review'];
+
+  /** mirror of intelligence/routines.ts ROUTINE_EVIDENCE_REQUIREMENT */
+  var ROUTINE_EVIDENCE_REQUIREMENT = {
+    minSamples: 5,
+    moderateSamples: 5,
+    highSamples: 12,
+    highWindowDays: 7,
+  };
+
+  /**
+   * 每個例行各自的前後比計數。不可比的那幾次單獨計數，不丟、不算成沒變化。
+   * @param {Array<{routine:string,ts:number,result:object}>} runs
+   * @returns {Array<object>}
+   */
+  function summarizeRoutineEffects(runs) {
+    var out = [];
+    PRE_DECISION_ROUTINES.forEach(function (routine) {
+      var mine = runs.filter(function (r) {
+        return r.routine === routine;
+      });
+      if (mine.length === 0) return;
+      var comparable = mine.filter(function (r) {
+        return r.result.state === 'assessed';
+      });
+      var assessed = comparable.map(function (r) {
+        return r.result;
+      });
+      var notComparable = mine.length - assessed.length;
+      var evidenceInput = {
+        sampleCount: assessed.length,
+        windowDays: countDistinctDays(
+          comparable.map(function (r) {
+            return r.ts;
+          })
+        ),
+        provenance: ['measured', 'behavioral'],
+        requirement: ROUTINE_EVIDENCE_REQUIREMENT,
+      };
+      if (assessed.length < ROUTINE_EVIDENCE_REQUIREMENT.minSamples) {
+        var insufficient = insufficientEvidence(evidenceInput);
+        insufficient.routine = routine;
+        insufficient.notComparable = notComparable;
+        out.push(insufficient);
+        return;
+      }
+      var count = function (verdict) {
+        return assessed.filter(function (r) {
+          return r.verdict === verdict;
+        }).length;
+      };
+      out.push({
+        state: 'assessed',
+        routine: routine,
+        total: assessed.length,
+        improved: count('improved'),
+        noClearShift: count('no_clear_shift'),
+        declined: count('declined'),
+        notComparable: notComparable,
+        evidence: buildEvidence(evidenceInput),
+      });
+    });
+    return out;
+  }
+
+  // ═══════════════════════════════════════════
   // Decision Twin
   // ═══════════════════════════════════════════
 
@@ -765,6 +835,44 @@
     };
   }
 
+  /** mirror of intelligence/copy.ts ROUTINE_LABELS */
+  var ROUTINE_LABELS = {
+    breath_reset: '90-second breathing reset',
+    short_walk: 'Short walk',
+    water: 'Glass of water',
+    screen_break: 'Five minutes away from the screen',
+    plan_review: 'Re-reading your plan',
+  };
+
+  /** mirror of intelligence/copy.ts routineTallyCopy —— 三個數字永遠都給、不排名、不建議。 */
+  function routineTallyCopy(result) {
+    var headline = ROUTINE_LABELS[result.routine];
+    var skipped =
+      result.notComparable > 0
+        ? ' ' + formatCount(result.notComparable, 'run') +
+          ' left out because the before and after readings were captured differently.'
+        : '';
+    if (result.state === 'insufficient') {
+      return {
+        headline: headline,
+        body:
+          'Still building — ' + formatCount(result.moreSamplesNeeded, 'more comparable run') +
+          ' needed before this routine has a tally.' + skipped,
+        figure: null,
+        evidenceLine: evidenceLine(result.evidence),
+      };
+    }
+    return {
+      headline: headline,
+      body:
+        'After this routine: closer to your usual range ' + result.improved +
+        ', no clear shift ' + result.noClearShift +
+        ', further from it ' + result.declined + '. No clear shift is a result too.' + skipped,
+      figure: result.total + ' runs',
+      evidenceLine: evidenceLine(result.evidence),
+    };
+  }
+
   function twinCopy(result) {
     if (result.state === 'insufficient') {
       return {
@@ -807,7 +915,11 @@
     TWIN_EVIDENCE_REQUIREMENT: TWIN_EVIDENCE_REQUIREMENT,
     TWIN_FEATURE_WEIGHTS: TWIN_FEATURE_WEIGHTS,
     TWIN_MATCH_THRESHOLD: TWIN_MATCH_THRESHOLD,
+    PRE_DECISION_ROUTINES: PRE_DECISION_ROUTINES,
+    ROUTINE_EVIDENCE_REQUIREMENT: ROUTINE_EVIDENCE_REQUIREMENT,
+    ROUTINE_LABELS: ROUTINE_LABELS,
     // engine
+    summarizeRoutineEffects: summarizeRoutineEffects,
     buildEvidence: buildEvidence,
     insufficientEvidence: insufficientEvidence,
     countDistinctDays: countDistinctDays,
@@ -831,5 +943,6 @@
     driftCopy: driftCopy,
     calibrationCopy: calibrationCopy,
     twinCopy: twinCopy,
+    routineTallyCopy: routineTallyCopy,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -610,19 +610,29 @@ describe('the report is safe to paste', () => {
       capture({
         exposure: hunting,
         exposureLock: { requested: ['whiteBalanceMode'], applied: true },
+        // #27 in its long form: accumulating WITH a running error AND a left-out pair.
+        referenceRmssdMs: 42,
+        referenceSameWindow: true,
+        referenceEnteredAtMs: 1_757_000_060_000,
       }),
       capture({
         localDateKey: '2026-09-12',
         exposure: steady,
         exposureLock: { requested: ['exposureMode'], applied: true },
+        referenceRmssdMs: 42,
+        referenceSameWindow: false,
       }),
     ];
     const report = formatValidationReport(populated);
     // Every section is present in its long form, not its "no data" form.
     expect(report).not.toContain('還沒有任何');
     expect(report).toContain('慢速擺動週期');
+    expect(report).toContain('目前誤差中位數');
+    expect(report).toContain('不計：');
     // 上限的意義是「一次貼得完」，不是一個固定數字。放寬時要重新確認那件事。
-    expect(report.split('\n').length).toBeLessThan(30);
+    // 2026-11-22：#27 胸帶對照加了 2 行（空行＋一行）→ 31 行，放寬到 < 33。
+    // 31 行仍是一次長按複製、一次貼完的長度。
+    expect(report.split('\n').length).toBeLessThan(33);
   });
 
   it('says what is missing rather than printing a number it does not have', () => {
