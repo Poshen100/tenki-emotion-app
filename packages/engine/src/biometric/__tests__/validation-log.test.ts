@@ -152,6 +152,31 @@ describe('🔴 log 是跨版本存下來的 —— 舊紀錄不得讓報告整�
     expect(report).toContain('補光燈對照 開：擺動 0.31（1 筆）· 關：擺動 0.02（1 筆）');
   });
 
+  it('🔴 一組自己的散度蓋過兩組的差時，要直說這個對照還分不出來', () => {
+    // 🔴 founder 2026-11-24 的三次實測：開 0.1542 與 0.0658、關 0.0716。
+    //    開這一組自己的散度（0.0658–0.1542）整個蓋住兩組的差，而報告只印
+    //    「開 0.11 · 關 0.0716」—— 看起來像補光燈讓擺動多了一半。
+    //    我就是照那個數字跟 founder 說「關掉補光燈擺動砍半」，而那是 1 比 1。
+    const report = formatValidationReport([
+      capture({ exposure: { ...hunting, dcDriftFraction: 0.1542 }, torchOn: true }),
+      capture({ exposure: { ...hunting, dcDriftFraction: 0.0658 }, torchOn: true }),
+      capture({ exposure: { ...hunting, dcDriftFraction: 0.0716 }, torchOn: false }),
+    ]);
+    expect(report).toContain('開：擺動 0.11（2 筆，0.0658–0.1542）');
+    expect(report).toContain('關：擺動 0.0716（1 筆）');
+    expect(report).toContain('其中一組自身的散度已經蓋過兩組的差');
+  });
+
+  it('兩組真的分得開的時候就不要加那句警告', () => {
+    const report = formatValidationReport([
+      capture({ exposure: { ...hunting, dcDriftFraction: 0.30 }, torchOn: true }),
+      capture({ exposure: { ...hunting, dcDriftFraction: 0.32 }, torchOn: true }),
+      capture({ exposure: { ...hunting, dcDriftFraction: 0.02 }, torchOn: false }),
+    ]);
+    expect(report).toContain('開：擺動 0.31（2 筆，0.3–0.32）');
+    expect(report).not.toContain('其中一組自身的散度');
+  });
+
   it('🔴 舊紀錄沒有 torchOn 這個欄位，要說沒紀錄而不是當成關', () => {
     // 🔴 第三次同一個形狀的坑：`torchOn` 是今天加的，所以之前存下來的每一筆
     // 在那裡都是 `undefined`。把 undefined 當成 false 會產出一份憑空的

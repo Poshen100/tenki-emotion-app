@@ -469,9 +469,25 @@ function torchSplitNote(exposures) {
         const missing = lit.length === 0 ? '開' : '關';
         return `補光燈對照 只有「${side}」的資料（${lit.length + dark.length} 筆）—— 再做一次「${missing}」才比得出來`;
     }
-    const onDrift = medianOf(lit.map((c) => c.exposure.dcDriftFraction));
-    const offDrift = medianOf(dark.map((c) => c.exposure.dcDriftFraction));
-    return `補光燈對照 開：擺動 ${fmt(onDrift)}（${lit.length} 筆）· 關：擺動 ${fmt(offDrift)}（${dark.length} 筆）`;
+    const onVals = lit.map((c) => c.exposure.dcDriftFraction);
+    const offVals = dark.map((c) => c.exposure.dcDriftFraction);
+    const onDrift = medianOf(onVals);
+    const offDrift = medianOf(offVals);
+    // 🔴 中位數**自己不會說它分不分得開**。2026-11-24 實測：開 0.1542 與 0.0658、
+    // 關 0.0716 —— 開這一組自己的散度就把兩組的差整個蓋住，而報告印出來的是
+    // 「開 0.11 · 關 0.0716」，看起來像補光燈讓擺動多了一半。
+    // （我就是照那個數字跟 founder 說「關掉補光燈擺動砍半」，而那是 1 比 1。）
+    // 所以 n≥2 的那一組要把**範圍**一起給，而且兩組重疊時直說還分不出來。
+    const span = (vals) => vals.length < 2 ? '' : `，${fmt(Math.min(...vals))}–${fmt(Math.max(...vals))}`;
+    const overlaps = (onVals.length > 1 && offDrift !== null &&
+        offDrift >= Math.min(...onVals) && offDrift <= Math.max(...onVals)) ||
+        (offVals.length > 1 && onDrift !== null &&
+            onDrift >= Math.min(...offVals) && onDrift <= Math.max(...offVals));
+    const head = `補光燈對照 開：擺動 ${fmt(onDrift)}（${lit.length} 筆${span(onVals)}）` +
+        `· 關：擺動 ${fmt(offDrift)}（${dark.length} 筆${span(offVals)}）`;
+    return overlaps
+        ? `${head}\n    ⚠️ 其中一組自身的散度已經蓋過兩組的差 —— 這個對照還分不出補光燈，各再做幾次`
+        : head;
 }
 /**
  * What the exposure lock actually achieved, as opposed to whether some
