@@ -1580,9 +1580,13 @@ check(
   torchLit.toggleVisible && torchLit.toggleText.includes('關掉'),
   JSON.stringify(torchLit),
 );
+// 🔴 這一條換過（2026-11-24）。舊版驗的是「亮著的時候要說：讀不到節律就關掉
+// 再試一次」—— 那句話是「補光燈是 AE 在追的東西」那個假設下寫的，而四次實機
+// 把它推翻了：關掉的兩次脈動光低於可用下限，報告自己打出「光裡沒有血流訊號」。
+// 斷言編碼的是當下的產品狀態，狀態變了就要跟著變，但**要說得出為什麼**。
 check(
-  '🔴 亮著的時候要主動說「讀不到節律就關掉再試一次」',
-  torchLit.noteText.includes('關掉再做一次'),
+  '🔴 亮著的時候先叫人調接觸，而不是先叫人關補光燈',
+  torchLit.noteText.includes('先調接觸') && !torchLit.noteText.includes('關掉再做一次'),
   JSON.stringify(torchLit.noteText),
 );
 
@@ -1591,6 +1595,13 @@ check(
   '關掉之後按鈕變成「開啟」，而且不假裝訊號一樣強',
   torchOff.toggleText.includes('開啟') && torchOff.noteText.includes('弱'),
   JSON.stringify(torchOff),
+);
+// 🔴 「弱一些」講不出實測到的事：關掉的兩次是**沒有**血流訊號，不是弱一點。
+// 機制要講出來，否則使用者不知道關掉之後該補什麼。
+check(
+  '🔴 關掉時要說光得從另一側進來（不然使用者不知道要補什麼）',
+  torchOff.noteText.includes('另一側'),
+  JSON.stringify(torchOff.noteText),
 );
 check(
   '切換鈕在就位畫面上（決定是在那裡做的）',
