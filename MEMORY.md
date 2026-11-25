@@ -28,6 +28,45 @@
      勿刪、勿移動、勿複製第二份：`scripts/verify.sh` 驗它恰好出現一次、
      而且排在所有條目之前。它的存在理由見協議第 1 條。 -->
 
+# 2026-11-25 Session Update（底部漏光：百分比位移算漏偏移，而測試看不見它）
+
+## What was done
+- founder 實機截圖 `/decision-alert/`：畫面底部一張被裁掉的卡片，右邊露出 `00:00`。
+  **不是被裁掉 —— 是收起狀態的 `.timer-bar` 沒收乾淨**（那一刻事件鏈顯示「已略過」，
+  根本沒有決策在跑）。#321 已併進 main（`184fac0`），正式站已驗。
+
+## 教訓
+- 🔴 **`translateY(百分比)` 的百分比是「它自己的高度」，不是「它要走的距離」。**
+  要離開畫面需要「高度 ＋ `bottom` 偏移」。iPhone（inset 34 → bottom 46）實測：
+  條高 38 漏 30.8px、64 漏 20.4px、89 漏 10.4px、110 漏 2px ——
+  ⚠️ **越矮漏越多**，跟直覺反過來。修法是 `calc(100% + <跟 bottom 一模一樣的值>)`，
+  不是湊一個更大的百分比（湊的那個只對當下這個高度）。
+- 🔴 **`env(safe-area-inset-*)` 在 headless Chromium 恆為 0，所以這個 bug 活過了每一次 CI。**
+  env=0 時 `bottom` 只剩 12px，`140%×64 = 89.6 > 64+12` → 剛好清得掉。
+  把 inset 抽成 `:root{--safe-b}` 之後 harness 才模擬得出真機。
+- 🔴 **我第一版探針自己製造了一個綠燈。** 用 `addStyleTag` 加 `!important` 把被測的
+  `transform` 與 `margin` 換成「帶 34px inset 的版本」—— 那是在量探針裡的算術，
+  把頁面改回 `140%` 照樣全綠。**模擬只能動輸入，不能動被測的那條式子。**
+  ⚠️ 這跟「反向驗證」是兩件事：影本的反向驗證一樣會紅，而且更有說服力。
+- 🔴 **順手量到第二個**：事件鏈底部預留寫死 `76px`，而橫幅高度 38–110px 在動 ——
+  有關鍵價位時蓋住最後 25px，而那幾列**捲不出來**。改成 ResizeObserver → CSS 變數，
+  fallback 刻意設成舊值，並**驗過**拿掉 observer 真的退回舊行為（不是宣稱）。
+- ⚠️ 四條已提煉進 `docs/PLAYBOOK.md`（§3 一條、§6 三列）。
+
+## 這個容器的坑（不是 code 問題）
+- `npm ci` 之後 **harness 反而跑不動**：`getChromium()` 優先用 node_modules 的
+  playwright（釘 1.56.1），但容器只有 1243 的瀏覽器；沒有 node_modules 時才會退回
+  容器全域的 1.63.0。**暫時 `mv node_modules/playwright` 移開**就能跑，跑完再移回來。
+  ⚠️ **不要**把 `executablePath: '/opt/pw-browsers/chromium'` 寫進 harness —— runner 上沒有那個路徑。
+
+## 下次接手點
+1. 🔴 **真的觸發一次 TradingView 快訊**（收到 → 推送送出 → 手機響）。只有 founder 能驗。
+2. founder 實走 `/decision-alert/`：沒決策時底部乾淨／橫幅不蓋事件鏈／收起後完全不見。
+3. 還開著的過期 PR：#283（基底 46a0a8ac，有五個常數等實走裁決）、#261（Apple 健康匯入設計，
+   有個五分鐘能問出答案的分岔沒查）、#67（半年前 iOS Safari OOM）。要動都得先 rebase 重驗。
+
+---
+
 # 2026-11-23 Session Update（founder 審查：R1／R2 補強＋Draft PR，不合併）
 
 ## founder 的裁決（照原意保留）
