@@ -1379,6 +1379,22 @@
     if (!decisionBarTimer) decisionBarTimer = setInterval(renderDecisionBar, 1000);
   }
 
+  /* 事件鏈底部要預留多少，取決於這條橫幅實際多高 —— 它有四個子元素，
+     實測 38–110px 在動。寫死一個數字只會對其中一種（舊的 76px 對 64px 那種，
+     有關鍵價位時就蓋掉事件鏈最後 25px，而那幾列捲不出來）。
+     ⚠️ 量的是**不管有沒有 .show 都存在**的高度：橫幅是靠 transform 收起來的，
+     收起來時高度照樣量得到，所以預留不會隨著決策開始／結束而跳動。
+     ⚠️ 沒有 ResizeObserver（舊 WebView）時什麼都不做 —— CSS 的 fallback
+     `var(--timer-bar-h, 64px)` 會讓它退回跟改之前逐像素相同的 76px。 */
+  if (typeof ResizeObserver === 'function') {
+    var syncTimerBarHeight = function () {
+      var h = el.timerBar.getBoundingClientRect().height;
+      if (h > 0) document.documentElement.style.setProperty('--timer-bar-h', h.toFixed(1) + 'px');
+    };
+    new ResizeObserver(syncTimerBarHeight).observe(el.timerBar);
+    syncTimerBarHeight();
+  }
+
   el.timerBar.addEventListener('click', function () {
     // 回到那一筆決策。/v3/ 開頁時 acceptHandoff() 拿不到信物就會走 resume。
     window.location.href = '/v3/#decision';
