@@ -100,6 +100,15 @@ bash scripts/verify.sh        # lint + 4 套件 tsc + root 測試 + mobile tsc/�
   `active` 只是一個布林旗標，不是「粒子會不會被重新上色」。
   改成驗產品自己的閘門 `toneIdle()` ＋ 靜息飽和度 === 1 之後同一個破壞就紅了。
   判準：**問「輸出會不會不一樣」，不要問「狀態機自認為在哪一格」。**
+- **🔴 模擬一個環境時，不得覆寫「被測的那條規則」本身**（2026-11-25）。
+  `/decision-alert/` 底部漏光：`env(safe-area-inset-bottom)` 在 headless Chromium **恆為 0**，
+  所以我用 `addStyleTag` 加 `!important` 把 `.timer-bar` 的 `transform` 與 `.log-list` 的
+  `margin` 換成「帶著 34px inset 的版本」來模擬 iPhone —— 四種高度全綠。
+  但那是在**量我寫在探針裡的算術**：把頁面改回壞掉的 `translateY(140%)`，探針照樣全綠。
+  判準：**模擬只能動「輸入」，不能動「被測的那條式子」。** 做法是把那個輸入抽成變數
+  （`:root{--safe-b: env(...)}`），測試改變數，規則一個字都不用動 —— 然後反向驗證才有意義。
+  ⚠️ 這條跟「反向驗證」是**兩件事**：反向驗證問「破壞它會不會紅」，這條問
+  「我紅的是頁面，還是我自己那份影本」。影本的反向驗證一樣會紅，而且更有說服力。
 - **🔴 「元素在」不等於「有話說」—— 空字串照樣有高度**（2026-09-12，第三次同類）。
   `/finger/` 的就位教練句在**使用者做對的時候**是空字串（`BLOCKER_COPY[null]` 是 undefined），
   而 harness 斷言的是那一行 `getBoundingClientRect().height > 0` —— `.coach` 有 `min-height`，
@@ -722,6 +731,9 @@ bash scripts/verify.sh        # lint + 4 套件 tsc + root 測試 + mobile tsc/�
 
 | 症狀 / 情境 | 規則 |
 |------------|------|
+| **用 `translateY(百分比)` 把一個浮動元素藏起來，而它有 `bottom` / `top` 偏移** | 🔴 **百分比算的是它自己的高度，但要離開畫面需要走「高度 ＋ 那個偏移」。** 2026-11-25 實例：`.timer-bar` 用 `translateY(140%)`＋`bottom: calc(safe + 12px)`，在 iPhone（inset 34 → bottom 46）上漏在畫面底部 —— founder 截圖看到一條帶著 `00:00` 的卡片上緣，而那一刻**根本沒有決策在跑**。⚠️ **元素越矮漏越多**（條高 38 漏 30.8px、64 漏 20.4px、110 只漏 2px），跟直覺反過來。修法是 `translateY(calc(100% + <跟 bottom 一模一樣的值>))`，**不是去湊一個更大的百分比** —— 湊的那個只對當下這個高度 |
+| **`env(safe-area-inset-*)` 參與的幾何** | 🔴 **它在 headless Chromium 恆為 0，所以「只有真機會錯」的版面在測試裡永遠是對的。** 上面那條 bug 活過了每一次 CI：env=0 時 `bottom` 只剩 12px，`140%×64 = 89.6 > 64+12` → **剛好清得掉**。⚠️ 把 inset 抽成 `:root{--safe-b: env(safe-area-inset-bottom, 0px)}` 再到處 `var(--safe-b)`，harness 就能用 `:root{--safe-b:34px}` 模擬真機而**不碰被測的規則**（同 §3 那條）。頂部瀏海同理（`--top-safe`）|
+| **浮動元素的「底部預留」寫一個常數** | 🔴 **常數只對它當初量的那一種內容。** 2026-11-25 實例：事件鏈 `margin-bottom` 寫死 `76px`，而那條橫幅有四個子元素，實測高度 **38–110px** 在動 —— 快訊帶關鍵價位時蓋住事件鏈最後 25px，再多一行更新蓋 46px，而**那幾列捲不出來**（它們在捲動容器的下緣之外，不在容器裡面）。改成 ResizeObserver 量實際高度 → 寫進 CSS 變數。⚠️ CSS 的 `var()` fallback 要刻意設成**改之前那個值**，這樣 JS 沒跑到時行為逐像素不變 —— 而且那句話要**驗過**（拿掉 observer 看它是不是真的退回舊行為），不是宣稱 |
 | 用 `preview-shot.mjs` / 自寫的靜態伺服器截圖或跑 harness | 🔴 **先確認正式路由改寫過，否則會截到一個「JS 一行都沒跑」的死頁面。** 頁面裡是 `<script src="/preview/...">`（正式路由），伺服器認的是 repo 路徑 → 全部 404，但 HTML 是靜態的、**照樣渲染**，截出來的圖看起來很正常。⚠️ 比「截不到」危險：截不到會發現，截到死頁面不會。2026-09-16 實例：截 decision-alert.html 看新入口，副標空白差點被當成 bug 查，真相是 decision-outcome.js 404 → 頂層 `TENKI_OUTCOME.STORE_KEY` 拋錯。**同一個坑會讓斷言假綠**：同一天 preview-drift 的「沒有累積時說尚未累積」綠著，它量到的是 HTML 裡的預設字。→ 兩件事都要做：伺服器的路由表**直接用 `scripts/lib/preview-routes.mjs` 的 `resolveRoute()`**（讀 `vercel.json`，不要再手抄 —— 手抄的第三次事故見本節後面那條）；**凡是由 JS 寫的格子，HTML 預設值不得等於 JS 會寫的字**（否則 JS 沒跑也會過）。 |
 | 準備改 preview 的視覺 | **先問「這個在容器裡截得到嗎」，截得到就自己先看過再推。** 純 DOM / CSS / SVG **不受沙箱擋 CDN 影響**，容器裡就驗得掉；只有 WebGL 畫面、相機、動效手感、CDN 資源頁才是非實機不可。指令：`node scripts/preview-shot.mjs <repo-relative-path>`（一般頁面）、`node scripts/preview-scan-shot.mjs`（掃描覆蓋層，`begin()` 之後才存在的東西一般截不到）。2026-08-07 實例：光弧第一版是「圓套在圓角方框外」的一眼可見錯誤，我沒截圖就推，讓 founder 用手機幫我發現；第二輪自己截圖，當場又多抓到一個收滿時上緣正中的 54px 接縫 —— 那種他大概會看到、但很難說出是什麼的瑕疵 |
 | 想沿用站內「已經在實機驗過」的技法 | **連它的前提一起抄，不要只抄 CSS。** 2026-08-07 實例：光弧照抄 takeover 的 conic-gradient + radial mask，理由是「已驗過、不另發明」—— 理由沒錯，錯在**那個環是套在圓形指紋鈕上的**，換到 236px、圓角 64px 的方框就變成兩個不相干的形狀。動手前先問：原本那個技法**假設了什麼形狀 / 尺寸 / 座標系**？進度類尤其要問「它量的是角度還是弧長」——conic 掃角度，套在方形上會邊上跑得快、角落卡住；要沿邊均勻前進得用 SVG 描邊 + `pathLength` 正規化 |
