@@ -30,6 +30,16 @@
   stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 .btn-ic{display:inline-flex;align-items:center;justify-content:center;margin-right:7px;vertical-align:-0.2em}
 
+    /* 🔴 **底部 safe-area 抽成變數，是為了讓它量得到。**
+       `env(safe-area-inset-bottom)` 在 headless Chromium 恆為 0，而這一頁的
+       底部幾何（浮動條收起的位移、事件鏈的預留）全靠它 —— 於是**真機才會出現
+       的錯位，在測試裡永遠是對的**。實例：舊的 `translateY(140%)` 在 env=0 時
+       剛好清得掉（140%×64=89.6 > 64+12），所以 harness 不可能抓到它；
+       一到 iPhone（inset 34）就漏 20.4px 在畫面上。
+       ⚠️ 抽成變數之後，測試用 `:root{--safe-b:34px}` 就能模擬真機，
+       而**被測的那兩條規則一個字都不用動** —— 測試不該替換掉它要測的東西。 */
+    :root { --safe-b: env(safe-area-inset-bottom, 0px); }
+
     * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     html, body {
       height: 100vh; height: 100dvh;
@@ -178,8 +188,19 @@
       flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
       border: 1px solid var(--glass-border); border-radius: 14px;
       background: rgba(20, 20, 24, 0.5); padding: 8px 12px;
-      /* 底部預留：浮動計時條 + safe area */
-      margin-bottom: calc(env(safe-area-inset-bottom, 0px) + 76px);
+      /* 底部預留：浮動計時條 + safe area。
+         🔴 **這個數字要跟著條的真實高度走，不能寫死。** 條有四個子元素
+         （時鐘列／關鍵價位／回程提示／更新），實測高度在 **38–110px** 之間移動，
+         而舊的 `76px` 只對其中一種：
+
+             條高  64 → 預留剛好貼上（0px 餘裕）
+             條高  89（有關鍵價位） → **蓋住事件鏈最後 25px**
+             條高 110（再加更新行） → **蓋住 46px**
+
+         被蓋住的那幾列**捲不出來** —— 它們在捲動容器的下緣之外，不是在容器裡面。
+         `--timer-bar-h` 由 `decision-alert.js` 的 ResizeObserver 量實際高度後寫上來；
+         ⚠️ fallback 刻意寫 64px，使得 JS 沒跑到時退回**跟改之前完全一樣**的 76px。 */
+      margin-bottom: calc(var(--safe-b) + var(--timer-bar-h, 64px) + 12px);
     }
     .log-empty { font-size: 12px; color: var(--n-600); padding: 10px 0; }
     /* 收束之後通往 /v3/ 決策紀錄的路。放在 log 這一層 = 零收束頁高度成本。 */
@@ -690,12 +711,26 @@
     /* ── 浮動決策計時條 ── */
     .timer-bar {
       position: fixed; left: 12px; right: 12px; z-index: 20;
-      bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+      bottom: calc(var(--safe-b) + 12px);
       max-width: 456px; margin: 0 auto;
       background: var(--glass-bg); border: 1px solid var(--glass-border);
       -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
       border-radius: 16px; padding: 10px 14px;
-      transform: translateY(140%); transition: transform 0.3s var(--ease-calm);
+      /* 🔴 **收起來的位移不能只用百分比。** 百分比算的是**它自己的高度**，
+         但要離開畫面需要走「高度 ＋ `bottom` 偏移」。舊的 `translateY(140%)`
+         在 iPhone 14 Pro（safe-bottom 34 → bottom 46）實測漏在畫面上：
+
+             條高  38 → 140% 只移 53.2，需要 84  → **露 30.8px**
+             條高  64 → 140% 只移 89.6，需要 110 → **露 20.4px**  ← founder 截到的就是這個
+             條高  89 → 140% 只移 124.6，需要 135 → 露 10.4px
+             條高 110 → 140% 只移 154，需要 156  → 露 2px
+
+         露出來的正是第一個子元素 `timer-row`，所以畫面底部會出現一條
+         帶著 `00:00` 的卡片上緣 —— 而那一刻根本沒有決策在跑。
+         ⚠️ 而且**條越矮露越多**，跟直覺相反：矮的時候百分比換算出來的距離更短。
+         改成 `100% + 同一個 bottom 值`，任何高度都剛好清掉，不是湊一個更大的百分比。 */
+      transform: translateY(calc(100% + var(--safe-b) + 12px));
+      transition: transform 0.3s var(--ease-calm);
       /* 整條可點 → 回 /v3/ 的計時器。是 <button> 所以要重設瀏覽器預設。 */
       display: block; width: auto; text-align: left; cursor: pointer;
       font-family: inherit; color: inherit;

@@ -2385,6 +2385,77 @@ console.log('\n── 使用者看得到的地方不得有彩色 emoji ──');
   check(`🔴 三個主要畫面的使用者字串沒有彩色 emoji（掃到 ${offenders.length} 處）`, offenders, []);
 }
 
+// ── 底部浮動計時條：收起來要真的離開畫面，顯示時不得蓋住事件鏈 ──
+//
+// 🔴 **這條 bug 在 env=0 的測試環境裡是看不見的，所以斷言必須自己把 inset 放回去。**
+// founder 2026-11-25 實機截圖：畫面底部有一張被裁掉的卡片，右邊露出 `00:00` ——
+// 而那一刻根本沒有決策在跑。那是 `.timer-bar` 收起來時沒收乾淨。
+//
+// 舊碼 `transform: translateY(140%)`：百分比算的是**它自己的高度**，但要離開
+// 畫面需要走「高度 ＋ `bottom` 偏移」。在 headless 的 env=0 下 bottom 只有 12px，
+// 140%×64=89.6 > 64+12=76 → **剛好清得掉，測試永遠綠**；一到 iPhone
+// （inset 34 → bottom 46）就需要 110px，於是漏 20.4px 在畫面上。
+// ⚠️ 而且**條越矮露越多**（實測 38px 高時露 30.8px），跟直覺相反。
+//
+// 第二件事：事件鏈的底部預留舊碼寫死 76px，而這條橫幅有四個子元素，
+// 實測高度 **38–110px** 在動 —— 有關鍵價位時蓋住事件鏈最後 25px，而那幾列
+// **捲不出來**（它們在捲動容器的下緣之外，不在容器裡面）。
+//
+// ⚠️ **模擬只設 `--safe-b`，不碰被測的那兩條規則。** 第一版探針用 `!important`
+// 蓋掉 transform 與 margin，於是它量的是探針裡的算術 —— 把頁面改回 140% 照樣綠。
+// 現在三種破壞（transform 回 140%／margin 回 76px／拿掉 ResizeObserver）
+// 都親眼看它紅過才留下這段。
+console.log('\n── 底部浮動計時條（收起要離開畫面、顯示不得蓋住事件鏈）──');
+{
+  const SAFE_BOTTOM = 34;   // iPhone 14/15 Pro 的 home indicator
+  const bottomPage = await ctx.newPage();
+  await bottomPage.setViewportSize({ width: 393, height: 852 });
+  await bottomPage.goto(`${base}/decision-alert/`, { waitUntil: 'domcontentloaded' });
+  // 只模擬 inset 與關掉轉場（要量的是**停住之後**的幾何，不是動畫中途的位置）
+  await bottomPage.addStyleTag({ content: `:root{--safe-b:${SAFE_BOTTOM}px}.timer-bar{transition:none !important}` });
+  await bottomPage.waitForTimeout(1200);
+
+  // 四種真實內容組合 → 四種高度。上限類的斷言要用**最壞形**，不是「一般」那個。
+  const CASES = [
+    ['只有時鐘列', { anchor: '', back: false, update: '' }],
+    ['預設（＋回程提示）', { anchor: '', back: true, update: '' }],
+    ['有關鍵價位', { anchor: '關鍵價位 5,812.25', back: true, update: '' }],
+    ['再加一行更新', { anchor: '關鍵價位 5,812.25', back: true, update: '價位再次觸發 · 已聚合' }],
+  ];
+  const peeks = [];
+  const overlaps = [];
+  const heights = [];
+  for (const [, c] of CASES) {
+    const r = await bottomPage.evaluate(async (cc) => {
+      const bar = document.getElementById('timerBar');
+      document.getElementById('timerLabel').textContent = 'ES1!';
+      document.getElementById('watchAnchor').textContent = cc.anchor;
+      document.getElementById('timerBack').style.display = cc.back ? '' : 'none';
+      const up = document.getElementById('timerUpdate');
+      up.textContent = cc.update; up.classList.toggle('show', !!cc.update);
+      bar.classList.add('show');
+      // 兩幀：讓 ResizeObserver 把 --timer-bar-h 寫上去之後再量
+      await new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(ok)));
+      const shownTop = bar.getBoundingClientRect().top;
+      const h = bar.getBoundingClientRect().height;
+      const logBottom = document.querySelector('.log-list').getBoundingClientRect().bottom;
+      bar.classList.remove('show');
+      const peek = window.innerHeight - bar.getBoundingClientRect().top;
+      return { h: +h.toFixed(1), peek: +peek.toFixed(1), gap: +(shownTop - logBottom).toFixed(1) };
+    }, c);
+    heights.push(r.h);
+    // 收起來時**一個像素都不該露**。留 0.5px 是次像素捨入，不是容忍。
+    if (r.peek > 0.5) peeks.push(`${r.h}px 高時露 ${r.peek}px`);
+    if (r.gap < -0.5) overlaps.push(`${r.h}px 高時蓋住事件鏈 ${-r.gap}px`);
+  }
+  // 先證明這組 fixture 真的涵蓋到會出事的高度 —— 否則上面兩條是死斷言。
+  checkTruthy(`🔴 四種內容真的產生不同高度（${heights.join(' / ')}px），不是同一個形狀量四次`,
+    new Set(heights).size === 4 && Math.max(...heights) - Math.min(...heights) > 40);
+  check('🔴 計時條收起來時完全離開畫面（四種高度）', peeks, []);
+  check('🔴 計時條顯示時不蓋住事件鏈（四種高度）', overlaps, []);
+  await bottomPage.close();
+}
+
 check('整條鏈走完沒有任何 page error', pageErrors, []);
 
 await browser.close();
