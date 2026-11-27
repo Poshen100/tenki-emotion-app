@@ -438,6 +438,29 @@ export type {
   ValidationScenario,
 } from './biometric/validation-log';
 
+// ─── 量到／算出／推論 labels (P0-B, founder 2026-11-24) ───
+export {
+  BEAT_TIMINGS,
+  EVIDENCE_LAYERS,
+  EVIDENCE_QUALITIES,
+  EVIDENCE_SOURCES,
+  EVIDENCE_VALIDATIONS,
+  REPORTED_LAYER,
+  evidenceLabelCopy,
+  evidenceLabelLine,
+  evidenceLabelProblem,
+} from './compliance/evidence-label';
+
+export type {
+  BeatTiming,
+  EvidenceLabel,
+  EvidenceLabelCopy,
+  EvidenceLayer,
+  EvidenceQuality,
+  EvidenceSource,
+  EvidenceValidation,
+} from './compliance/evidence-label';
+
 // ─── Five-second capability check (P0-A, founder 2026-11-24) ───
 export {
   CAPABILITY_ADVISORIES,

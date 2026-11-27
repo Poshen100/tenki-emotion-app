@@ -185,5 +185,6 @@ P0-A 決定「這支手機能不能開始量」，P0-B 決定「量出來的東�
 
 **P0-B**
 4. `feat(domain)`：`EvidenceLabel` 契約＋白話產生器（單一產生點、compliance 測試）
+   ⚠️ 實作放在 `packages/engine/src/compliance/evidence-label.ts`，不在 domain：engine 不 import domain（PLAYBOOK §7），preview 的 bundle 從 engine 建 —— 放 domain 就要兩份。`beatTiming` 照 `PULSE_ANCHOR_DERIVATION` 的先例鏡射 domain 的 `SampleDerivation`。
 5. `feat(preview)`：`/finger/` 每個數字掛標籤；harness §2.4 第 1、3 條＋反向驗證第 2 條
 6. `feat(preview)`：`/v3/` 臉部讀數與 `/drift/` 推論卡掛標籤

@@ -52,6 +52,7 @@ const ENTRIES = [
   'biometric/validation-log.ts',
   'biometric/ppg/prv-headline.ts',
   'biometric/ppg/capability-test.ts',
+  'compliance/evidence-label.ts',
 ];
 
 /*
