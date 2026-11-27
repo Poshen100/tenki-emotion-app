@@ -248,6 +248,32 @@
     return runs;
   }
 
+  /**
+   * 量到／算出／推論標籤（P0-B）。這一頁的每一張卡都是**推論**：從你自己的紀錄比出來的，
+   * 不是任何感測器量到的。證據不足的卡標「沒有報」。
+   * 🔴 字只來自 evidence-label.ts（經 evidence-label-global.js）；橋沒載到就留空並出聲。
+   * @param {HTMLElement} el
+   * @param {{state: string}} result
+   */
+  function renderInferenceLabel(el, result) {
+    var bridge = window.TENKI_EVIDENCE_LABEL;
+    if (!bridge) {
+      el.textContent = '';
+      // 載入中還沒到是正常的（module 是 defer 的）—— 它到了會發訊號，頁面會重畫。
+      // 載完了還沒有才是錯。
+      if (document.readyState !== 'loading' && window.console && window.console.error) {
+        window.console.error('[tenki] evidence-label-global.js 沒載到 —— 推論卡沒有標籤。');
+      }
+      return;
+    }
+    el.textContent = bridge.line({
+      layer: 'inferred',
+      source: 'your_records',
+      quality: result && result.state === 'assessed' ? 'passed' : 'withheld',
+      validation: 'none',
+    });
+  }
+
   function renderRoutines() {
     var list = $('routine-list');
     list.innerHTML = '';
@@ -268,9 +294,13 @@
       var e = document.createElement('div');
       e.className = 'evidence-line';
       e.textContent = copy.evidenceLine;
+      var l = document.createElement('div');
+      l.className = 'evidence-line';
+      renderInferenceLabel(l, tally);
       row.appendChild(h);
       row.appendChild(b);
       row.appendChild(e);
+      row.appendChild(l);
       list.appendChild(row);
     });
   }
@@ -332,6 +362,7 @@
     $('drift-body').textContent = copy.body;
     renderFigure($('drift-figure'), copy.figure);
     $('drift-evidence').textContent = copy.evidenceLine;
+    renderInferenceLabel($('drift-label'), state.drift);
 
     var evidence = state.drift.evidence;
     var ref = state.drift.state === 'assessed' ? state.drift.reference : null;
@@ -376,6 +407,7 @@
     renderFigure($('calib-figure'), copy.figure);
     $('calib-body').textContent = copy.body;
     $('calib-evidence').textContent = copy.evidenceLine;
+    renderInferenceLabel($('calib-label'), state.calibration);
   }
 
   function renderTwin() {
@@ -383,6 +415,7 @@
     $('twin-headline').textContent = copy.headline;
     $('twin-body').textContent = copy.body;
     $('twin-evidence').textContent = copy.evidenceLine;
+    renderInferenceLabel($('twin-label'), state.twin);
   }
 
   function clockOf(ts) {
@@ -642,4 +675,7 @@
   renderChips($('routine-row'), ROUTINE_CHIPS, state.routine, pickRoutine);
   recompute();
   renderAll();
+  if (!window.TENKI_EVIDENCE_LABEL) {
+    window.addEventListener('tenki:evidence-label-ready', renderAll, { once: true });
+  }
 })();

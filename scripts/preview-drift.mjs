@@ -565,6 +565,19 @@ checkTruthy(
   await text('#calib-body')
 );
 
+console.log('\n── 量到／算出／推論標籤（P0-B）──');
+// module 橋是 defer 的：等它到、頁面重畫完再看。
+await page.waitForFunction(() => !!window.TENKI_EVIDENCE_LABEL && document.getElementById('drift-label').textContent !== '');
+const INFERRED = '推論 · 你自己的紀錄';
+for (const id of ['#drift-label', '#twin-label', '#calib-label']) {
+  const t = await text(id);
+  checkTruthy(`${id} 標「推論 · 你自己的紀錄」，四個欄位都在`, t.startsWith(INFERRED) && /品質|沒有報/.test(t) && t.includes('對照'), t);
+}
+checkTruthy('每一列例行計數都有標籤',
+  await page.$$eval('#routine-list .routine-row', (rows) => rows.length > 0 && rows.every((r) => r.innerText.includes('推論 · 你自己的紀錄'))));
+checkTruthy('🔴 證據不足的例行標「沒有報」，不標「品質過關」',
+  await page.$eval('#routine-list [data-state="insufficient"]', (r) => r.innerText.includes('沒有報') && !r.innerText.includes('品質過關')));
+
 console.log('\n── 交易前例行實驗（founder 2026-11-22）──');
 const routines = () => page.$$eval('#routine-list .routine-row', (rows) => rows.map((r) => ({
   routine: r.dataset.routine, state: r.dataset.state, text: r.innerText,

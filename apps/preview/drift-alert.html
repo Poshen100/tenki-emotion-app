@@ -194,6 +194,7 @@
       <p class="body" id="drift-body"></p>
       <div class="figure" id="drift-figure"></div>
       <div class="evidence-line" id="drift-evidence"></div>
+      <div class="evidence-line" id="drift-label"></div>
 
       <div class="actions">
         <button class="btn" id="xray-toggle" type="button" aria-expanded="false" aria-controls="xray">See why</button>
@@ -232,6 +233,7 @@
       <div class="figure" id="calib-figure"></div>
       <p class="body" id="calib-body"></p>
       <div class="evidence-line" id="calib-evidence"></div>
+      <div class="evidence-line" id="calib-label"></div>
     </section>
 
     <!-- 每個例行各自的計數。🔴 固定順序、三個數字都給、不排名、不建議。
@@ -247,6 +249,7 @@
       <h2 class="headline" id="twin-headline"></h2>
       <p class="body" id="twin-body"></p>
       <div class="evidence-line" id="twin-evidence"></div>
+      <div class="evidence-line" id="twin-label"></div>
     </section>
 
     <!-- ── Decision Black Box ── -->
@@ -260,6 +263,8 @@
     </section>
   </div>
 
+  <!-- 量到／算出／推論標籤的橋（P0-B）：module 是 defer 的，drift-alert.js 在畫的時候才讀它。 -->
+  <script type="module" src="/preview/evidence-label-global.js?v=el1"></script>
   <script src="readiness-history.js"></script>
   <script src="drift.js"></script>
   <script src="drift-alert.js"></script>

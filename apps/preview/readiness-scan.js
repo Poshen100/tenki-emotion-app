@@ -681,6 +681,9 @@
       'color:#6E778F;letter-spacing:0.04em;margin-top:3px;',
       'font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;',
       'font-variant-numeric:tabular-nums;}',
+      // 量到／算出／推論標籤（P0-B）：跟品質行同一級的小字，不搶結果。
+      '#' + OVERLAY_ID + ' .rs-verdict-label{font-size:11px;line-height:1.6;',
+      'color:#6E778F;margin-top:6px;white-space:pre-line;}',
       // ⚠️ `hidden` 屬性只是作者樣式 `display:none`，**會被任何 display 宣告蓋掉**。
       // .rs-instruction 是 inline-flex、.rs-dots 是 flex —— 沒有這兩條，
       // 設了 hidden 也照樣顯示（2026-08-09 截圖當場抓到：揭曉時膠囊還在叫你把臉放進框裡）。
@@ -851,6 +854,7 @@
       '  <div class="rs-verdict-fact" data-rs="verdict-fact" hidden>',
       '    <div class="rs-verdict-spec" data-rs="verdict-spec"></div>',
       '    <div class="rs-verdict-quality" data-rs="verdict-quality"></div>',
+      '    <div class="rs-verdict-label" data-rs="verdict-label"></div>',
       '  </div>',
       // 完成鈕：揭曉之後**唯一的出口**（enterReveal 會收起取消鈕）。
       // ⚠️ listener 與 cancel 一樣在注入當下就綁 —— 見下方 addEventListener。
@@ -2058,6 +2062,7 @@
     }
     if (specEl) specEl.textContent = fact.spec;
     if (qualityEl) qualityEl.textContent = fact.quality;
+    renderVerdictLabel(reading);
     var frame = q('frame');
     if (frame) frame.classList.add('revealed');
     // 完成鈕住在 .rs-stage、跟框是兄弟，所以「這一輪有沒有收束成功」得標在
@@ -2095,6 +2100,38 @@
    * @param {{stillness:number, tier:string}} evidence - 本次掃描的證據。
    * @returns {{spec:string, quality:string}} 第一行規格、第二行品質。
    */
+  /**
+   * 量到／算出／推論標籤（P0-B，規格 §2.2）。
+   * 🔴 帶位是**推論**（從取景、穩定度推出來的狀態），穩定度是**量到**。臉部入口不量脈搏，
+   *    所以沒有拍點那一欄。字只來自 evidence-label.ts（經 evidence-label-global.js）；
+   *    橋沒載到就整行留空並出聲，不在這裡寫第二份文案。
+   * @param {?Object} reading - 這一輪的讀數；null ＝ 訊號不足。
+   */
+  function renderVerdictLabel(reading) {
+    var el = q('verdict-label');
+    if (!el) return;
+    var text = verdictLabelText(reading);
+    el.textContent = text === null ? '' : text;
+  }
+
+  /**
+   * 標籤的文字（純函式；畫面與 harness 用同一個）。橋沒載到回 null 並出聲。
+   * @param {?Object} reading
+   * @returns {?string}
+   */
+  function verdictLabelText(reading) {
+    var bridge = global.TENKI_EVIDENCE_LABEL;
+    if (!bridge) {
+      if (global.console && global.console.error) {
+        global.console.error('[tenki] evidence-label-global.js 沒載到 —— 這一輪的讀數沒有標籤。');
+      }
+      return null;
+    }
+    var quality = reading ? 'passed' : 'withheld';
+    return '帶位：' + bridge.line({ layer: 'inferred', source: 'camera_face_framing', quality: quality, validation: 'none' }) +
+      '\n穩定度：' + bridge.line({ layer: 'measured', source: 'camera_face_framing', quality: quality, validation: 'none' });
+  }
+
   function verdictFact(evidence) {
     var seconds = (Math.max(500, session.heldMs) / 1000).toFixed(1);
     var spec;
@@ -2697,6 +2734,12 @@
      * 走完整場掃描才能碰到「信心低」那一格，CI 裡跑不出來。
      */
     __policy: { securedEarned: securedEarned },
+    /**
+     * Harness contract（`scripts/preview-lab.mjs` 用）。**唯讀**。
+     * 量到／算出／推論標籤（P0-B）—— 臉部掃描走不到揭曉（FaceMesh 從 CDN 載），
+     * 所以把產生那行字的純函式開出來；畫面用的是同一個。
+     */
+    __label: { verdictLabelText: verdictLabelText },
     /**
      * Harness contract（`scripts/preview-scan-squareness.mjs` 用）。**唯讀**。
      *

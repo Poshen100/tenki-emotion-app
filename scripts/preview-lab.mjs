@@ -330,6 +330,18 @@ check('🔴 有錨點時講出次數與天數（證明它真的在讀 store，�
 check('🔴 這一列不得出現「基線」—— 只有最後一階可以用那個詞',
   [pulseEntry.sub, pulseFilled].filter((t) => t && t.includes('基線')), []);
 
+// ── 量到／算出／推論標籤：臉部讀數（P0-B，規格 §2.2）──
+// 臉部掃描走不到揭曉（FaceMesh 從 CDN 載），所以問那個產生標籤字的純函式 —— 畫面用的是同一個。
+await empty.waitForFunction(() => !!window.TENKI_EVIDENCE_LABEL && !!window.TENKI_READINESS_SCAN, null, { timeout: 10000 });
+const faceLabel = await empty.evaluate(() => ({
+  ok: window.TENKI_READINESS_SCAN.__label.verdictLabelText({ band: 'clear' }),
+  none: window.TENKI_READINESS_SCAN.__label.verdictLabelText(null),
+}));
+checkTruthy('🔴 臉部帶位標「推論」、穩定度標「量到」，來源是臉部取景',
+  faceLabel.ok.startsWith('帶位：推論 · 手機相機・臉部取景') && faceLabel.ok.includes('穩定度：量到 · 手機相機・臉部取景'));
+checkTruthy('🔴 臉部入口不量脈搏 → 標籤裡沒有任何拍點說明', !faceLabel.ok.includes('拍點'));
+checkTruthy('訊號不足那一輪 → 標「沒有報」', faceLabel.none.includes('這次品質不夠，沒有報'));
+
 const overflow = await empty.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 checkTruthy(`390px 下沒有橫向溢出（多出 ${overflow}px）`, overflow <= 1);
 await empty.close();
