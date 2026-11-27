@@ -438,6 +438,28 @@ export type {
   ValidationScenario,
 } from './biometric/validation-log';
 
+// ─── Five-second capability check (P0-A, founder 2026-11-24) ───
+export {
+  CAPABILITY_ADVISORIES,
+  CAPABILITY_REASONS,
+  CAPABILITY_RESULTS,
+  CAPABILITY_TEST_SEC,
+  HARDWARE_REASONS,
+  MAX_CAPABILITY_GAP_MS,
+  MIN_CAPABILITY_FPS,
+  MIN_CAPABILITY_SPAN_SEC,
+  assessCapability,
+} from './biometric/ppg/capability-test';
+
+export type {
+  CapabilityAdvisory,
+  CapabilityContext,
+  CapabilityMeasurements,
+  CapabilityReason,
+  CapabilityResult,
+  CapabilityTest,
+} from './biometric/ppg/capability-test';
+
 // ─── Pulse Rhythm on the reading screen (#27, founder 2026-11-22) ───
 export {
   MAX_MEDIAN_RELATIVE_ERROR,

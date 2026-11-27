@@ -51,6 +51,7 @@ const ENTRIES = [
   'biometric/pulse-anchor.ts',
   'biometric/validation-log.ts',
   'biometric/ppg/prv-headline.ts',
+  'biometric/ppg/capability-test.ts',
 ];
 
 /*
