@@ -162,6 +162,57 @@ export interface SegmentedRate {
   /** Windows across all stretches that were individually perfused and periodic. */
   usableWindowCount: number;
   /**
+   * Windows judged in total, across every stretch.
+   *
+   * 🔴 Without it the refusal counts are not checkable against anything. The
+   * four of them have to add up to this number, and that identity is what
+   * stops a future branch from returning silently the way `scoreWindow`'s two
+   * gates did (§25: the parts have to sum to the whole, or the whole is just
+   * an assertion). It also makes 「可用視窗 0」 mean something — 0 of 6 is a
+   * far stronger statement than 0 of 1.
+   */
+  windowCount: number;
+  /**
+   * Windows refused for want of pulsatile light, before any rhythm estimation.
+   *
+   * 🔴 Added after six real-device captures (2026-11-27) that reported
+   * `usableWindowCount: 0` and nothing else. By then exposure and segment
+   * length were both solved — capture 5 had a drift of 0.0262 against a 0.05
+   * bar and a **60-second** undisturbed stretch — and the rescue still refused
+   * every window, with no way to say which of the two gates did it. A refusal
+   * that cannot name its own cause costs a whole day of device testing per
+   * round, which is exactly what `SegmentedRate`'s own note says this type
+   * exists to prevent; it just never applied the rule inside `scoreWindow`.
+   */
+  windowsLowPerfusion: number;
+  /**
+   * Windows where the estimator refused to name a period at all.
+   *
+   * 🔴 Separate from `windowsLowPeriodicity`, for the same reason
+   * `longestPeriodicity` is null rather than 0: `dominantPeriod` refuses when
+   * its argmax lands on the wall of its search (§21), which means something
+   * **outside** the cardiac band is dominating. That is a different finding
+   * from a window that found a cardiac period and was simply not convincing,
+   * and it points at a different repair.
+   */
+  windowsNoPeriod: number;
+  /** Windows that named a cardiac period but scored below `MIN_PERIODICITY`. */
+  windowsLowPeriodicity: number;
+  /**
+   * Highest periodicity any window reached, or null when none named a period.
+   *
+   * 🔴 The distance, not just the verdict. "0 of 6 windows passed" reads the
+   * same whether the best window scored 0.34 against a 0.35 bar or 0.06, and
+   * those are opposite situations: the first is a threshold question, the
+   * second says there is no rhythm in the light. Counts alone cannot tell them
+   * apart.
+   *
+   * ⚠️ Only windows that cleared the perfusion gate are considered for it. A
+   * window with no blood signal in it has no periodicity worth comparing, and
+   * letting one set the best would make this number describe the noise.
+   */
+  bestWindowPeriodicity: number | null;
+  /**
    * Periodicity over the longest quiet stretch as a whole, or null when there
    * was no stretch **or the estimator refused to name a period at all**.
    *
@@ -311,6 +362,11 @@ export function estimateRateFromQuietSegments(
   let longestPeriodicity: number | null = null;
   let longestPerfusion: number | null = null;
   let longestSamples = 0;
+  let windowCount = 0;
+  let windowsLowPerfusion = 0;
+  let windowsNoPeriod = 0;
+  let windowsLowPeriodicity = 0;
+  let bestWindowPeriodicity: number | null = null;
 
   for (const segment of segments) {
     // 🔴 Measured over the stretch as a WHOLE, before it is cut into windows,
@@ -332,6 +388,7 @@ export function estimateRateFromQuietSegments(
   }
 
   function scoreWindow(values_: readonly number[]): void {
+    windowCount++;
     const cardiac = bandPass(values_, sampleRateHz);
     // 🔴 Perfusion is re-checked **inside** the segment, and that is not
     // belt-and-braces — it closes a hole the caller cannot close.
@@ -347,9 +404,28 @@ export function estimateRateFromQuietSegments(
     // The segments are the evidence, so the evidence about blood has to come
     // from the same place. Inside a quiet stretch there is no drift left to
     // inflate it.
-    if (perfusionIndex(values_, cardiac) < MIN_PERFUSION) return;
+    if (perfusionIndex(values_, cardiac) < MIN_PERFUSION) {
+      windowsLowPerfusion++;
+      return;
+    }
     const estimate = estimateRate(cardiac, sampleRateHz);
-    if (estimate === null || estimate.periodicity < MIN_PERIODICITY) return;
+    // 🔴 Each refusal increments its own counter rather than one shared
+    // failure count. The two branches below are not degrees of the same
+    // problem: a refusal to name a period means the dominant component is
+    // outside the cardiac band, a low periodicity means it is inside and
+    // weak. Collapsing them would reproduce the 「節律 0」 ambiguity that
+    // `longestPeriodicity` was already fixed for.
+    if (estimate === null) {
+      windowsNoPeriod++;
+      return;
+    }
+    if (bestWindowPeriodicity === null || estimate.periodicity > bestWindowPeriodicity) {
+      bestWindowPeriodicity = round2(estimate.periodicity);
+    }
+    if (estimate.periodicity < MIN_PERIODICITY) {
+      windowsLowPeriodicity++;
+      return;
+    }
     rates.push(estimate.bpm);
     analysedSamples += values_.length;
   }
@@ -357,6 +433,11 @@ export function estimateRateFromQuietSegments(
   const summary = {
     foundCount: segments.length,
     usableWindowCount: rates.length,
+    windowCount,
+    windowsLowPerfusion,
+    windowsNoPeriod,
+    windowsLowPeriodicity,
+    bestWindowPeriodicity,
     longestPeriodicity,
     longestPerfusion,
     longestSec,

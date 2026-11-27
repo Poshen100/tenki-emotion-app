@@ -9,7 +9,7 @@
  */
 import { PPG_FIXTURES, synthesizePpg } from '../replay';
 import { PPG_RESAMPLE_HZ, bandPass, resampleUniform } from '../filtering';
-import { estimateRate } from '../pulse';
+import { MIN_PERIODICITY, estimateRate } from '../pulse';
 import {
   MAX_SEGMENT_SPREAD_BPM,
   MIN_AGREEING_WINDOWS,
@@ -376,5 +376,94 @@ describe("🔴 a refusal to name a period is not a periodicity of zero", () => {
       synthesizePpg({ durationSec: 60, sampleRateHz: 60, perfusion: 0, noiseSd: 0.02 }).frames,
     );
     expect(none.longestPerfusion as number).toBeLessThan(clean.longestPerfusion as number / 5);
+  });
+});
+
+describe('🔴 and it has to say WHICH gate refused each window', () => {
+  // 🔴 Six real-device captures (2026-11-27) all reported `可用視窗 0` and
+  // nothing more. By capture 5 exposure was clean (drift 0.0262 against a 0.05
+  // bar) and the undisturbed stretch was a full 60 seconds — both of the
+  // things earlier rounds had been chasing — and the rescue still refused
+  // every window. `scoreWindow` has two gates and both returned silently, so
+  // the report could not say whether the problem was blood or rhythm. These
+  // are the two different answers it now has to be able to give.
+
+  /** The four outcomes must account for every window, with none left over. */
+  function expectExhaustive(got: ReturnType<typeof assess>): void {
+    expect(
+      got.usableWindowCount +
+        got.windowsLowPerfusion +
+        got.windowsNoPeriod +
+        got.windowsLowPeriodicity,
+    ).toBe(got.windowCount);
+  }
+
+  it('a clean capture: every window passes, and the counts say so', () => {
+    const got = assess(synthesizePpg({ durationSec: 60, sampleRateHz: 60 }).frames);
+    expect(got.windowCount).toBeGreaterThanOrEqual(MIN_AGREEING_WINDOWS);
+    expect(got.usableWindowCount).toBe(got.windowCount);
+    expect(got.windowsLowPerfusion).toBe(0);
+    expect(got.windowsNoPeriod).toBe(0);
+    expect(got.windowsLowPeriodicity).toBe(0);
+    expect(got.bestWindowPeriodicity as number).toBeGreaterThan(MIN_PERIODICITY);
+    expectExhaustive(got);
+  });
+
+  it('no blood signal: the windows are refused on perfusion, not on rhythm', () => {
+    // 🔴 The distinction the device needs most. A barely-perfused fingertip
+    // and a fingertip with a rhythm too weak to name are opposite findings:
+    // the first is contact, pressure or optics, the second is noise. Before
+    // this they printed the same digit.
+    const got = assess(
+      synthesizePpg({ durationSec: 60, sampleRateHz: 60, ...PPG_FIXTURES.lowPerfusion }).frames,
+    );
+    expect(got.bpm).toBeNull();
+    expect(got.windowsLowPerfusion).toBe(got.windowCount);
+    expect(got.windowsLowPeriodicity).toBe(0);
+    // ⚠️ And no periodicity is claimed for windows that never got estimated.
+    // A best-of over refused windows would be describing the noise.
+    expect(got.bestWindowPeriodicity).toBeNull();
+    expectExhaustive(got);
+  });
+
+  it('blood but no rhythm: the windows are refused on periodicity', () => {
+    const got = assess(
+      synthesizePpg({ durationSec: 60, sampleRateHz: 60, perfusion: 0, noiseSd: 1.2 }).frames,
+    );
+    expect(got.bpm).toBeNull();
+    expect(got.windowsLowPeriodicity).toBe(got.windowCount);
+    expect(got.windowsLowPerfusion).toBe(0);
+    expectExhaustive(got);
+  });
+
+  it('🔴 a rate outside the plausible band is a refusal to name one, not a weak one', () => {
+    // 🔴 The §21 case, and the reason `windowsNoPeriod` is its own counter.
+    // At 240 bpm the estimator's argmax sits on the wall of its lag search, so
+    // `dominantPeriod` refuses rather than report the wall. Counting that as a
+    // low periodicity would say "the rhythm is weak" about a capture whose
+    // rhythm is strong and out of range — and send the next round chasing
+    // contact instead of the band.
+    const got = assess(synthesizePpg({ durationSec: 60, sampleRateHz: 60, bpm: 240 }).frames);
+    expect(got.bpm).toBeNull();
+    expect(got.windowsNoPeriod).toBe(got.windowCount);
+    expect(got.windowsLowPeriodicity).toBe(0);
+    expect(got.bestWindowPeriodicity).toBeNull();
+    expectExhaustive(got);
+  });
+
+  it('🔴 reports how close the best window got, because the count cannot', () => {
+    // 🔴 "0 of 6" reads identically whether the best window scored 0.34 against
+    // a 0.35 bar or 0.06, and those point opposite ways. Measured: a capture
+    // with no pulse in it reaches 0.26 in its best 10-second window while the
+    // whole 60 seconds reads 0.06 — short windows look periodic by chance,
+    // which is exactly why three have to agree. So the number is a distance,
+    // never a verdict on its own.
+    const got = assess(
+      synthesizePpg({ durationSec: 60, sampleRateHz: 60, perfusion: 0, noiseSd: 1.2 }).frames,
+    );
+    expect(got.bestWindowPeriodicity as number).toBeLessThan(MIN_PERIODICITY);
+    expect(got.bestWindowPeriodicity as number).toBeGreaterThan(
+      got.longestPeriodicity as number,
+    );
   });
 });
