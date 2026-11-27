@@ -239,6 +239,11 @@ export function estimateRateFromQuietSegments(values, sampleRateHz) {
     let longestPeriodicity = null;
     let longestPerfusion = null;
     let longestSamples = 0;
+    let windowCount = 0;
+    let windowsLowPerfusion = 0;
+    let windowsNoPeriod = 0;
+    let windowsLowPeriodicity = 0;
+    let bestWindowPeriodicity = null;
     for (const segment of segments) {
         // 🔴 Measured over the stretch as a WHOLE, before it is cut into windows,
         // and recorded whether or not it ends up usable. It is the number that says
@@ -257,6 +262,7 @@ export function estimateRateFromQuietSegments(values, sampleRateHz) {
         }
     }
     function scoreWindow(values_) {
+        windowCount++;
         const cardiac = bandPass(values_, sampleRateHz);
         // 🔴 Perfusion is re-checked **inside** the segment, and that is not
         // belt-and-braces — it closes a hole the caller cannot close.
@@ -272,11 +278,28 @@ export function estimateRateFromQuietSegments(values, sampleRateHz) {
         // The segments are the evidence, so the evidence about blood has to come
         // from the same place. Inside a quiet stretch there is no drift left to
         // inflate it.
-        if (perfusionIndex(values_, cardiac) < MIN_PERFUSION)
+        if (perfusionIndex(values_, cardiac) < MIN_PERFUSION) {
+            windowsLowPerfusion++;
             return;
+        }
         const estimate = estimateRate(cardiac, sampleRateHz);
-        if (estimate === null || estimate.periodicity < MIN_PERIODICITY)
+        // 🔴 Each refusal increments its own counter rather than one shared
+        // failure count. The two branches below are not degrees of the same
+        // problem: a refusal to name a period means the dominant component is
+        // outside the cardiac band, a low periodicity means it is inside and
+        // weak. Collapsing them would reproduce the 「節律 0」 ambiguity that
+        // `longestPeriodicity` was already fixed for.
+        if (estimate === null) {
+            windowsNoPeriod++;
             return;
+        }
+        if (bestWindowPeriodicity === null || estimate.periodicity > bestWindowPeriodicity) {
+            bestWindowPeriodicity = round2(estimate.periodicity);
+        }
+        if (estimate.periodicity < MIN_PERIODICITY) {
+            windowsLowPeriodicity++;
+            return;
+        }
         rates.push(estimate.bpm);
         analysedSamples += values_.length;
     }
@@ -284,6 +307,11 @@ export function estimateRateFromQuietSegments(values, sampleRateHz) {
     const summary = {
         foundCount: segments.length,
         usableWindowCount: rates.length,
+        windowCount,
+        windowsLowPerfusion,
+        windowsNoPeriod,
+        windowsLowPeriodicity,
+        bestWindowPeriodicity,
         longestPeriodicity,
         longestPerfusion,
         longestSec,

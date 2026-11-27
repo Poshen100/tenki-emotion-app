@@ -443,6 +443,13 @@ function validationEntry(a) {
             bpm: a.quietSegments.bpm,
             foundCount: a.quietSegments.foundCount,
             usableWindowCount: a.quietSegments.usableWindowCount,
+            // 🔴 總數與三個拒絕理由。只記 usableWindowCount 的那六次實機擷取，
+            // 曝光與安靜段長度都已經解決了，報告卻還是只會說「可用視窗 0」。
+            windowCount: a.quietSegments.windowCount,
+            windowsLowPerfusion: a.quietSegments.windowsLowPerfusion,
+            windowsNoPeriod: a.quietSegments.windowsNoPeriod,
+            windowsLowPeriodicity: a.quietSegments.windowsLowPeriodicity,
+            bestWindowPeriodicity: a.quietSegments.bestWindowPeriodicity,
             longestSec: a.quietSegments.longestSec,
             longestPeriodicity: a.quietSegments.longestPeriodicity,
             longestPerfusion: a.quietSegments.longestPerfusion,
