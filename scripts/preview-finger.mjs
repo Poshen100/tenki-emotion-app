@@ -1075,6 +1075,42 @@ await page.evaluate(() => {
   window.__tenkiFingerHarness.setLockAchieved(false);
 });
 
+// ── 2f. 5 秒能力測試（P0-A，founder 2026-11-24，規格 §1.5）─────────────────
+// 🔴 它只回答訊號路徑通不通：畫面上不得出現任何生理數字、沒有「不相容」、
+//    結果不管是哪一種都可以繼續量測。
+console.log('\n── 5 秒能力測試 ──');
+const capFrames = (opts) => synthesizePpg({ durationSec: 5, ...opts }).frames;
+await page.evaluate(() => window.__tenkiFingerHarness.resetCapability());
+check('第一次用（沒有紀錄）→ 會先做能力測試',
+  await page.evaluate(() => window.__tenkiFingerHarness.needsCapability()) === true, '');
+const capOk = await page.evaluate((f) => window.__tenkiFingerHarness.runCapabilityFrames(f, true), capFrames({}));
+check('乾淨指尖 → 取得到訊號', capOk.result === 'signal_path_ok' && capOk.resultText.includes('取得到'), JSON.stringify(capOk));
+check('做過一次之後就不會每次都先做', await page.evaluate(() => window.__tenkiFingerHarness.needsCapability()) === false, '');
+check('🔴 能力測試畫面上沒有任何生理數字（bpm／ms 的脈搏節律）',
+  !/bpm|\d\s*ms\b|脈搏節律|心率/.test(capOk.card), capOk.card);
+check('🔴 講明只代表這台手機、不是準確度驗證', capOk.card.includes('只代表') || capOk.card.includes('不代表同型號'), capOk.card);
+
+const capWeak = await page.evaluate((f) => window.__tenkiFingerHarness.runCapabilityFrames(f, true), capFrames(PPG_FIXTURES.lowPerfusion));
+check('低灌流 → 還無法確認，而且說出原因', capWeak.result === 'not_yet_confirmed' && capWeak.card.includes('脈動'), JSON.stringify(capWeak));
+check('🔴 沒過也不擋：「繼續量測」照樣出現', capWeak.continueShown, JSON.stringify(capWeak));
+check('🔴 沒有任何地方說「不相容」', !/不相容|不支援這支/.test(capWeak.card + capOk.card), capWeak.card);
+
+const capNoTorch = await page.evaluate((f) => window.__tenkiFingerHarness.runCapabilityFrames(f, null), capFrames({}));
+check('沒有補光燈 → 結果不變，只多一句說明', capNoTorch.result === 'signal_path_ok' && capNoTorch.card.includes('沒有補光燈（不影響結果）'), capNoTorch.card);
+
+const rec = capNoTorch.record;
+// ⚠️ 這支 harness 的 check 是 (名稱, 條件, 細節) —— 第一版把兩個陣列當參數傳進去，
+//    陣列是 truthy，於是這條永遠綠。比的必須是一個布林。
+const recKeys = JSON.stringify([Object.keys(rec).sort(), Object.keys(rec.finger).sort()]);
+check('🔴 本機紀錄只有規格列的欄位', recKeys === JSON.stringify([
+  ['face', 'facePulse', 'finger'],
+  ['advisories', 'clipped', 'coverage', 'framesPerSecond', 'longestGapMs', 'pulsatileLight', 'reasons', 'result', 'testedAt', 'torch'],
+]), recKeys);
+check('🔴 臉部脈搏永遠是「未實作」', rec.facePulse === 'not_implemented', JSON.stringify(rec));
+const denied = await page.evaluate(() => window.__tenkiFingerHarness.cameraFailure(true));
+check('相機權限被拒 → 記成硬體事實', denied.finger.result === 'hardware_limit' && denied.finger.reasons[0] === 'permission_denied', JSON.stringify(denied));
+await page.evaluate(() => window.__tenkiFingerHarness.resetCapability());
+
 // ── 2e. #27 胸帶對照：脈搏節律什麼時候可以上主畫面（founder 2026-11-22）──
 // 🔴 判斷在引擎；這裡驗的是頁面**照著引擎畫**，而且三條路都不會讓數字溜上去。
 console.log('\n── #27 胸帶對照 ──');

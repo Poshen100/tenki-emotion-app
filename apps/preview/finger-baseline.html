@@ -70,6 +70,9 @@
     [data-phase="ready"]    :is(.only-intro, .only-scan, .only-result),
     [data-phase="scanning"] :is(.only-intro, .only-ready, .only-result),
     [data-phase="result"]   :is(.only-intro, .only-ready, .only-scan) { display: none; }
+    /* 5 秒能力測試（P0-A）：自己一個階段，其他階段一律不顯示它。 */
+    [data-phase="capability"] :is(.only-intro, .only-ready, .only-scan, .only-result, .only-capture) { display: none; }
+    [data-phase]:not([data-phase="capability"]) .only-capability { display: none; }
 
     /* ── 就位閘（開始擷取之前）──
        🔴 這一段**沒有 cyan**。cyan-active = ACTIVE，而這裡什麼都還沒在量 ——
@@ -355,6 +358,23 @@
 
     <p class="only-intro err" id="startError"></p>
     <button class="only-intro" id="startBtn" style="margin-top:auto">打開相機</button>
+    <!-- 第一次用時會自動先做 5 秒能力測試；之後可以從這裡重做。 -->
+    <button class="only-intro ghost" id="capabilityRerunBtn" style="margin-top:8px">重做 5 秒能力測試</button>
+
+    <!-- ── 5 秒能力測試（P0-A，founder 2026-11-24）────────────────
+         🔴 它只回答「這支手機取不取得到指尖訊號」，**不量脈搏**：畫面上不得出現
+         任何 bpm／ms。結果只有三種，沒有「不相容」；不管結果如何都可以繼續量測。 -->
+    <section class="only-capability card" id="capabilityCard">
+      <div class="dialLabel">5 秒能力測試</div>
+      <p class="note" id="capabilityPrompt" style="margin-top:8px">把指尖蓋住後鏡頭（有補光燈的話一起蓋住）。偵測到指尖蓋上之後才開始計 5 秒。這只檢查這支手機取不取得到訊號，不量你的脈搏。</p>
+      <p class="precisionValue" id="capabilityResult" style="margin-top:12px;white-space:normal" hidden></p>
+      <ul id="capabilityReasons" style="margin-top:8px"></ul>
+      <p class="fine" id="capabilityMeasured" style="margin-top:8px"></p>
+      <p class="fine" id="capabilityScope" style="margin-top:8px" hidden>這是這台手機、這一次的結果，不代表同型號的其他手機，也不是準確度的驗證。</p>
+    </section>
+    <button class="only-capability" id="capabilityContinue" style="margin-top:auto" hidden>繼續量測</button>
+    <button class="only-capability ghost" id="capabilityRetry" style="margin-top:8px" hidden>再測一次</button>
+    <button class="only-capability ghost" id="capabilityCancel" style="margin-top:8px">取消</button>
 
     <!-- ── 就位（clock 還沒開始）─────────────────────────────────
          🔴 這一段存在的理由是量出來的：實機第一次按下去就起跑，燒掉兩次

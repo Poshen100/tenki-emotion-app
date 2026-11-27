@@ -25,6 +25,7 @@ import {
   toSignalQuality,
 } from './engine/biometric/ppg/signal-quality.js';
 import { formatValidationReport } from './engine/biometric/validation-log.js';
+import { CAPABILITY_TEST_SEC, assessCapability } from './engine/biometric/ppg/capability-test.js';
 import {
   MAX_REFERENCE_ENTRY_DELAY_MS,
   MIN_REFERENCE_DAYS,
@@ -48,6 +49,7 @@ import {
 } from './engine/biometric/ppg/live.js';
 import {
   INITIAL_READINESS,
+  MIN_READINESS_CONTACT,
   READINESS_HOLD_WINDOWS,
   READINESS_PATIENCE_SEC,
   READINESS_WINDOW_SEC,
@@ -260,6 +262,163 @@ const PLACEMENT_COPY = {
 };
 
 const ANCHOR_KEY = 'tenki.preview.pulseAnchors';
+
+// ── 5 秒能力測試（P0-A）─────────────────────────────────────────────────────
+
+/**
+ * 這台裝置的能力紀錄。🔴 只有推導值（結果、原因、幀率、最長間隔、過曝、接觸、
+ * 有沒有脈動光），沒有幀、沒有波形、沒有任何生理數字。只存本機。
+ * `facePulse` 是常數：臉部入口目前不量脈搏（規格 §0），在臉部 rPPG 擷取層存在以前
+ * 它不得是任何能力值。
+ */
+const CAPABILITY_KEY = 'tenki.device.capability.v1';
+const FACE_PULSE_STATUS = 'not_implemented';
+
+const CAPABILITY_RESULT_COPY = {
+  signal_path_ok: '這支手機取得到指尖的脈動訊號，可以開始量測。',
+  not_yet_confirmed: '還無法確認。不是這支手機不行 —— 5 秒內有一項沒過，原因在下面。',
+  hardware_limit: '這支手機目前有一項做不到，原因在下面。仍然可以試著量測。',
+};
+
+/**
+ * 每個原因：發生什麼事＋真的做得到的那個動作。
+ * 🔴 硬體事實不給「調整姿勢」的指引 —— 換姿勢改不了（CLAUDE.md）。
+ */
+const CAPABILITY_REASON_COPY = {
+  camera_unavailable: '找不到可用的相機。',
+  permission_denied: '沒有相機權限。可以到瀏覽器設定開啟。',
+  frame_rate_too_low: '相機整段的畫面更新太慢，脈動跟不上。關掉其他用到相機的 App 可能有幫助。',
+  too_short: '還沒有蓋滿 5 秒。',
+  frame_stall: '畫面中途停頓了一下（常見是通知或發熱）。再測一次通常就好。',
+  no_contact: '指尖沒有蓋滿鏡頭。',
+  over_exposed: '畫面太亮、被補光燈打飽和了。指尖不要壓太緊，或稍微離開補光燈一點。',
+  moving: '手指在動。靠在桌上或握穩手機再試。',
+  exposure_hunting: '相機在自己反覆調亮度，這段訊號不可信。這不是姿勢造成的，再測一次看看。',
+  no_pulsatile_light: '光裡找不到穩定的脈動。手可能太冰，或壓得太緊、血流被擋住。',
+};
+
+/** @returns {object|null} 本機的能力紀錄；壞掉就當沒有。 */
+function loadCapability() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(CAPABILITY_KEY));
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+/** 第一次用（沒有指尖紀錄）就先做能力測試。 */
+function needsCapability() {
+  const record = loadCapability();
+  return !(record && record.finger);
+}
+
+/**
+ * 判定、存紀錄、畫出來。真的流程與 harness 走同一條。
+ *
+ * @param {Array<object>} frames - 5 秒的指尖幀（可能是空的）。
+ * @param {{camera: string, torch: boolean|null}} context
+ * @returns {object} 引擎的判定。
+ */
+function finishCapability(frames, context) {
+  const test = assessCapability(frames, context);
+  const record = {
+    finger: {
+      result: test.result,
+      reasons: test.reasons,
+      advisories: test.advisories,
+      testedAt: Date.now(),
+      torch: context.torch,
+      framesPerSecond: test.measured.framesPerSecond,
+      longestGapMs: test.measured.longestGapMs,
+      clipped: test.measured.clipped,
+      coverage: test.measured.coverage,
+      pulsatileLight: test.measured.pulsatileLight,
+    },
+    face: null, // 臉部入口的能力測試不在這一輪
+    facePulse: FACE_PULSE_STATUS,
+  };
+  try {
+    localStorage.setItem(CAPABILITY_KEY, JSON.stringify(record));
+  } catch (_) {
+    /* 無痕模式：這一次就不留下來，畫面照樣顯示 */
+  }
+  renderCapability(test);
+  return test;
+}
+
+function renderCapability(test) {
+  $('capabilityPrompt').hidden = true;
+  $('capabilityResult').hidden = false;
+  $('capabilityResult').textContent = CAPABILITY_RESULT_COPY[test.result];
+  const list = $('capabilityReasons');
+  list.innerHTML = '';
+  for (const reason of test.reasons) {
+    const li = document.createElement('li');
+    li.className = 'reason';
+    li.textContent = CAPABILITY_REASON_COPY[reason] ?? reason;
+    list.appendChild(li);
+  }
+  const m = test.measured;
+  const parts = [];
+  if (m.framesPerSecond !== null) parts.push(`畫面更新 ${m.framesPerSecond} 幀／秒`);
+  if (m.longestGapMs !== null) parts.push(`最長停頓 ${m.longestGapMs} 毫秒`);
+  parts.push(test.advisories.includes('no_torch') ? '沒有補光燈（不影響結果）' : '補光燈有開');
+  $('capabilityMeasured').textContent = parts.join(' · ');
+  $('capabilityScope').hidden = false;
+  // 🔴 不擋：不管結果是哪一種，都可以繼續量測。
+  $('capabilityContinue').hidden = false;
+  $('capabilityRetry').hidden = false;
+}
+
+function resetCapabilityView() {
+  $('capabilityPrompt').hidden = false;
+  $('capabilityResult').hidden = true;
+  $('capabilityResult').textContent = '';
+  $('capabilityReasons').innerHTML = '';
+  $('capabilityMeasured').textContent = '';
+  $('capabilityScope').hidden = true;
+  $('capabilityContinue').hidden = true;
+  $('capabilityRetry').hidden = true;
+}
+
+/**
+ * 能力測試的取樣。指尖第一次蓋上（接觸度過就位閘的下限）才開始計 5 秒 ——
+ * 開相機那一刻鏡頭上是空氣，從那時候算只會量到「沒蓋住」。
+ * 等了 `READINESS_PATIENCE_SEC` 還沒蓋上，就拿最後 5 秒判定（會說沒蓋滿）。
+ */
+function runCapability(video, ctx) {
+  $('stage').dataset.phase = 'capability';
+  resetCapabilityView();
+  state.capFrames = [];
+  state.capStartedAt = null;
+  state.capOpenedAt = performance.now();
+  state.capRunning = true;
+  state.lastSample = null;
+  const context = () => ({ camera: 'available', torch: state.torchAvailable ? true : null });
+  const tick = () => {
+    if (!state.capRunning) return;
+    const now = performance.now();
+    const sample = sampleFrame(video, ctx, now);
+    if (sample !== null) {
+      if (state.capStartedAt === null && sample.frame.coverage >= MIN_READINESS_CONTACT) {
+        state.capStartedAt = now;
+        state.capFrames = [];
+      }
+      state.capFrames.push(sample.frame);
+    }
+    const waitedSec = (now - state.capOpenedAt) / 1000;
+    const ranSec = state.capStartedAt === null ? 0 : (now - state.capStartedAt) / 1000;
+    if (ranSec >= CAPABILITY_TEST_SEC || (state.capStartedAt === null && waitedSec >= READINESS_PATIENCE_SEC)) {
+      state.capRunning = false;
+      const cutoff = now - CAPABILITY_TEST_SEC * 1000;
+      finishCapability(state.capFrames.filter((f) => f.timestampMs >= cutoff), context());
+      return;
+    }
+    state.raf = requestAnimationFrame(tick);
+  };
+  tick();
+}
 const VALIDATION_KEY = 'tenki.preview.validationLog';
 
 /** 指標被扣住的理由，直接用 engine 的 withheld reason。 */
@@ -1639,14 +1798,45 @@ async function begin() {
   try {
     await startCamera();
   } catch (err) {
+    // 硬體事實也記進能力紀錄 —— 但畫面仍然回到開頭，用原本那句話說明。
+    const denied = Boolean(err && err.name === 'NotAllowedError');
+    assessAndStoreCameraFailure(denied);
     $('stage').dataset.phase = 'intro';
-    $('startError').textContent =
-      err && err.name === 'NotAllowedError'
-        ? '沒有相機權限就無法校準。可以到瀏覽器設定開啟後再試。'
-        : `相機無法啟動：${err && err.name ? err.name : '未知錯誤'}`;
+    $('startError').textContent = denied
+      ? '沒有相機權限就無法校準。可以到瀏覽器設定開啟後再試。'
+      : `相機無法啟動：${err && err.name ? err.name : '未知錯誤'}`;
     return;
   }
 
+  state.capVideo = video;
+  state.capCtx = ctx;
+  if (state.forceCapability || needsCapability()) {
+    state.forceCapability = false;
+    runCapability(video, ctx);
+    return;
+  }
+  enterGate(video, ctx);
+}
+
+/** 相機根本開不起來：記成硬體事實（不畫能力卡，開頭那句話已經說了）。 */
+function assessAndStoreCameraFailure(denied) {
+  const test = assessCapability([], { camera: denied ? 'permission_denied' : 'unavailable', torch: null });
+  try {
+    localStorage.setItem(
+      CAPABILITY_KEY,
+      JSON.stringify({
+        finger: { result: test.result, reasons: test.reasons, advisories: test.advisories, testedAt: Date.now(),
+          torch: null, framesPerSecond: null, longestGapMs: null, clipped: null, coverage: null, pulsatileLight: null },
+        face: null,
+        facePulse: FACE_PULSE_STATUS,
+      }),
+    );
+  } catch (_) { /* ignore */ }
+}
+
+/** 進就位閘（原本 begin() 後半段）。 */
+function enterGate(video, ctx) {
+  $('stage').dataset.phase = 'ready';
   state.gate = INITIAL_READINESS;
   state.gateFrames = [];
   state.lastSample = null;
@@ -1733,6 +1923,7 @@ function startCapture(video, ctx) {
 function abort() {
   state.running = false;
   state.gateRunning = false;
+  state.capRunning = false;
   cancelAnimationFrame(state.raf);
   stopCamera();
   $('stage').dataset.phase = 'intro';
@@ -1742,6 +1933,13 @@ $('startBtn').addEventListener('click', () => {
   begin().catch(() => {});
 });
 $('abortBtn').addEventListener('click', abort);
+$('capabilityRerunBtn').addEventListener('click', () => {
+  state.forceCapability = true;
+  begin();
+});
+$('capabilityContinue').addEventListener('click', () => enterGate(state.capVideo, state.capCtx));
+$('capabilityRetry').addEventListener('click', () => runCapability(state.capVideo, state.capCtx));
+$('capabilityCancel').addEventListener('click', abort);
 // 🔴 離開不罰：已經收下的 anchor 就是結果，直接結束擷取並呈現它。
 $('viewStateBtn').addEventListener('click', () => finish());
 // 🔴 60–90 秒**永遠不自動**（rule 7）。要使用者自己按。
@@ -1868,6 +2066,35 @@ window.__tenkiFingerHarness = {
   resetLock() {
     state.lock = INITIAL_PULSE_LOCK;
     renderLock();
+  },
+  /**
+   * 5 秒能力測試（P0-A）。走真的 `assessCapability`、真的存檔、真的畫面 ——
+   * 只有幀不是從相機來的。
+   */
+  runCapabilityFrames(frames, torch) {
+    $('stage').dataset.phase = 'capability';
+    resetCapabilityView();
+    const test = finishCapability(frames, { camera: 'available', torch });
+    return {
+      result: test.result,
+      reasons: test.reasons,
+      card: $('capabilityCard').innerText,
+      resultText: $('capabilityResult').textContent,
+      continueShown: !$('capabilityContinue').hidden,
+      record: loadCapability(),
+    };
+  },
+  cameraFailure(denied) {
+    assessAndStoreCameraFailure(denied);
+    return loadCapability();
+  },
+  resetCapability() {
+    try {
+      localStorage.removeItem(CAPABILITY_KEY);
+    } catch (_) { /* ignore */ }
+  },
+  needsCapability() {
+    return needsCapability();
   },
   resetValidationLog() {
     try {
