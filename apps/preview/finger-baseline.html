@@ -489,6 +489,8 @@
       <div class="anchor">
         <div class="anchorValue" id="hr">—</div>
         <div class="metricLabel">這次的脈搏參考值</div>
+        <!-- 量到／算出／推論標籤（P0-B）：每個數字底下一行，文案只來自 evidence-label.ts。 -->
+        <p class="fine evidenceLabel" id="hrLabel" style="margin-top:6px"></p>
       </div>
       <!-- 🔴 從片段讀出來的讀數，畫面不得看起來跟整段讀出來的一樣。
            這一行只在那種時候出現，而且要說出「用了幾秒」。 -->
@@ -501,6 +503,7 @@
         <span class="dialLabel">脈搏節律 · 算出</span>
         <span class="precisionValue" id="prvHead">—</span>
       </div>
+      <p class="fine evidenceLabel" id="prvHeadLabel" style="margin-top:4px" hidden></p>
       <p class="fine" id="prvHeadNote" style="margin-top:6px" hidden>這台手機做過初步的胸帶對照 —— 只代表這台手機，不代表同型號的其他手機。這不是心律變異，也不進你的分數。</p>
     </section>
 
@@ -525,6 +528,7 @@
         <div><div class="statValue" id="confidence">—</div><div class="statLabel">信心</div></div>
         <div><div class="statValue" id="duration">—</div><div class="statLabel">實際時長</div></div>
       </div>
+      <p class="fine evidenceLabel" id="qualityLabel" style="margin-top:10px"></p>
     </section>
 
     <section class="only-result card">
@@ -560,6 +564,7 @@
         <span class="dialLabel">脈搏節律</span>
         <span class="precisionValue" id="prv">—</span>
       </div>
+      <p class="fine evidenceLabel" id="prvLabel" style="margin-top:4px" hidden></p>
       <p class="fine" id="prvNote" style="margin-top:8px" hidden></p>
       <p class="fine" id="prvCompare" style="margin-top:8px" hidden></p>
       <!-- 胸帶對照（#27）。只在「靜坐」而且脈搏節律有出來時出現 —— 其他擷取不算配對，

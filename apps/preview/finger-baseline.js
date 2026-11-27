@@ -26,6 +26,7 @@ import {
 } from './engine/biometric/ppg/signal-quality.js';
 import { formatValidationReport } from './engine/biometric/validation-log.js';
 import { CAPABILITY_TEST_SEC, assessCapability } from './engine/biometric/ppg/capability-test.js';
+import { evidenceLabelLine } from './engine/compliance/evidence-label.js';
 import {
   MAX_REFERENCE_ENTRY_DELAY_MS,
   MIN_REFERENCE_DAYS,
@@ -1365,6 +1366,7 @@ function renderOutcome(outcome) {
     $('prvHeadNote').hidden = true;
     $('prvHead').textContent = '—';
     $('refBlock').hidden = true;
+    clearCaptureLabels();
     return;
   }
 
@@ -1396,6 +1398,7 @@ function renderOutcome(outcome) {
   const log = recordValidationCapture(validationEntry(a));
   renderValidationReport(log);
   renderPrvHeadline(a, log);
+  renderCaptureLabels(a);
   renderReferenceInput(a);
 
   const channelNote = a.channelDiagnostics
@@ -1587,6 +1590,49 @@ function renderPrvHeadline(a, log) {
   $('prvHeadNote').hidden = !head.show;
   // 清掉上一次的值：隱藏的節點留著舊數字，下一次一顯示就是別次的讀數。
   $('prvHead').textContent = head.show ? `${head.valueMs} ms` : '—';
+
+  // 標籤（P0-B）。🔴 驗證狀態**從 resolvePrvHeadline 的判定來**，不是另外算一次 ——
+  // 解釋跟被解釋的東西只有一份。標籤從來不決定頭條出不出現。
+  const shown = a.prvRmssdMs !== null;
+  const prvLabel = {
+    layer: 'calculated',
+    source: 'camera_fingertip',
+    beatTiming: 'estimated',
+    quality: 'passed',
+    validation: head.show ? 'this_device_preliminary' : 'none',
+  };
+  $('prvLabel').hidden = !shown;
+  $('prvLabel').textContent = shown ? evidenceLabelLine(prvLabel) : '';
+  $('prvHeadLabel').hidden = !head.show;
+  $('prvHeadLabel').textContent = head.show ? evidenceLabelLine(prvLabel) : '';
+}
+
+/**
+ * 脈搏與品質分數的標籤（P0-B）。脈搏是從拍點推出來的 → 帶「拍點時間不保證」；
+ * 品質分數是擷取本身的合成數，沒有拍點。#27 只驗證脈搏節律，所以這兩個永遠是「還沒有對照驗證」。
+ */
+function renderCaptureLabels(a) {
+  const hasPulse = a.heartRateBpm !== null;
+  $('hrLabel').textContent = evidenceLabelLine({
+    layer: 'calculated',
+    source: 'camera_fingertip',
+    beatTiming: 'estimated',
+    quality: hasPulse ? 'passed' : 'withheld',
+    validation: 'none',
+  });
+  $('qualityLabel').textContent = `品質分數與信心：${evidenceLabelLine({
+    layer: 'calculated',
+    source: 'camera_fingertip',
+    quality: hasPulse ? 'passed' : 'limited',
+    validation: 'none',
+  })}`;
+}
+
+/** 連分析都跑不動的擷取：上一次的標籤不得留到這一次。 */
+function clearCaptureLabels() {
+  for (const id of ['hrLabel', 'qualityLabel', 'prvLabel', 'prvHeadLabel']) $(id).textContent = '';
+  $('prvLabel').hidden = true;
+  $('prvHeadLabel').hidden = true;
 }
 
 /**

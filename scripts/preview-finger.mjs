@@ -1210,6 +1210,43 @@ await page.evaluate(() => {
   window.__tenkiFingerHarness.setScenario('resting');
 });
 
+// ── 2g. 量到／算出／推論標籤（P0-B，規格 §2.4）──────────────────────────────
+console.log('\n── 量到／算出／推論標籤 ──');
+await page.evaluate(() => window.__tenkiFingerHarness.resetValidationLog());
+await runScan({});
+const labels = await page.evaluate(() => {
+  const t = (id) => document.getElementById(id).textContent.trim();
+  const vis = (id) => !document.getElementById(id).hidden;
+  return {
+    hr: t('hr'), hrLabel: t('hrLabel'),
+    prv: t('prv'), prvShown: vis('prvRow'), prvLabel: t('prvLabel'), prvLabelShown: vis('prvLabel'),
+    quality: t('qualityScore'), qualityLabel: t('qualityLabel'),
+    headShown: vis('prvHeadRow'), headLabelShown: vis('prvHeadLabel'),
+  };
+});
+// 🔴 點名：§2.2 表上這一頁的每一個數字都要有標籤，少一個就紅。
+for (const [num, label, name] of [['hr', 'hrLabel', '脈搏'], ['quality', 'qualityLabel', '品質分數'], ['prv', 'prvLabel', '脈搏節律（證據層）']]) {
+  const text = labels[label];
+  check(`${name} 有標籤：處理層＋來源＋品質＋驗證狀態`,
+    /算出|量到|推論/.test(text) && text.includes('手機相機・指尖') && /品質/.test(text) && /對照/.test(text),
+    `${num}=${labels[num]} label=${text}`);
+}
+check('🔴 相機的「算出」都帶著「拍點時間不保證」',
+  labels.hrLabel.includes('拍點時間不保證') && labels.prvLabel.includes('拍點時間不保證'), JSON.stringify(labels));
+check('品質分數不是從拍點來的 → 不帶拍點說明', !labels.qualityLabel.includes('拍點'), labels.qualityLabel);
+// 🔴 反向驗證的可觀察形式：脈搏節律明明標著「算出」，頭條仍然沒有它 —— 頭條只看 #27。
+check('🔴 標著「算出」不會讓脈搏節律上頭條（沒通過胸帶對照）',
+  labels.prvLabel.startsWith('算出') && !labels.headShown && !labels.headLabelShown, JSON.stringify(labels));
+await seedPairs(1);
+await runScan({});
+const headLabel = await page.evaluate(() => document.getElementById('prvHeadLabel').textContent);
+check('通過的裝置：頭條的標籤說「初步的胸帶對照（只代表這台手機）」',
+  headLabel.includes('初步的胸帶對照（只代表這台手機）'), headLabel);
+await page.evaluate(() => window.__tenkiFingerHarness.renderFrames([]));
+const cleared = await page.evaluate(() => ['hrLabel', 'qualityLabel', 'prvLabel', 'prvHeadLabel'].map((id) => document.getElementById(id).textContent));
+check('🔴 跑不動的擷取不留上一次的標籤', cleared.every((t) => t === ''), JSON.stringify(cleared));
+await page.evaluate(() => window.__tenkiFingerHarness.resetValidationLog());
+
 // ── 3b. 一次校準不是基線（brief §5）────────────────────────────────────────
 // 🔴 這一段守的是**用詞**：同一天做幾次都還只是「第一個脈搏參考」，而「基線」
 // 這個詞只有最後一階能用。
