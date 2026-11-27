@@ -41,6 +41,45 @@ function capture(overrides: Partial<ValidationCapture> = {}): ValidationCapture 
   };
 }
 
+/**
+ * 一筆安靜段 fixture，視窗帳目由四個結果**算出來**而不是另外寫一個。
+ *
+ * 🔴 `windowCount` 不是參數。四個結果加起來就是總數，所以 fixture 在結構上
+ * 不可能違反那個恆等式 —— 而被測的 `blockedBreakdown` 正是靠它把四個數字釘在
+ * 總數上（§25：解釋用的算術不得跟被解釋的數字各寫一份）。
+ */
+function seg(f: {
+  bpm: number | null;
+  foundCount: number;
+  usableWindowCount: number;
+  longestSec: number;
+  longestPeriodicity: number | null;
+  longestPerfusion: number | null;
+  spreadBpm: number | null;
+  lowPerfusion?: number;
+  noPeriod?: number;
+  lowPeriodicity?: number;
+  best?: number | null;
+}): NonNullable<ValidationCapture['quietSegments']> {
+  const lowPerfusion = f.lowPerfusion ?? 0;
+  const noPeriod = f.noPeriod ?? 0;
+  const lowPeriodicity = f.lowPeriodicity ?? 0;
+  return {
+    bpm: f.bpm,
+    foundCount: f.foundCount,
+    usableWindowCount: f.usableWindowCount,
+    windowCount: f.usableWindowCount + lowPerfusion + noPeriod + lowPeriodicity,
+    windowsLowPerfusion: lowPerfusion,
+    windowsNoPeriod: noPeriod,
+    windowsLowPeriodicity: lowPeriodicity,
+    bestWindowPeriodicity: f.best === undefined ? f.longestPeriodicity : f.best,
+    longestSec: f.longestSec,
+    longestPeriodicity: f.longestPeriodicity,
+    longestPerfusion: f.longestPerfusion,
+    spreadBpm: f.spreadBpm,
+  };
+}
+
 /** A camera holding still: the slow movement is respiratory wander, not gain. */
 const steady = {
   dcMedian: 190,
@@ -204,7 +243,7 @@ describe('🔴 log 是跨版本存下來的 —— 舊紀錄不得讓報告整�
   it('🔴 安靜段救起來的時候報告要說', () => {
     const report = formatValidationReport([
       capture({
-        quietSegments: { bpm: 67, foundCount: 5, usableWindowCount: 5, longestSec: 6.2, longestPeriodicity: 0.9, longestPerfusion: 0.008, spreadBpm: 3 },
+        quietSegments: seg({ bpm: 67, foundCount: 5, usableWindowCount: 5, longestSec: 6.2, longestPeriodicity: 0.9, longestPerfusion: 0.008, spreadBpm: 3 }),
       }),
     ]);
     expect(report).toContain('安靜段讀數 救起 1/1 次');
@@ -217,7 +256,7 @@ describe('🔴 log 是跨版本存下來的 —— 舊紀錄不得讓報告整�
     // 那一半埋掉了。現在兩個數字一律都給。
     const report = formatValidationReport([
       capture({
-        quietSegments: {
+        quietSegments: seg({
           bpm: null,
           foundCount: 2,
           usableWindowCount: 2,
@@ -225,7 +264,9 @@ describe('🔴 log 是跨版本存下來的 —— 舊紀錄不得讓報告整�
           longestPeriodicity: 0.11,
           longestPerfusion: 0.008,
           spreadBpm: null,
-        },
+          lowPeriodicity: 1,
+          best: 0.42,
+        }),
       }),
     ]);
     expect(report).toContain('可用視窗 2（需要 3）');
@@ -241,17 +282,18 @@ describe('🔴 log 是跨版本存下來的 —— 舊紀錄不得讓報告整�
     const report = formatValidationReport([
       capture({
         torchOn: true,
-        quietSegments: {
+        quietSegments: seg({
           bpm: null, foundCount: 3, usableWindowCount: 1, longestSec: 4.5,
           longestPeriodicity: 0.36, longestPerfusion: 0.0167, spreadBpm: null,
-        },
+        }),
       }),
       capture({
         torchOn: false,
-        quietSegments: {
+        quietSegments: seg({
           bpm: null, foundCount: 1, usableWindowCount: 0, longestSec: 60,
           longestPeriodicity: 0.36, longestPerfusion: 0.0033, spreadBpm: null,
-        },
+          lowPeriodicity: 6, best: 0.26,
+        }),
       }),
     ]);
     expect(report).toContain('安靜段讀數 0/2');
@@ -266,10 +308,10 @@ describe('🔴 log 是跨版本存下來的 —— 舊紀錄不得讓報告整�
     const report = formatValidationReport([
       capture({
         torchOn: true,
-        quietSegments: {
+        quietSegments: seg({
           bpm: null, foundCount: 3, usableWindowCount: 1, longestSec: 4.5,
           longestPeriodicity: 0.36, longestPerfusion: 0.0167, spreadBpm: null,
-        },
+        }),
       }),
     ]);
     expect(report).toContain('安靜段讀數 0/1 —— 可用視窗 1（需要 3）');
@@ -282,7 +324,7 @@ describe('🔴 log 是跨版本存下來的 —— 舊紀錄不得讓報告整�
     // 但 AC/DC 低於可用下限就是光裡真的沒有血流訊號，再怎麼處理曝光都沒用。
     const noLight = formatValidationReport([
       capture({
-        quietSegments: {
+        quietSegments: seg({
           bpm: null,
           foundCount: 2,
           usableWindowCount: 0,
@@ -290,7 +332,8 @@ describe('🔴 log 是跨版本存下來的 —— 舊紀錄不得讓報告整�
           longestPeriodicity: null,
           longestPerfusion: 0.0002,
           spreadBpm: null,
-        },
+          lowPerfusion: 1,
+        }),
       }),
     ]);
     expect(noLight).toContain('脈動光 AC/DC 0.0002');
@@ -300,7 +343,7 @@ describe('🔴 log 是跨版本存下來的 —— 舊紀錄不得讓報告整�
     // 反過來：脈動光夠，但節律讀不到 → 不得說光裡沒有血流訊號。
     const hasLight = formatValidationReport([
       capture({
-        quietSegments: {
+        quietSegments: seg({
           bpm: null,
           foundCount: 2,
           usableWindowCount: 0,
@@ -308,7 +351,8 @@ describe('🔴 log 是跨版本存下來的 —— 舊紀錄不得讓報告整�
           longestPeriodicity: 0.11,
           longestPerfusion: 0.008,
           spreadBpm: null,
-        },
+          lowPeriodicity: 1,
+        }),
       }),
     ]);
     expect(hasLight).toContain('節律 0.11');
@@ -321,7 +365,7 @@ describe('🔴 log 是跨版本存下來的 —— 舊紀錄不得讓報告整�
     // 是不同的事，要的修法也不同。實機 2026-10-07 印出的「節律 0」就是這個。
     const report = formatValidationReport([
       capture({
-        quietSegments: {
+        quietSegments: seg({
           bpm: null,
           foundCount: 2,
           usableWindowCount: 0,
@@ -329,7 +373,8 @@ describe('🔴 log 是跨版本存下來的 —— 舊紀錄不得讓報告整�
           longestPeriodicity: null,
           longestPerfusion: 0.008,
           spreadBpm: null,
-        },
+          noPeriod: 1,
+        }),
       }),
     ]);
     expect(report).toContain('估不出來');
@@ -763,5 +808,125 @@ describe('channels — where the pulse actually was', () => {
     const report = formatValidationReport([capture()]);
     expect(report).toContain('通道');
     expect(report.indexOf('通道')).toBeLessThan(report.indexOf('#15'));
+  });
+});
+
+describe('🔴 「可用視窗 0」要說出是哪一道閘擋的', () => {
+  // 🔴 2026-11-27 六次實機擷取：到第 5 次曝光漂移已經 0.0262（門檻 0.05）、
+  // 最長安靜段 60 秒 —— 前幾輪在追的兩件事都解決了 —— 可用視窗還是 0，而報告
+  // 說不出是血流不足還是節律不足。那是兩個相反的下一步（接觸／壓力 vs 雜訊）。
+
+  it('灌流擋掉的時候，不得讓人以為是節律不夠', () => {
+    const report = formatValidationReport([
+      capture({
+        quietSegments: seg({
+          bpm: null, foundCount: 1, usableWindowCount: 0, longestSec: 60,
+          longestPeriodicity: 0.06, longestPerfusion: 0.001, spreadBpm: null,
+          lowPerfusion: 6, best: null,
+        }),
+      }),
+    ]);
+    expect(report).toContain('這組共 6 個視窗 → 可用 0 · 灌流不足 6 · 無週期 0 · 節律不足 0');
+    // 🔴 全部被灌流擋在前面 = 沒有任何視窗量過節律。印一個「最好的視窗 0」會
+    // 是把拒答轉成數字 —— 這份 repo 已經為此付過兩次代價。
+    expect(report).toContain('沒有視窗走到節律估計');
+    expect(report).not.toContain('最好的視窗 0（');
+  });
+
+  it('節律擋掉的時候要說最好的視窗到了多少 —— 計數分不出 0.34 跟 0.06', () => {
+    const near = formatValidationReport([
+      capture({
+        quietSegments: seg({
+          bpm: null, foundCount: 1, usableWindowCount: 0, longestSec: 60,
+          longestPeriodicity: 0.3, longestPerfusion: 0.008, spreadBpm: null,
+          lowPeriodicity: 6, best: 0.34,
+        }),
+      }),
+    ]);
+    expect(near).toContain('節律不足 6 · 最好的視窗 0.34（需要 0.35）');
+
+    const far = formatValidationReport([
+      capture({
+        quietSegments: seg({
+          bpm: null, foundCount: 1, usableWindowCount: 0, longestSec: 60,
+          longestPeriodicity: 0.06, longestPerfusion: 0.008, spreadBpm: null,
+          lowPeriodicity: 6, best: 0.06,
+        }),
+      }),
+    ]);
+    expect(far).toContain('最好的視窗 0.06（需要 0.35）');
+  });
+
+  it('🔴 主成分不在心搏帶內是第三種，不是「節律不夠」', () => {
+    const report = formatValidationReport([
+      capture({
+        quietSegments: seg({
+          bpm: null, foundCount: 1, usableWindowCount: 0, longestSec: 60,
+          longestPeriodicity: null, longestPerfusion: 0.008, spreadBpm: null,
+          noPeriod: 6, best: null,
+        }),
+      }),
+    ]);
+    expect(report).toContain('無週期 6 · 節律不足 0');
+  });
+
+  it('🔴 四個數字加起來等於總視窗數 —— 不然那個總數只是一句宣稱', () => {
+    // 🔴 §25：解釋用的算術跟被解釋的數字各寫一份，它就會漂成第二套說法。
+    // 這裡用「加得起來」把它釘住 —— 而 fixture 的 windowCount 本身就是算出來的，
+    // 所以這條斷言是在測 blockedBreakdown 印出來的四項，不是測 fixture。
+    const report = formatValidationReport([
+      capture({
+        quietSegments: seg({
+          bpm: null, foundCount: 4, usableWindowCount: 2, longestSec: 40,
+          longestPeriodicity: 0.5, longestPerfusion: 0.008, spreadBpm: 2,
+          lowPerfusion: 1, noPeriod: 3, lowPeriodicity: 5, best: 0.6,
+        }),
+      }),
+    ]);
+    const line = report
+      .split('\n')
+      .find((l) => l.includes('這組共'));
+    expect(line).toBeDefined();
+    const nums = (line as string).match(/\d+/g) as string[];
+    const [total, usable, perfusion, noPeriod, weak] = nums.map(Number);
+    expect(total).toBe(11);
+    expect(usable + perfusion + noPeriod + weak).toBe(total);
+  });
+
+  it('補光燈開／關各印一份自己的分解，不跨著加', () => {
+    const report = formatValidationReport([
+      capture({
+        torchOn: true,
+        quietSegments: seg({
+          bpm: null, foundCount: 1, usableWindowCount: 0, longestSec: 60,
+          longestPeriodicity: 0.36, longestPerfusion: 0.005, spreadBpm: null,
+          lowPeriodicity: 6, best: 0.26,
+        }),
+      }),
+      capture({
+        torchOn: false,
+        quietSegments: seg({
+          bpm: null, foundCount: 1, usableWindowCount: 0, longestSec: 60,
+          longestPeriodicity: 0.06, longestPerfusion: 0.0036, spreadBpm: null,
+          lowPerfusion: 6, best: null,
+        }),
+      }),
+    ]);
+    expect(report).toContain('這組共 6 個視窗 → 可用 0 · 灌流不足 0 · 無週期 0 · 節律不足 6');
+    expect(report).toContain('這組共 6 個視窗 → 可用 0 · 灌流不足 6 · 無週期 0 · 節律不足 0');
+    // 🔴 兩組加總成 12 的那一行不准出現 —— 開與關是兩個實驗。
+    expect(report).not.toContain('這組共 12 個視窗');
+  });
+
+  it('連一段夠長的安靜段都沒有時，說沒判過，不說被擋', () => {
+    const report = formatValidationReport([
+      capture({
+        quietSegments: seg({
+          bpm: null, foundCount: 0, usableWindowCount: 0, longestSec: 0,
+          longestPeriodicity: null, longestPerfusion: null, spreadBpm: null,
+        }),
+      }),
+    ]);
+    expect(report).toContain('沒有任何視窗被判過');
   });
 });

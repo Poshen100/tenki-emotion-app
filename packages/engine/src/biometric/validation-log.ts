@@ -31,6 +31,7 @@
  * @see docs/PHONE-PPG.md §12
  */
 
+import { MIN_PERIODICITY } from './ppg/pulse';
 import { MIN_PERFUSION } from './ppg/quality';
 import {
   MAX_MEDIAN_RELATIVE_ERROR,
@@ -156,6 +157,18 @@ export interface ValidationCapture {
     bpm: number | null;
     foundCount: number;
     usableWindowCount: number;
+    /**
+     * 🔴 The window total and the three refusal counts, because
+     * `usableWindowCount: 0` on its own is what six real-device captures
+     * reported while exposure and segment length were already solved. A
+     * refusal that cannot name its own gate costs a round of device testing
+     * each time it is reported.
+     */
+    windowCount: number;
+    windowsLowPerfusion: number;
+    windowsNoPeriod: number;
+    windowsLowPeriodicity: number;
+    bestWindowPeriodicity: number | null;
     longestSec: number;
     longestPeriodicity: number | null;
     longestPerfusion: number | null;
@@ -675,11 +688,11 @@ function quietSegmentNote(log: readonly ValidationCapture[]): string {
   if (lit.length > 0 && dark.length > 0) {
     return [
       `安靜段讀數 0/${tried.length}`,
-      `    補光燈開 —— ${quietSegmentFacts(lit)}`,
-      `    補光燈關 —— ${quietSegmentFacts(dark)}`,
+      `    補光燈開 —— ${quietSegmentFacts(lit, '      ')}`,
+      `    補光燈關 —— ${quietSegmentFacts(dark, '      ')}`,
     ].join('\n');
   }
-  return `安靜段讀數 0/${tried.length} —— ${quietSegmentFacts(tried)}`;
+  return `安靜段讀數 0/${tried.length} —— ${quietSegmentFacts(tried, '    ')}`;
 }
 
 /** 一組擷取的安靜段事實。單獨抽出來，是為了讓補光燈開／關各印一份。 */
@@ -687,7 +700,7 @@ type QuietCapture = ValidationCapture & {
   quietSegments: NonNullable<ValidationCapture['quietSegments']>;
 };
 
-function quietSegmentFacts(tried: readonly QuietCapture[]): string {
+function quietSegmentFacts(tried: readonly QuietCapture[], indent: string): string {
   const longest = medianOf(tried.map((c) => c.quietSegments.longestSec));
   const windows = medianOf(tried.map((c) => c.quietSegments.usableWindowCount));
   const rhythm = medianOf(
@@ -732,7 +745,50 @@ function quietSegmentFacts(tried: readonly QuietCapture[]): string {
     `節律 ${rhythmText}` +
     (noPulsatileLight
       ? ' 🔴 **脈動光低於可用下限 —— 光裡沒有血流訊號，不是曝光的問題。往接觸／壓力／補光燈查**'
-      : '')
+      : '') +
+    `\n${indent}${blockedBreakdown(tried)}`
+  );
+}
+
+/**
+ * 每個視窗是被哪一道閘擋掉的 —— 一行，而且四個數字加得起來。
+ *
+ * 🔴 這一行是 2026-11-27 六次實機擷取逼出來的。那時候曝光（0.0262 對門檻
+ * 0.05）與安靜段長度（60 秒）都已經解決，報告卻只會說「可用視窗 0」—— 說不出
+ * 是血流不足還是節律不足，而那是兩個完全不同的下一步。
+ *
+ * ⚠️ 用**總數**不用中位數，而且把總視窗數跟四個結果印在同一行。中位數不可加，
+ * 旁邊擺四個分量會讓人去加它然後對不上 —— 那正是 §25 的陷阱（解釋用的算術跟
+ * 被解釋的數字各寫一份）。這裡四項加起來逐字等於總數。
+ *
+ * ⚠️ 不印「多數是 X」。n=3 的 1-1-1 沒有多數，而 `>=` 會靜靜選一邊（§26）。
+ *
+ * @param tried - 這一組（補光燈開或關）走到安靜段的擷取。
+ * @returns 一行分解。
+ */
+function blockedBreakdown(tried: readonly QuietCapture[]): string {
+  const total = (pick: (q: QuietCapture['quietSegments']) => number): number =>
+    tried.reduce((sum, c) => sum + pick(c.quietSegments), 0);
+  const windows = total((q) => q.windowCount);
+  if (windows === 0) return '沒有任何視窗被判過 —— 連一段夠長的安靜段都沒有';
+
+  const best = medianOf(
+    tried
+      .map((c) => c.quietSegments.bestWindowPeriodicity)
+      .filter((v): v is number => present(v)),
+  );
+  // 🔴 null 不是 0。全部 null 的意思是沒有任何視窗走到節律估計那一步，不是
+  // 「節律量到 0」—— 前者指向接觸／壓力，後者指向雜訊。
+  const bestText =
+    best === null
+      ? '沒有視窗走到節律估計（全部被灌流擋在前面）'
+      : `最好的視窗 ${fmt(best)}（需要 ${MIN_PERIODICITY}）`;
+
+  return (
+    `這組共 ${windows} 個視窗 → 可用 ${total((q) => q.usableWindowCount)}` +
+    ` · 灌流不足 ${total((q) => q.windowsLowPerfusion)}` +
+    ` · 無週期 ${total((q) => q.windowsNoPeriod)}` +
+    ` · 節律不足 ${total((q) => q.windowsLowPeriodicity)} · ${bestText}`
   );
 }
 
