@@ -28,6 +28,34 @@
      勿刪、勿移動、勿複製第二份：`scripts/verify.sh` 驗它恰好出現一次、
      而且排在所有條目之前。它的存在理由見協議第 1 條。 -->
 
+# 2026-11-27 Session Update（P0：5 秒能力測試＋相容清單、量到／算出／推論標籤）
+
+> 起點 `main` @ `18ba771`（PR #318 已合併）。規格 `docs/P0-CAPABILITY-AND-EVIDENCE.md`，founder §5 三項都同意。
+> 🔴 這一輪**沒有解鎖任何生理功能**：脈搏節律仍然只在通過 #27 的手機才上頭條，而目前沒有任何一支。
+
+## What was done（一個 Todo 一個 commit）
+1. `feat(engine)` `ppg/capability-test.ts`：三種結果（取得到訊號／尚無法確認／硬體限制），沒有「不相容」；不輸出生理數字。
+2. `feat(preview)` `/finger/` 能力測試階段＋`tenki.device.capability.v1`（只有推導值；`facePulse` 固定 `not_implemented`）。不擋量測。
+3. `docs(compat)` `docs/DEVICE-COMPATIBILITY.md`（人工整理、四欄分開）＋規格 §5 定案。
+4. `feat(engine)` `compliance/evidence-label.ts`：layer／source／beatTiming／quality／validation；單一文案產生點；自評＝「你填的」自成一類。
+5. `feat(preview)` `/finger/` 每個數字掛標籤（PRV 的驗證狀態從 `resolvePrvHeadline` 來，不另算）。
+6. `feat(preview)` `/v3/` 臉部揭曉與 `/drift/` 推論卡掛標籤；`evidence-label-global.js` module 橋。
+
+## 三個判斷／坑
+- 🔴 **脈動光不能只看灌流**：合成雜訊的**綠通道**灌流 0.0016–0.0020 就過 `MIN_PERFUSION`（綠 DC 約紅的一半），乾淨訊號綠通道也才 0.0024 —— 沒有鑑別力。
+  第一版「取兩通道較大者」把雜訊當訊號。改成跟正式擷取同一套（節律選通道→同通道過灌流＋Pulse Lock 門檻），反向驗證過。
+  ⚠️ 5 秒時雜訊節律最高 0.45 vs 門檻 0.5，是**合成資料上的薄餘裕**，等 founder 實機。
+- 🔴 **harness 的 check 簽名不一樣**：`preview-finger.mjs` 的 `check(名稱, 條件, 細節)` 吃布林；我傳兩個陣列進去 → 陣列 truthy → 永遠綠。
+  改成比 JSON 字串並反向驗證（塞一個 heartRateBpm 進紀錄會紅）。**寫斷言前先看那支 harness 的 check 長怎樣。**
+- 標籤放 engine 不放 domain（engine 不 import domain，preview bundle 從 engine 建）—— 規格寫的是 domain，理由已補進規格。
+- 力推分支被擋：PR 合併後照規則重開分支需要 force push，權限擋下 → 改成 merge 舊分支歷史再一般 push（內容只多規格檔）。
+
+## 下次接手點
+- founder 實機：`/finger/` 第一次會自動做 5 秒測試 → 結果三行貼回來 → 成為 `DEVICE-COMPATIBILITY.md` 第一列，並用實測幀率校 `MIN_CAPABILITY_FPS`。
+- 推論卡的品質字是「這次的品質過關／沒有報」—— 對「你自己的紀錄」這個來源讀起來有點怪，founder 看了再決定要不要分來源措辭。
+- 下一輪 P1：自評與相機讀數並列（標籤已預留「你填的」）、R3 真實前後配對。
+
+
 # 2026-11-23 Session Update（founder 審查：R1／R2 補強＋Draft PR，不合併）
 
 ## founder 的裁決（照原意保留）
